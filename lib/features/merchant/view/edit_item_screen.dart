@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class EditItemScreen extends StatelessWidget {
-  const EditItemScreen({Key? key}) : super(key: key);
+  const EditItemScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

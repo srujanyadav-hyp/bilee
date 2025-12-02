@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class StartBillingScreen extends StatelessWidget {
-  const StartBillingScreen({Key? key}) : super(key: key);
+  const StartBillingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

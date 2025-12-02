@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LiveBillScreen extends StatelessWidget {
-  const LiveBillScreen({Key? key}) : super(key: key);
+  const LiveBillScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

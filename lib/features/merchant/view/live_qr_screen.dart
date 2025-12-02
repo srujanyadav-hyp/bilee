@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LiveQrScreen extends StatelessWidget {
-  const LiveQrScreen({Key? key}) : super(key: key);
+  const LiveQrScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

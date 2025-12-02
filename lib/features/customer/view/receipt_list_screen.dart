@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ReceiptListScreen extends StatelessWidget {
-  const ReceiptListScreen({Key? key}) : super(key: key);
+  const ReceiptListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

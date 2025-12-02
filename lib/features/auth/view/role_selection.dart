@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class RoleSelection extends StatelessWidget {
-  const RoleSelection({Key? key}) : super(key: key);
+  const RoleSelection({super.key});
 
   @override
   Widget build(BuildContext context) {

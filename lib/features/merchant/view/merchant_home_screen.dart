@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class MerchantHomeScreen extends StatelessWidget {
-  const MerchantHomeScreen({Key? key}) : super(key: key);
+  const MerchantHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

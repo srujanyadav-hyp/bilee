@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ScanQrScreen extends StatelessWidget {
-  const ScanQrScreen({Key? key}) : super(key: key);
+  const ScanQrScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
