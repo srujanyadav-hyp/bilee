@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:bilee/firebase_options_dev.dart';
 import 'package:bilee/core/services/firebase_service.dart';
 import 'package:bilee/core/router.dart';
@@ -12,15 +13,16 @@ void main() async {
 
   // Initialize Firebase with placeholder options (guarded)
   try {
-    await FirebaseService.initialize(firebaseOptions);
+    await Firebase.initializeApp(options: firebaseOptions);
+
+    // Initialize Firebase services (Crashlytics, Analytics, etc.) - Phase 0 safe stubs
+    await FirebaseService().init();
   } catch (e) {
     if (kDebugMode) {
       print('Firebase initialization error: $e');
       print('App will continue without Firebase');
     }
-  }
-
-  // Global error handler stub
+  } // Global error handler stub
   FlutterError.onError = (FlutterErrorDetails details) {
     if (kDebugMode) {
       FlutterError.presentError(details);
