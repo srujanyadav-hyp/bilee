@@ -17,5 +17,8 @@ void main() {
 
     // Verify that the app starts
     expect(find.byType(MaterialApp), findsOneWidget);
+
+    // Wait for the splash screen timer to complete (600ms + buffer)
+    await tester.pumpAndSettle(const Duration(seconds: 1));
   });
 }
