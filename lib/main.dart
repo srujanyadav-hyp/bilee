@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/constants/app_strings.dart';
 import 'features/splash/presentation/pages/splash_screen.dart';
+import 'features/onboarding/view/role_selection.dart';
+import 'features/onboarding/view/onboarding_merchant.dart';
+import 'features/onboarding/view/onboarding_customer.dart';
+import 'features/authentication/view/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +33,12 @@ class MyApp extends StatelessWidget {
 
             // Routes
             routes: {
+              '/role_selection': (context) => const RoleSelectionScreen(),
+              '/onboarding/merchant': (context) =>
+                  const MerchantOnboardingScreen(),
+              '/onboarding/customer': (context) =>
+                  const CustomerOnboardingScreen(),
+              '/auth/login': (context) => const LoginScreen(),
               '/welcome_slide1': (context) => const WelcomeSlide1Placeholder(),
             },
 

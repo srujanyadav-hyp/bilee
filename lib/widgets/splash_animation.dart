@@ -166,7 +166,7 @@ class _SplashAnimationState extends State<SplashAnimation>
 
   void _navigateToOnboarding() {
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/welcome_slide1');
+      Navigator.of(context).pushReplacementNamed('/role_selection');
     }
   }
 
