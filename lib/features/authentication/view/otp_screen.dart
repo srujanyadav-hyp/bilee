@@ -350,6 +350,12 @@ class _OTPScreenState extends State<OTPScreen> {
             ? '/merchant/dashboard'
             : '/customer/dashboard';
         Navigator.of(context).pushReplacementNamed(route);
+      } else {
+        // User exists but no Firestore document - need to set up profile
+        _showError(
+          'Account setup incomplete. Please contact support or try registering again.',
+        );
+        await _authService.signOut();
       }
     } else {
       _showError(result.errorMessage!);

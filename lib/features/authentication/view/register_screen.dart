@@ -61,6 +61,9 @@ class _RegisterScreenState extends State<RegisterScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // Rebuild for animation
+    });
     _loadRole();
   }
 
@@ -89,137 +92,282 @@ class _RegisterScreenState extends State<RegisterScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 16,
+          left: AppDimensions.paddingLG,
+          right: AppDimensions.paddingLG,
+          bottom: AppDimensions.paddingLG,
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(AppDimensions.paddingLG),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: AppDimensions.spacingLG),
-              // Logo
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Back Button
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+            SizedBox(height: AppDimensions.spacingLG),
+            // Logo
+            Center(
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/logos/logo_symbol_glow-removebg-preview.png',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: AppDimensions.spacingLG),
+            // Title
+            Text(
+              'Create Account',
+              style: AppTypography.h1.copyWith(
+                color: AppColors.lightTextPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: AppDimensions.spacingSM),
+            // Role Badge
+            if (_userRole != null)
               Center(
                 child: Container(
-                  width: 80,
-                  height: 80,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    shape: BoxShape.circle,
+                    color: AppColors.primaryBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
                   ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/logos/logo_symbol_glow-removebg-preview.png',
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: AppDimensions.spacingLG),
-              // Title
-              Text(
-                'Create Account',
-                style: AppTypography.h1.copyWith(
-                  color: AppColors.lightTextPrimary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: AppDimensions.spacingSM),
-              // Role Badge
-              if (_userRole != null)
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.radiusMD,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _userRole == 'merchant'
+                            ? Icons.store
+                            : Icons.shopping_bag_outlined,
+                        size: 16,
+                        color: AppColors.primaryBlue,
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _userRole == 'merchant'
-                              ? Icons.store
-                              : Icons.shopping_bag_outlined,
-                          size: 16,
+                      const SizedBox(width: 8),
+                      Text(
+                        _userRole == 'merchant' ? 'Merchant' : 'Customer',
+                        style: AppTypography.body2.copyWith(
                           color: AppColors.primaryBlue,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _userRole == 'merchant' ? 'Merchant' : 'Customer',
-                          style: AppTypography.body2.copyWith(
-                            color: AppColors.primaryBlue,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            SizedBox(height: AppDimensions.spacingXL),
+            // Creative Sliding Indicator Tab Selector
+            Stack(
+              children: [
+                // Background Line
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: AppColors.lightBorder.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Animated Sliding Indicator
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeInOutCubic,
+                  bottom: 0,
+                  left: _tabController.index == 0
+                      ? 0
+                      : MediaQuery.of(context).size.width / 2 -
+                            AppDimensions.paddingLG,
+                  width:
+                      MediaQuery.of(context).size.width / 2 -
+                      AppDimensions.paddingLG,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryBlue.withOpacity(0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                   ),
                 ),
-              SizedBox(height: AppDimensions.spacingXL),
-              // Tab Bar
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-                  border: Border.all(color: AppColors.lightBorder),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                // Tab Buttons
+                Container(
+                  height: 64,
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      // Email Tab
+                      Expanded(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _tabController.animateTo(0),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 350),
+                                  curve: Curves.easeInOutCubic,
+                                  padding: EdgeInsets.all(
+                                    _tabController.index == 0 ? 12 : 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: _tabController.index == 0
+                                        ? AppColors.primaryGradient
+                                        : null,
+                                    color: _tabController.index == 0
+                                        ? null
+                                        : AppColors.lightSurface,
+                                    shape: BoxShape.circle,
+                                    boxShadow: _tabController.index == 0
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.primaryBlue
+                                                  .withOpacity(0.3),
+                                              blurRadius: 12,
+                                              spreadRadius: 2,
+                                            ),
+                                          ]
+                                        : [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.05,
+                                              ),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                  ),
+                                  child: Icon(
+                                    Icons.email_rounded,
+                                    size: _tabController.index == 0 ? 28 : 24,
+                                    color: _tabController.index == 0
+                                        ? Colors.white
+                                        : AppColors.lightTextSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Phone Tab
+                      Expanded(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _tabController.animateTo(1),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 350),
+                                  curve: Curves.easeInOutCubic,
+                                  padding: EdgeInsets.all(
+                                    _tabController.index == 1 ? 12 : 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: _tabController.index == 1
+                                        ? AppColors.primaryGradient
+                                        : null,
+                                    color: _tabController.index == 1
+                                        ? null
+                                        : AppColors.lightSurface,
+                                    shape: BoxShape.circle,
+                                    boxShadow: _tabController.index == 1
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.primaryBlue
+                                                  .withOpacity(0.3),
+                                              blurRadius: 12,
+                                              spreadRadius: 2,
+                                            ),
+                                          ]
+                                        : [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.05,
+                                              ),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                  ),
+                                  child: Icon(
+                                    Icons.phone_rounded,
+                                    size: _tabController.index == 1 ? 28 : 24,
+                                    color: _tabController.index == 1
+                                        ? Colors.white
+                                        : AppColors.lightTextSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: AppColors.lightTextSecondary,
-                  labelStyle: AppTypography.button,
-                  tabs: const [
-                    Tab(icon: Icon(Icons.email_outlined), text: 'Email'),
-                    Tab(icon: Icon(Icons.phone_outlined), text: 'Phone'),
-                  ],
                 ),
+              ],
+            ),
+            SizedBox(height: AppDimensions.spacingLG),
+            // Tab Views
+            SizedBox(
+              height: _userRole == 'merchant' ? 550 : 450,
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildEmailForm(), _buildPhoneForm()],
               ),
-              SizedBox(height: AppDimensions.spacingLG),
-              // Tab Views
-              SizedBox(
-                height: _userRole == 'merchant' ? 550 : 450,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [_buildEmailForm(), _buildPhoneForm()],
-                ),
-              ),
-              SizedBox(height: AppDimensions.spacingMD),
-              // Sign In Link
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Text(
-                    'Already have an account? Sign in',
-                    style: AppTypography.body2.copyWith(
-                      color: AppColors.primaryBlue,
-                    ),
+            ),
+            SizedBox(height: AppDimensions.spacingMD),
+            // Sign In Link
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'Already have an account? Sign in',
+                  style: AppTypography.body2.copyWith(
+                    color: AppColors.primaryBlue,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -238,14 +386,33 @@ class _RegisterScreenState extends State<RegisterScreen>
                 labelText: _userRole == 'merchant'
                     ? 'Business Name'
                     : 'Username',
+                labelStyle: TextStyle(
+                  color: AppColors.primaryBlue.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+                floatingLabelStyle: TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+                floatingLabelBehavior: FloatingLabelBehavior.auto,
                 hintText: _userRole == 'merchant'
                     ? 'Enter business name'
                     : 'Choose a username',
                 prefixIcon: Icon(
                   _userRole == 'merchant' ? Icons.business : Icons.person,
+                  color: AppColors.primaryBlue,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryBlue,
+                    width: 2,
+                  ),
                 ),
               ),
               validator: (value) {
@@ -259,7 +426,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             // Category (Merchant only)
             if (_userRole == 'merchant')
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Business Category',
                   hintText: 'Select category',
@@ -293,10 +460,35 @@ class _RegisterScreenState extends State<RegisterScreen>
               controller: _emailController,
               decoration: InputDecoration(
                 labelText: 'Email',
+                labelStyle: TextStyle(
+                  color: AppColors.primaryBlue.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+                floatingLabelStyle: TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+                floatingLabelBehavior: FloatingLabelBehavior.auto,
                 hintText: 'Enter your email',
-                prefixIcon: const Icon(Icons.email_outlined),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 22,
+                ),
+                prefixIcon: Icon(
+                  Icons.email_outlined,
+                  color: AppColors.primaryBlue,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryBlue,
+                    width: 2,
+                  ),
                 ),
               ),
               keyboardType: TextInputType.emailAddress,
@@ -318,13 +510,32 @@ class _RegisterScreenState extends State<RegisterScreen>
               controller: _passwordController,
               decoration: InputDecoration(
                 labelText: 'Password',
+                labelStyle: TextStyle(
+                  color: AppColors.primaryBlue.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+                floatingLabelStyle: TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+                floatingLabelBehavior: FloatingLabelBehavior.auto,
                 hintText: 'Enter password',
-                prefixIcon: const Icon(Icons.lock_outline),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 22,
+                ),
+                prefixIcon: Icon(
+                  Icons.lock_outline,
+                  color: AppColors.primaryBlue,
+                ),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
+                    color: AppColors.primaryBlue,
                   ),
                   onPressed: () {
                     setState(() {
@@ -334,6 +545,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryBlue,
+                    width: 2,
+                  ),
                 ),
               ),
               obscureText: _obscurePassword,
@@ -353,13 +571,32 @@ class _RegisterScreenState extends State<RegisterScreen>
               controller: _confirmPasswordController,
               decoration: InputDecoration(
                 labelText: 'Confirm Password',
+                labelStyle: TextStyle(
+                  color: AppColors.primaryBlue.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+                floatingLabelStyle: TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+                floatingLabelBehavior: FloatingLabelBehavior.auto,
                 hintText: 'Re-enter password',
-                prefixIcon: const Icon(Icons.lock_outline),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 22,
+                ),
+                prefixIcon: Icon(
+                  Icons.lock_outline,
+                  color: AppColors.primaryBlue,
+                ),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureConfirmPassword
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
+                    color: AppColors.primaryBlue,
                   ),
                   onPressed: () {
                     setState(() {
@@ -369,6 +606,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryBlue,
+                    width: 2,
+                  ),
                 ),
               ),
               obscureText: _obscureConfirmPassword,
@@ -434,14 +678,37 @@ class _RegisterScreenState extends State<RegisterScreen>
                 labelText: _userRole == 'merchant'
                     ? 'Business Name'
                     : 'Username',
+                labelStyle: TextStyle(
+                  color: AppColors.primaryBlue.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+                floatingLabelStyle: TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+                floatingLabelBehavior: FloatingLabelBehavior.auto,
                 hintText: _userRole == 'merchant'
                     ? 'Enter business name'
                     : 'Choose a username',
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 22,
+                ),
                 prefixIcon: Icon(
                   _userRole == 'merchant' ? Icons.business : Icons.person,
+                  color: AppColors.primaryBlue,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryBlue,
+                    width: 2,
+                  ),
                 ),
               ),
               validator: (value) {
@@ -455,13 +722,38 @@ class _RegisterScreenState extends State<RegisterScreen>
             // Category (Merchant only)
             if (_userRole == 'merchant')
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Business Category',
+                  labelStyle: TextStyle(
+                    color: AppColors.primaryBlue.withOpacity(0.7),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                  ),
+                  floatingLabelStyle: TextStyle(
+                    color: AppColors.primaryBlue,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
+                  floatingLabelBehavior: FloatingLabelBehavior.auto,
                   hintText: 'Select category',
-                  prefixIcon: const Icon(Icons.category),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 22,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.category,
+                    color: AppColors.primaryBlue,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                    borderSide: BorderSide(
+                      color: AppColors.primaryBlue,
+                      width: 2,
+                    ),
                   ),
                 ),
                 items: _merchantCategories
@@ -490,10 +782,14 @@ class _RegisterScreenState extends State<RegisterScreen>
               children: [
                 // Country Code
                 SizedBox(
-                  width: 80,
+                  width: 90,
                   child: DropdownButtonFormField<String>(
-                    value: _countryCode,
+                    initialValue: _countryCode,
                     decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 16,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(
                           AppDimensions.radiusMD,
@@ -519,11 +815,38 @@ class _RegisterScreenState extends State<RegisterScreen>
                     controller: _phoneController,
                     decoration: InputDecoration(
                       labelText: 'Phone Number',
+                      labelStyle: TextStyle(
+                        color: AppColors.primaryBlue.withOpacity(0.7),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                      ),
+                      floatingLabelStyle: TextStyle(
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                      floatingLabelBehavior: FloatingLabelBehavior.auto,
                       hintText: 'Enter phone number',
-                      prefixIcon: const Icon(Icons.phone_outlined),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 22,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.phone_outlined,
+                        color: AppColors.primaryBlue,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(
                           AppDimensions.radiusMD,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppDimensions.radiusMD,
+                        ),
+                        borderSide: BorderSide(
+                          color: AppColors.primaryBlue,
+                          width: 2,
                         ),
                       ),
                     ),
@@ -605,12 +928,21 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (!mounted) return;
 
     if (result.success) {
-      final userData = await _authService.getUserData(result.uid!);
-      if (userData != null) {
-        final route = userData.isMerchant
-            ? '/merchant/dashboard'
-            : '/customer/dashboard';
-        Navigator.of(context).pushReplacementNamed(route);
+      // Sign out after successful registration
+      await _authService.signOut();
+
+      // Show success message and navigate to login
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Account created successfully! Please sign in.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Navigate to login screen
+        Navigator.of(context).pushReplacementNamed('/login');
       }
     } else {
       _showError(result.errorMessage!);
@@ -660,16 +992,22 @@ class _RegisterScreenState extends State<RegisterScreen>
         setState(() {
           _isLoading = false;
         });
-        // Auto-verified, navigate to home
-        final user = _authService.currentUser;
-        if (user != null) {
-          final userData = await _authService.getUserData(user.uid);
-          if (userData != null) {
-            final route = userData.isMerchant
-                ? '/merchant/dashboard'
-                : '/customer/dashboard';
-            Navigator.of(context).pushReplacementNamed(route);
-          }
+
+        // Sign out after successful registration
+        await _authService.signOut();
+
+        // Show success message and navigate to login
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Account created successfully! Please sign in.'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+
+          // Navigate to login screen
+          Navigator.of(context).pushReplacementNamed('/login');
         }
       },
     );

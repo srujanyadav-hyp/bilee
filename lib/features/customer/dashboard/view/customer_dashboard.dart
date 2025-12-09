@@ -10,7 +10,7 @@ class CustomerDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final _authService = AuthService();
+    final authService = AuthService();
 
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
@@ -24,7 +24,7 @@ class CustomerDashboardScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
-              await _authService.signOut();
+              await authService.signOut();
               if (context.mounted) {
                 Navigator.of(context).pushReplacementNamed('/auth/login');
               }

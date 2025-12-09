@@ -30,7 +30,9 @@ class UserModel {
       phone: data['phone'] as String?,
       category: data['category'] as String?,
       kycStatus: data['kyc_status'] as String? ?? 'PENDING',
-      createdAt: (data['created_at'] as dynamic).toDate(),
+      createdAt: data['created_at'] != null
+          ? (data['created_at'] as dynamic).toDate()
+          : DateTime.now(),
     );
   }
 

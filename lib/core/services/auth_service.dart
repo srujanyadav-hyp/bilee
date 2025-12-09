@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
@@ -10,7 +11,10 @@ import './role_storage_service.dart';
 /// Handles all Firebase Authentication operations
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instanceFor(
+    app: Firebase.app(),
+    databaseId: 'bilee',
+  );
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final RoleStorageService _roleStorage = RoleStorageService();
 
@@ -33,6 +37,18 @@ class AuthService {
 
       if (credential.user != null) {
         _logAnalytics('auth_attempt', {'method': 'email', 'success': true});
+
+        // Check if user document exists, if not create it
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(credential.user!.uid)
+            .get();
+
+        if (!userDoc.exists) {
+          // User signed in but no document exists (shouldn't happen, but handle it)
+          debugPrint('Warning: User signed in but no Firestore document found');
+        }
+
         return AuthResult.success(credential.user!.uid);
       }
 
@@ -278,12 +294,20 @@ class AuthService {
   Future<UserModel?> getUserData(String uid) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
-      if (doc.exists) {
+      if (doc.exists && doc.data() != null) {
         return UserModel.fromFirestore(doc.data()!);
       }
+      debugPrint('User document does not exist for UID: $uid');
       return null;
     } catch (e) {
       debugPrint('Error fetching user data: $e');
+      // If Firestore database doesn't exist, return null gracefully
+      if (e.toString().contains('NOT_FOUND') ||
+          e.toString().contains('does not exist')) {
+        debugPrint(
+          'Firestore database not initialized. Please create it in Firebase Console.',
+        );
+      }
       return null;
     }
   }

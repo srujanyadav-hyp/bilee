@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "791996836010",
+    "project_id": "bilee-b1058",
+    "storage_bucket": "bilee-b1058.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:791996836010:android:70cacfcbbee17b94e408d3",
+        "android_client_info": {
+          "package_name": "com.example.bilee"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "791996836010-pdfgh24jv0o1k6br5qubbgdme87j0pdd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpvP-z6aX691GSVOCWt45MmxQV1eyGmkA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "791996836010-pdfgh24jv0o1k6br5qubbgdme87j0pdd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
