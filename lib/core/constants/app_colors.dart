@@ -6,17 +6,31 @@ class AppColors {
   AppColors._();
 
   // ========== PRIMARY COLORS ==========
-  /// Primary Blue Gradient Start - #1976D2
-  static const Color primaryBlue = Color(0xFF1976D2);
+  /// Primary Gradient Start - Teal-Green #00D4AA
+  static const Color primaryBlue = Color(0xFF00D4AA);
 
-  /// Primary Blue Gradient End - #42A5F5
-  static const Color primaryBlueLight = Color(0xFF42A5F5);
+  /// Primary Gradient End - Blue #1E5BFF
+  static const Color primaryBlueLight = Color(0xFF1E5BFF);
 
-  /// Primary Gradient
+  /// Splash Screen Gradient - Teal to Blue
+  /// Left Side (Start): Teal-Green #00D4AA
+  static const Color splashGradientStart = Color(0xFF00D4AA);
+
+  /// Right Side (End): Blue #1E5BFF
+  static const Color splashGradientEnd = Color(0xFF1E5BFF);
+
+  /// Primary Gradient (UI Components)
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [primaryBlue, primaryBlueLight],
+  );
+
+  /// Splash Screen Gradient (Splash Animation)
+  static const LinearGradient splashGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [splashGradientStart, splashGradientEnd],
   );
 
   // ========== LIGHT THEME COLORS ==========

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/constants/app_strings.dart';
+import 'features/splash/presentation/pages/splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,11 +27,29 @@ class MyApp extends StatelessWidget {
             darkTheme: themeProvider.darkTheme,
             themeMode: themeProvider.themeMode,
 
+            // Routes
+            routes: {
+              '/welcome_slide1': (context) => const WelcomeSlide1Placeholder(),
+            },
+
             // Home Page
-            home: const MyHomePage(),
+            home: const SplashScreen(),
           );
         },
       ),
+    );
+  }
+}
+
+// Placeholder for onboarding screen
+class WelcomeSlide1Placeholder extends StatelessWidget {
+  const WelcomeSlide1Placeholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Welcome Slide 1')),
+      body: const Center(child: Text('Onboarding Screen Coming Soon')),
     );
   }
 }
