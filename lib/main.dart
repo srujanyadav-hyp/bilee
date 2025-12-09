@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/constants/app_strings.dart';
 import 'features/splash/presentation/pages/splash_screen.dart';
@@ -7,9 +8,21 @@ import 'features/onboarding/view/role_selection.dart';
 import 'features/onboarding/view/onboarding_merchant.dart';
 import 'features/onboarding/view/onboarding_customer.dart';
 import 'features/authentication/view/login_screen.dart';
+import 'features/authentication/view/register_screen.dart';
+import 'features/authentication/view/otp_screen.dart';
+import 'features/authentication/view/forgot_password_screen.dart';
+import 'features/merchant/dashboard/view/merchant_dashboard.dart';
+import 'features/customer/dashboard/view/customer_dashboard.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+  }
+
   runApp(const MyApp());
 }
 
@@ -39,6 +52,14 @@ class MyApp extends StatelessWidget {
               '/onboarding/customer': (context) =>
                   const CustomerOnboardingScreen(),
               '/auth/login': (context) => const LoginScreen(),
+              '/auth/register': (context) => const RegisterScreen(),
+              '/auth/otp': (context) => const OTPScreen(),
+              '/auth/forgot-password': (context) =>
+                  const ForgotPasswordScreen(),
+              '/merchant/dashboard': (context) =>
+                  const MerchantDashboardScreen(),
+              '/customer/dashboard': (context) =>
+                  const CustomerDashboardScreen(),
               '/welcome_slide1': (context) => const WelcomeSlide1Placeholder(),
             },
 
