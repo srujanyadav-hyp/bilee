@@ -61,6 +61,7 @@ class AuthService {
       });
       return AuthResult.failure(_getAuthErrorMessage(e));
     } catch (e) {
+      debugPrint('Sign in error: $e');
       return AuthResult.failure(
         'Network error — check connection and try again.',
       );

@@ -1,1 +1,64 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"bilee-b1058","appId":"1:791996836010:android:70cacfcbbee17b94e408d3","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"bilee-b1058","configurations":{"android":"1:791996836010:android:70cacfcbbee17b94e408d3","ios":"1:791996836010:ios:7e405ab8320e4130e408d3","macos":"1:791996836010:ios:7e405ab8320e4130e408d3","web":"1:791996836010:web:ef44e6fa8effe73de408d3","windows":"1:791996836010:web:b95af1d8d6bc5c07e408d3"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ],
+      "predeploy": []
+    }
+  ],
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "bilee-b1058",
+          "appId": "1:791996836010:android:70cacfcbbee17b94e408d3",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "bilee-b1058",
+          "configurations": {
+            "android": "1:791996836010:android:70cacfcbbee17b94e408d3",
+            "ios": "1:791996836010:ios:7e405ab8320e4130e408d3",
+            "macos": "1:791996836010:ios:7e405ab8320e4130e408d3",
+            "web": "1:791996836010:web:ef44e6fa8effe73de408d3",
+            "windows": "1:791996836010:web:b95af1d8d6bc5c07e408d3"
+          }
+        }
+      }
+    }
+  }
+}

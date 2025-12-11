@@ -1,0 +1,133 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ==================== HELPER FUNCTIONS ====================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isMerchant(merchantId) {
+      return isSignedIn() && request.auth.uid == merchantId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+             request.auth.token.get('admin', false) == true;
+    }
+    
+    // File size limits
+    function isValidFileSize() {
+      return request.resource.size < 10 * 1024 * 1024; // 10MB max
+    }
+    
+    function isValidImageSize() {
+      return request.resource.size < 5 * 1024 * 1024; // 5MB max for images
+    }
+    
+    // File type validation
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isPDF() {
+      return request.resource.contentType == 'application/pdf';
+    }
+    
+    function isCSV() {
+      return request.resource.contentType == 'text/csv' ||
+             request.resource.contentType == 'application/csv';
+    }
+    
+    // ==================== DAILY REPORTS ====================
+    
+    // Path: bilee-reports/{merchantId}/{date}.{format}
+    match /bilee-reports/{merchantId}/{fileName} {
+      // Merchants can read their own reports
+      allow read: if isSignedIn() && isMerchant(merchantId);
+      
+      // Only cloud functions can write reports
+      allow write: if isAdmin() && 
+                      (isPDF() || isCSV()) &&
+                      isValidFileSize();
+      
+      // No deletion allowed (keep for records)
+      allow delete: if false;
+    }
+    
+    // ==================== RECEIPTS ====================
+    
+    // Path: receipts/{merchantId}/{sessionId}.pdf
+    match /receipts/{merchantId}/{fileName} {
+      // Merchants can read their own receipts
+      // TODO: Add customer read access based on session ownership
+      allow read: if isSignedIn() && isMerchant(merchantId);
+      
+      // Only cloud functions can write receipts
+      allow write: if isAdmin() && 
+                      isPDF() &&
+                      isValidFileSize();
+      
+      // No deletion allowed (keep for records)
+      allow delete: if false;
+    }
+    
+    // ==================== MERCHANT LOGOS/IMAGES ====================
+    
+    // Path: merchant-assets/{merchantId}/logo.{ext}
+    match /merchant-assets/{merchantId}/{fileName} {
+      // Anyone can read merchant logos (public)
+      allow read: if true;
+      
+      // Merchants can upload their own logos
+      allow create, update: if isSignedIn() &&
+                               isMerchant(merchantId) &&
+                               isImage() &&
+                               isValidImageSize();
+      
+      // Merchants can delete their own logos
+      allow delete: if isSignedIn() && isMerchant(merchantId);
+    }
+    
+    // ==================== QR CODES (FUTURE) ====================
+    
+    // Path: qr-codes/{merchantId}/{sessionId}.png
+    match /qr-codes/{merchantId}/{fileName} {
+      // Anyone can read QR codes (needed for customer scanning)
+      allow read: if true;
+      
+      // Only cloud functions can write QR codes
+      allow write: if isAdmin() && 
+                      isImage() &&
+                      isValidImageSize();
+      
+      // Auto-delete after session expiry (handled by cloud function)
+      allow delete: if isAdmin();
+    }
+    
+    // ==================== ITEM IMAGES (FUTURE) ====================
+    
+    // Path: item-images/{merchantId}/{itemId}.{ext}
+    match /item-images/{merchantId}/{fileName} {
+      // Anyone can read item images (public for customer view)
+      allow read: if true;
+      
+      // Merchants can upload images for their items
+      allow create, update: if isSignedIn() &&
+                               isMerchant(merchantId) &&
+                               isImage() &&
+                               isValidImageSize();
+      
+      // Merchants can delete their item images
+      allow delete: if isSignedIn() && isMerchant(merchantId);
+    }
+    
+    // ==================== DENY ALL OTHER PATHS ====================
+    
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

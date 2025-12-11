@@ -1,0 +1,233 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==================== HELPER FUNCTIONS ====================
+    
+    // Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the document
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Check if user is the merchant (owns the resource)
+    function isMerchant(merchantId) {
+      return isSignedIn() && request.auth.uid == merchantId;
+    }
+    
+    // Check if user is admin (for cloud functions)
+    function isAdmin() {
+      return isSignedIn() && 
+             request.auth.token.get('admin', false) == true;
+    }
+    
+    // Validate item data
+    function isValidItem() {
+      let data = request.resource.data;
+      return data.name is string && 
+             data.name.size() > 0 &&
+             data.name.size() <= 200 &&
+             data.price is number && 
+             data.price >= 0 &&
+             data.taxRate is number &&
+             data.taxRate >= 0 &&
+             data.taxRate <= 100 &&
+             data.merchantId is string &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+    
+    // Validate billing session data
+    function isValidSession() {
+      let data = request.resource.data;
+      return data.merchantId is string &&
+             data.items is list &&
+             data.items.size() > 0 &&
+             data.items.size() <= 100 &&
+             data.subtotal is number &&
+             data.subtotal >= 0 &&
+             data.tax is number &&
+             data.tax >= 0 &&
+             data.total is number &&
+             data.total > 0 &&
+             data.status in ['ACTIVE', 'EXPIRED', 'COMPLETED'] &&
+             data.connectedCustomers is list &&
+             data.createdAt is timestamp &&
+             data.expiresAt is timestamp;
+    }
+    
+    // Validate daily aggregate data
+    function isValidAggregate() {
+      let data = request.resource.data;
+      return data.merchantId is string &&
+             data.date is string &&
+             data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+             data.total is number &&
+             data.total >= 0 &&
+             data.ordersCount is number &&
+             data.ordersCount >= 0 &&
+             data.itemsSold is list &&
+             data.updatedAt is timestamp;
+    }
+    
+    // ==================== USERS COLLECTION ====================
+    
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+      
+      // Users can create their own profile during registration
+      allow create: if isOwner(userId);
+      
+      // Users can update their own profile
+      allow update: if isOwner(userId);
+      
+      // Users cannot delete their profile (must use account deletion)
+      allow delete: if false;
+    }
+    
+    // ==================== ITEMS COLLECTION ====================
+    
+    match /items/{itemId} {
+      // Merchants can read their own items
+      allow read: if isSignedIn() && 
+                     isMerchant(resource.data.merchantId);
+      
+      // Merchants can create items for themselves
+      allow create: if isSignedIn() && 
+                       isMerchant(request.resource.data.merchantId) &&
+                       isValidItem();
+      
+      // Merchants can update their own items
+      allow update: if isSignedIn() &&
+                       isMerchant(resource.data.merchantId) &&
+                       isMerchant(request.resource.data.merchantId) &&
+                       resource.data.merchantId == request.resource.data.merchantId &&
+                       isValidItem();
+      
+      // Merchants can delete their own items
+      allow delete: if isSignedIn() &&
+                       isMerchant(resource.data.merchantId);
+    }
+    
+    // ==================== BILLING SESSIONS COLLECTION ====================
+    
+    match /billingSessions/{sessionId} {
+      // Merchants can read their own sessions
+      // Customers can read sessions they're connected to
+      allow read: if isSignedIn() && (
+                       isMerchant(resource.data.merchantId) ||
+                       request.auth.uid in resource.data.connectedCustomers
+                     );
+      
+      // Merchants can create sessions for themselves
+      allow create: if isSignedIn() && 
+                       isMerchant(request.resource.data.merchantId) &&
+                       isValidSession() &&
+                       request.resource.data.status == 'ACTIVE';
+      
+      // Merchants can update their own sessions
+      // Allow payment status updates and customer connections
+      allow update: if isSignedIn() &&
+                       isMerchant(resource.data.merchantId) &&
+                       isMerchant(request.resource.data.merchantId) &&
+                       resource.data.merchantId == request.resource.data.merchantId &&
+                       (
+                         // Allow status changes from ACTIVE to EXPIRED or COMPLETED
+                         (resource.data.status == 'ACTIVE' && 
+                          request.resource.data.status in ['EXPIRED', 'COMPLETED']) ||
+                         // Allow payment status updates
+                         (resource.data.paymentStatus == null && 
+                          request.resource.data.paymentStatus in ['PENDING', 'PAID']) ||
+                         (resource.data.paymentStatus == 'PENDING' && 
+                          request.resource.data.paymentStatus == 'PAID') ||
+                         // Allow adding connected customers
+                         (resource.data.connectedCustomers.size() < request.resource.data.connectedCustomers.size())
+                       );
+      
+      // Sessions should never be deleted (keep for records)
+      allow delete: if false;
+    }
+    
+    // ==================== DAILY AGGREGATES COLLECTION ====================
+    
+    match /dailyAggregates/{aggregateId} {
+      // Merchants can read their own aggregates
+      allow read: if isSignedIn() && 
+                     isMerchant(resource.data.merchantId);
+      
+      // Merchants and cloud functions can create/update aggregates
+      allow create: if (isSignedIn() && 
+                        isMerchant(request.resource.data.merchantId) &&
+                        isValidAggregate()) ||
+                       isAdmin();
+      
+      allow update: if (isSignedIn() &&
+                        isMerchant(resource.data.merchantId) &&
+                        isMerchant(request.resource.data.merchantId) &&
+                        resource.data.merchantId == request.resource.data.merchantId &&
+                        isValidAggregate()) ||
+                       isAdmin();
+      
+      // Aggregates should never be deleted (keep for records)
+      allow delete: if false;
+    }
+    
+    // ==================== RECEIPTS COLLECTION (FUTURE) ====================
+    
+    match /receipts/{receiptId} {
+      // Merchants can read their own receipts
+      // Customers can read receipts for their sessions
+      allow read: if isSignedIn() && (
+                       isMerchant(resource.data.merchantId) ||
+                       request.auth.uid == resource.data.customerId
+                     );
+      
+      // Only cloud functions can create receipts
+      allow create: if isAdmin();
+      
+      // Receipts are immutable once created
+      allow update, delete: if false;
+    }
+    
+    // ==================== MERCHANT PROFILES (FUTURE) ====================
+    
+    match /merchants/{merchantId} {
+      // Anyone can read public merchant profile
+      allow read: if true;
+      
+      // Merchants can create/update their own profile
+      allow create, update: if isSignedIn() && 
+                               isMerchant(merchantId);
+      
+      // Merchants cannot delete their profile (use disable flag instead)
+      allow delete: if false;
+    }
+    
+    // ==================== CUSTOMER PROFILES (FUTURE) ====================
+    
+    match /customers/{customerId} {
+      // Users can read their own profile
+      allow read: if isSignedIn() && 
+                     request.auth.uid == customerId;
+      
+      // Users can create/update their own profile
+      allow create, update: if isSignedIn() && 
+                               request.auth.uid == customerId;
+      
+      // Users cannot delete their profile
+      allow delete: if false;
+    }
+    
+    // ==================== DENY ALL OTHER COLLECTIONS ====================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
