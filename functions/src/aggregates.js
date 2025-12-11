@@ -1,7 +1,6 @@
 const admin = require('firebase-admin');
 
 const db = admin.firestore();
-db.settings({ databaseId: 'bilee' });
 
 /**
  * Update daily aggregate by recalculating from completed sessions

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -163,11 +164,11 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen>
     // Analytics: onboarding_customer_continue
     debugPrint('Analytics: onboarding_customer_continue');
 
-    Navigator.of(context).pushReplacementNamed('/auth/login');
+    context.go('/login');
   }
 
   void _signIn() {
-    Navigator.of(context).pushReplacementNamed('/auth/login');
+    context.go('/login');
   }
 }
 

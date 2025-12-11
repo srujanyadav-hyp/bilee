@@ -1,7 +1,6 @@
 const admin = require('firebase-admin');
 
 const db = admin.firestore();
-db.settings({ databaseId: 'bilee' });
 
 /**
  * Expire old active sessions (older than their expiresAt time)

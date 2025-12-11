@@ -3,11 +3,17 @@ class AuthResult {
   final bool success;
   final String? errorMessage;
   final String? uid;
+  final bool isNewUser;
 
-  AuthResult({required this.success, this.errorMessage, this.uid});
+  AuthResult({
+    required this.success,
+    this.errorMessage,
+    this.uid,
+    this.isNewUser = false,
+  });
 
-  factory AuthResult.success(String uid) {
-    return AuthResult(success: true, uid: uid);
+  factory AuthResult.success(String uid, {bool isNewUser = false}) {
+    return AuthResult(success: true, uid: uid, isNewUser: isNewUser);
   }
 
   factory AuthResult.failure(String errorMessage) {

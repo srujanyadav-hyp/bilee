@@ -78,17 +78,11 @@ service cloud.firestore {
     // ==================== USERS COLLECTION ====================
     
     match /users/{userId} {
-      // Users can read their own profile
-      allow read: if isOwner(userId);
+      // Users can read and write only their own profile
+      allow read, write: if isOwner(userId);
       
-      // Users can create their own profile during registration
-      allow create: if isOwner(userId);
-      
-      // Users can update their own profile
-      allow update: if isOwner(userId);
-      
-      // Users cannot delete their profile (must use account deletion)
-      allow delete: if false;
+      // Allow creation during registration
+      allow create: if isSignedIn() && request.auth.uid == userId;
     }
     
     // ==================== ITEMS COLLECTION ====================

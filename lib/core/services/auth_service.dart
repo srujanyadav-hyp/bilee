@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
@@ -11,10 +10,7 @@ import './role_storage_service.dart';
 /// Handles all Firebase Authentication operations
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instanceFor(
-    app: Firebase.app(),
-    databaseId: 'bilee',
-  );
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final RoleStorageService _roleStorage = RoleStorageService();
 
@@ -26,7 +22,11 @@ class AuthService {
   Function(String, Map<String, dynamic>)? onAnalyticsEvent;
 
   /// Sign in with email and password
-  Future<AuthResult> signInWithEmail(String email, String password) async {
+  Future<AuthResult> signInWithEmail(
+    String email,
+    String password, {
+    String? selectedRole,
+  }) async {
     try {
       _logAnalytics('auth_attempt', {'method': 'email', 'action': 'sign_in'});
 
@@ -36,20 +36,54 @@ class AuthService {
       );
 
       if (credential.user != null) {
-        _logAnalytics('auth_attempt', {'method': 'email', 'success': true});
+        // Authentication successful - now validate role and user data
+        try {
+          // Check if user document exists
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(credential.user!.uid)
+              .get();
 
-        // Check if user document exists, if not create it
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(credential.user!.uid)
-            .get();
+          if (!userDoc.exists) {
+            // User signed in but no document exists (shouldn't happen, but handle it)
+            debugPrint(
+              'Warning: User signed in but no Firestore document found',
+            );
+            await _auth.signOut();
+            return AuthResult.failure(
+              'Account setup incomplete. Please contact support.',
+            );
+          }
 
-        if (!userDoc.exists) {
-          // User signed in but no document exists (shouldn't happen, but handle it)
-          debugPrint('Warning: User signed in but no Firestore document found');
+          // Validate role if provided
+          if (selectedRole != null) {
+            final userData = userDoc.data();
+            final storedRole = userData?['role'] as String?;
+
+            if (storedRole != null && storedRole != selectedRole) {
+              await _auth.signOut();
+              debugPrint(
+                '❌ Role mismatch: User registered as $storedRole but tried to sign in as $selectedRole',
+              );
+              return AuthResult.failure(
+                'This account is registered as ${storedRole == "merchant" ? "Merchant" : "Customer"}. Please select the correct role.',
+              );
+            }
+          }
+
+          _logAnalytics('auth_attempt', {'method': 'email', 'success': true});
+          return AuthResult.success(credential.user!.uid);
+        } catch (firestoreError) {
+          // Firestore error - but user is authenticated
+          debugPrint('Firestore error after authentication: $firestoreError');
+          // User is authenticated, so let them through despite Firestore issue
+          _logAnalytics('auth_attempt', {
+            'method': 'email',
+            'success': true,
+            'firestore_warning': true,
+          });
+          return AuthResult.success(credential.user!.uid);
         }
-
-        return AuthResult.success(credential.user!.uid);
       }
 
       return AuthResult.failure('Sign in failed');
@@ -83,6 +117,9 @@ class AuthService {
       );
 
       if (credential.user != null) {
+        // Wait for auth state to propagate
+        await Future.delayed(const Duration(milliseconds: 500));
+
         // Create user document
         await _createUserDocument(
           uid: credential.user!.uid,
@@ -97,7 +134,7 @@ class AuthService {
           'role': data.role,
         });
 
-        return AuthResult.success(credential.user!.uid);
+        return AuthResult.success(credential.user!.uid, isNewUser: true);
       }
 
       return AuthResult.failure('Registration failed');
@@ -108,7 +145,19 @@ class AuthService {
         'error': e.code,
       });
       return AuthResult.failure(_getAuthErrorMessage(e));
+    } on FirebaseException catch (e) {
+      // Handle Firestore errors (e.g., permission-denied)
+      debugPrint(
+        'Firestore error during registration: ${e.code} - ${e.message}',
+      );
+      if (e.code == 'permission-denied') {
+        return AuthResult.failure(
+          'Account created but profile setup failed. Please contact support.',
+        );
+      }
+      return AuthResult.failure('Setup error — contact support.');
     } catch (e) {
+      debugPrint('Registration error: $e');
       return AuthResult.failure(
         'Network error — check connection and try again.',
       );
@@ -172,6 +221,8 @@ class AuthService {
             .doc(userCredential.user!.uid)
             .get();
 
+        bool isNewUser = false;
+
         if (!userDoc.exists && registrationData != null) {
           // Create new user document for registration
           await _createUserDocument(
@@ -182,17 +233,36 @@ class AuthService {
             category: registrationData.category,
           );
 
+          isNewUser = true;
+
           _logAnalytics('user_registered', {
             'method': 'phone',
             'role': registrationData.role,
           });
+        } else if (userDoc.exists && registrationData != null) {
+          // Existing user trying to sign in - validate role
+          final userData = userDoc.data();
+          final storedRole = userData?['role'] as String?;
+
+          if (storedRole != null && storedRole != registrationData.role) {
+            await _auth.signOut();
+            debugPrint(
+              '❌ Role mismatch: User registered as $storedRole but tried to sign in as ${registrationData.role}',
+            );
+            return AuthResult.failure(
+              'This account is registered as ${storedRole == "merchant" ? "Merchant" : "Customer"}. Please select the correct role.',
+            );
+          }
         }
 
         _logAnalytics('otp_verified', {
           'role': registrationData?.role ?? 'existing',
         });
 
-        return AuthResult.success(userCredential.user!.uid);
+        return AuthResult.success(
+          userCredential.user!.uid,
+          isNewUser: isNewUser,
+        );
       }
 
       return AuthResult.failure('Verification failed');
@@ -234,6 +304,8 @@ class AuthService {
             .doc(userCredential.user!.uid)
             .get();
 
+        bool isNewUser = false;
+
         if (!userDoc.exists) {
           // New user - need role
           String? role = selectedRole ?? await _roleStorage.getRole();
@@ -251,12 +323,31 @@ class AuthService {
             email: userCredential.user!.email,
           );
 
+          isNewUser = true;
+
           _logAnalytics('user_registered', {'method': 'google', 'role': role});
+        } else if (selectedRole != null) {
+          // Existing user - validate role
+          final userData = userDoc.data();
+          final storedRole = userData?['role'] as String?;
+
+          if (storedRole != null && storedRole != selectedRole) {
+            await _auth.signOut();
+            debugPrint(
+              '❌ Role mismatch: User registered as $storedRole but tried to sign in as $selectedRole',
+            );
+            return AuthResult.failure(
+              'This account is registered as ${storedRole == "merchant" ? "Merchant" : "Customer"}. Please select the correct role.',
+            );
+          }
         }
 
         _logAnalytics('auth_attempt', {'method': 'google', 'success': true});
 
-        return AuthResult.success(userCredential.user!.uid);
+        return AuthResult.success(
+          userCredential.user!.uid,
+          isNewUser: isNewUser,
+        );
       }
 
       return AuthResult.failure('Google sign-in failed');
@@ -322,19 +413,51 @@ class AuthService {
     String? phone,
     String? category,
   }) async {
-    await _firestore.collection('users').doc(uid).set({
-      'uid': uid,
-      'role': role,
-      'display_name': displayName,
-      'email': email,
-      'phone': phone,
-      'category': category,
-      'kyc_status': role == 'merchant' ? 'PENDING' : null,
-      'created_at': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      debugPrint('🔵 Creating user document for UID: $uid');
+      debugPrint('🔵 Current auth user: ${_auth.currentUser?.uid}');
+      debugPrint('🔵 Role: $role, DisplayName: $displayName');
 
-    // Store role locally
-    await _roleStorage.saveRole(role);
+      final userData = <String, dynamic>{
+        'uid': uid,
+        'role': role,
+        'display_name': displayName,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+
+      // Add optional fields only if they exist
+      if (email != null && email.isNotEmpty) {
+        userData['email'] = email;
+      }
+      if (phone != null && phone.isNotEmpty) {
+        userData['phone'] = phone;
+      }
+      if (category != null && category.isNotEmpty) {
+        userData['category'] = category;
+      }
+      if (role == 'merchant') {
+        userData['kyc_status'] = 'PENDING';
+      }
+
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .set(userData, SetOptions(merge: true));
+
+      // Store role locally
+      await _roleStorage.saveRole(role);
+
+      debugPrint('✅ User document created successfully for UID: $uid');
+      debugPrint('📝 User data: ${userData.keys.toList()}');
+    } on FirebaseException catch (e) {
+      debugPrint('❌ Error creating user document: ${e.code} - ${e.message}');
+      debugPrint('📋 Error details: ${e.toString()}');
+      throw Exception('Failed to create user profile: ${e.message}');
+    } catch (e) {
+      debugPrint('❌ Error creating user document: $e');
+      rethrow;
+    }
   }
 
   /// Get user-friendly error message

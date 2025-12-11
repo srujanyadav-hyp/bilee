@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:go_router/go_router.dart';
 
 /// BILEE Splash Animation
 /// Smooth, fluid animation with overlapping transitions
@@ -166,7 +167,7 @@ class _SplashAnimationState extends State<SplashAnimation>
 
   void _navigateToOnboarding() {
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/role_selection');
+      context.go('/role-selection');
     }
   }
 

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../providers/daily_aggregate_provider.dart';
 import '../providers/session_provider.dart';
-import 'item_library_page.dart';
-import 'start_billing_page.dart';
-import 'daily_summary_page.dart';
 
 /// Merchant Home Page - Dashboard with navigation to all features
 class MerchantHomePage extends StatefulWidget {
@@ -38,6 +36,14 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              context.go('/merchant/${widget.merchantId}/profile');
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppDimensions.paddingMD),
@@ -133,12 +139,7 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
           icon: Icons.point_of_sale,
           color: Colors.green,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StartBillingPage(merchantId: widget.merchantId),
-              ),
-            );
+            context.go('/merchant/${widget.merchantId}/billing');
           },
         ),
         const SizedBox(height: AppDimensions.spacingMD),
@@ -149,12 +150,7 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
           icon: Icons.inventory_2,
           color: AppColors.primaryBlue,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ItemLibraryPage(merchantId: widget.merchantId),
-              ),
-            );
+            context.go('/merchant/${widget.merchantId}/items');
           },
         ),
         const SizedBox(height: AppDimensions.spacingMD),
@@ -165,12 +161,7 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
           icon: Icons.analytics,
           color: Colors.orange,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DailySummaryPage(merchantId: widget.merchantId),
-              ),
-            );
+            context.go('/merchant/${widget.merchantId}/summary');
           },
         ),
       ],

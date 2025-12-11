@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
@@ -7,9 +8,14 @@ import '../providers/session_provider.dart';
 
 /// Live Session Page - Display QR code and handle payment
 class LiveSessionPage extends StatefulWidget {
+  final String merchantId;
   final String sessionId;
 
-  const LiveSessionPage({super.key, required this.sessionId});
+  const LiveSessionPage({
+    super.key,
+    required this.merchantId,
+    required this.sessionId,
+  });
 
   @override
   State<LiveSessionPage> createState() => _LiveSessionPageState();
@@ -168,7 +174,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                           widget.sessionId,
                         );
                         if (success && mounted) {
-                          Navigator.pop(context);
+                          context.pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Session completed successfully'),
@@ -202,7 +208,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
-              value: paymentMethod,
+              initialValue: paymentMethod,
               decoration: const InputDecoration(labelText: 'Payment Method'),
               items: ['CASH', 'UPI', 'CARD', 'OTHER']
                   .map(

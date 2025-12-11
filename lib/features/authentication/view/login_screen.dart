@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/role_storage_service.dart';
+import '../../../core/models/auth_models.dart';
 
 /// Login Screen with Email/Phone tabs and Google Sign-In
 class LoginScreen extends StatefulWidget {
@@ -375,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen>
             Center(
               child: TextButton(
                 onPressed: () {
-                  Navigator.of(context).pushNamed('/auth/register');
+                  context.go('/register');
                 },
                 child: Text(
                   'Don\'t have an account? Create account',
@@ -503,7 +505,7 @@ class _LoginScreenState extends State<LoginScreen>
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () {
-                Navigator.of(context).pushNamed('/auth/forgot-password');
+                context.go('/forgot-password');
               },
               child: Text(
                 'Forgot password?',
@@ -684,6 +686,7 @@ class _LoginScreenState extends State<LoginScreen>
     final result = await _authService.signInWithEmail(
       _emailController.text,
       _passwordController.text,
+      selectedRole: _userRole,
     );
 
     setState(() {
@@ -696,10 +699,11 @@ class _LoginScreenState extends State<LoginScreen>
       // Get user data to determine role
       final userData = await _authService.getUserData(result.uid!);
       if (userData != null) {
-        final route = userData.isMerchant
-            ? '/merchant/dashboard'
-            : '/customer/dashboard';
-        Navigator.of(context).pushReplacementNamed(route);
+        if (userData.isMerchant) {
+          context.go('/merchant/${result.uid}');
+        } else {
+          context.go('/customer');
+        }
       } else {
         // User exists but no Firestore document - need to set up profile
         _showError(
@@ -726,12 +730,20 @@ class _LoginScreenState extends State<LoginScreen>
         setState(() {
           _isLoading = false;
         });
-        Navigator.of(context).pushNamed(
-          '/auth/otp',
-          arguments: {
+        if (!mounted) return;
+        context.push(
+          '/otp',
+          extra: {
             'verificationId': verificationId,
             'phoneNumber': '$_countryCode${_phoneController.text}',
+            'countryCode': _countryCode,
             'isRegistration': false,
+            'registrationData': RegistrationData(
+              role: _userRole ?? 'customer',
+              method: AuthMethod.phone,
+              displayName: 'User',
+              phone: '$_countryCode${_phoneController.text}',
+            ),
           },
         );
       },
@@ -749,11 +761,13 @@ class _LoginScreenState extends State<LoginScreen>
         final user = _authService.currentUser;
         if (user != null) {
           final userData = await _authService.getUserData(user.uid);
+          if (!mounted) return;
           if (userData != null) {
-            final route = userData.isMerchant
-                ? '/merchant/dashboard'
-                : '/customer/dashboard';
-            Navigator.of(context).pushReplacementNamed(route);
+            if (userData.isMerchant) {
+              context.go('/merchant/${user.uid}');
+            } else {
+              context.go('/customer');
+            }
           } else {
             // User verified but no Firestore document
             _showError(
@@ -780,12 +794,25 @@ class _LoginScreenState extends State<LoginScreen>
     if (!mounted) return;
 
     if (result.success) {
+      // Show success message for new users
+      if (result.isNewUser) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created successfully! Welcome to BILEE.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
       final userData = await _authService.getUserData(result.uid!);
       if (userData != null) {
-        final route = userData.isMerchant
-            ? '/merchant/dashboard'
-            : '/customer/dashboard';
-        Navigator.of(context).pushReplacementNamed(route);
+        if (userData.isMerchant) {
+          context.go('/merchant/${result.uid}');
+        } else {
+          context.go('/customer');
+        }
       } else {
         // User exists but no Firestore document - need to set up profile
         _showError(
@@ -795,7 +822,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } else {
       if (result.errorMessage == 'NEED_ROLE_SELECTION') {
-        Navigator.of(context).pushReplacementNamed('/role_selection');
+        context.go('/role-selection');
       } else {
         _showError(result.errorMessage!);
       }

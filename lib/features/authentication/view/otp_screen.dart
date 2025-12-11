@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -9,7 +10,18 @@ import '../../../core/models/auth_models.dart';
 
 /// OTP Verification Screen
 class OTPScreen extends StatefulWidget {
-  const OTPScreen({super.key});
+  final String? phoneNumber;
+  final String? verificationId;
+  final String? countryCode;
+  final bool? isRegistration;
+
+  const OTPScreen({
+    super.key,
+    this.phoneNumber,
+    this.verificationId,
+    this.countryCode,
+    this.isRegistration,
+  });
 
   @override
   State<OTPScreen> createState() => _OTPScreenState();
@@ -43,6 +55,12 @@ class _OTPScreenState extends State<OTPScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Get parameters from widget
+    _verificationId = widget.verificationId;
+    _phoneNumber = widget.phoneNumber;
+    _isRegistration = widget.isRegistration ?? false;
+
     _startCountdown();
 
     // Add listeners to auto-focus next field
@@ -52,20 +70,6 @@ class _OTPScreenState extends State<OTPScreen> {
           _otpFocusNodes[i + 1].requestFocus();
         }
       });
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Get arguments
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    if (args != null) {
-      _verificationId = args['verificationId'] as String?;
-      _phoneNumber = args['phoneNumber'] as String?;
-      _isRegistration = args['isRegistration'] as bool? ?? false;
-      _registrationData = args['registrationData'] as RegistrationData?;
     }
   }
 
@@ -281,7 +285,10 @@ class _OTPScreenState extends State<OTPScreen> {
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         maxLength: 1,
-        style: AppTypography.h2,
+        style: AppTypography.h2.copyWith(
+          color: AppColors.lightTextPrimary,
+          fontWeight: FontWeight.w600,
+        ),
         decoration: InputDecoration(
           counterText: '',
           border: OutlineInputBorder(
@@ -297,7 +304,7 @@ class _OTPScreenState extends State<OTPScreen> {
             borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
           ),
           filled: true,
-          fillColor: AppColors.lightSurface,
+          fillColor: Colors.white,
         ),
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         onChanged: (value) {
@@ -334,7 +341,7 @@ class _OTPScreenState extends State<OTPScreen> {
     final result = await _authService.verifyOTP(
       verificationId: _verificationId!,
       smsCode: code,
-      registrationData: _isRegistration == true ? _registrationData : null,
+      registrationData: _registrationData,
     );
 
     setState(() {
@@ -344,18 +351,30 @@ class _OTPScreenState extends State<OTPScreen> {
     if (!mounted) return;
 
     if (result.success) {
-      final userData = await _authService.getUserData(result.uid!);
-      if (userData != null) {
-        final route = userData.isMerchant
-            ? '/merchant/dashboard'
-            : '/customer/dashboard';
-        Navigator.of(context).pushReplacementNamed(route);
-      } else {
-        // User exists but no Firestore document - need to set up profile
-        _showError(
-          'Account setup incomplete. Please contact support or try registering again.',
-        );
+      if (_isRegistration == true) {
+        // Registration flow: Sign out and navigate to login
         await _authService.signOut();
+        if (!mounted) return;
+
+        context.go('/login');
+        _showSuccess('Registration successful! Please login to continue.');
+      } else {
+        // Login flow: Navigate to dashboard based on role
+        final userData = await _authService.getUserData(result.uid!);
+        if (userData != null) {
+          if (!mounted) return;
+          if (userData.isMerchant) {
+            context.go('/merchant/${result.uid}');
+          } else {
+            context.go('/customer');
+          }
+        } else {
+          // User exists but no Firestore document - need to set up profile
+          _showError(
+            'Account setup incomplete. Please contact support or try registering again.',
+          );
+          await _authService.signOut();
+        }
       }
     } else {
       _showError(result.errorMessage!);

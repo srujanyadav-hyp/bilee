@@ -3,7 +3,6 @@ const nodemailer = require('nodemailer');
 const handlebars = require('handlebars');
 
 const db = admin.firestore();
-db.settings({ databaseId: 'bilee' });
 
 // Configure email transporter (use your email service)
 const transporter = nodemailer.createTransport({

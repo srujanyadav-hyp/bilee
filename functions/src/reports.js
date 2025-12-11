@@ -4,7 +4,6 @@ const handlebars = require('handlebars');
 const { Parser } = require('json2csv');
 
 const db = admin.firestore();
-db.settings({ databaseId: 'bilee' });
 const bucket = admin.storage().bucket();
 
 /**

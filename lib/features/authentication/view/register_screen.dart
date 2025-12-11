@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -942,7 +943,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         );
 
         // Navigate to login screen
-        Navigator.of(context).pushReplacementNamed('/login');
+        context.go('/login');
       }
     } else {
       _showError(result.errorMessage!);
@@ -956,15 +957,6 @@ class _RegisterScreenState extends State<RegisterScreen>
       _isLoading = true;
     });
 
-    final registrationData = RegistrationData(
-      role: _userRole!,
-      method: AuthMethod.phone,
-      phone: _phoneController.text,
-      countryCode: _countryCode,
-      displayName: _phoneDisplayNameController.text,
-      category: _selectedCategory,
-    );
-
     await _authService.sendOTP(
       phoneNumber: _phoneController.text,
       countryCode: _countryCode,
@@ -972,13 +964,13 @@ class _RegisterScreenState extends State<RegisterScreen>
         setState(() {
           _isLoading = false;
         });
-        Navigator.of(context).pushNamed(
-          '/auth/otp',
-          arguments: {
+        context.push(
+          '/otp',
+          extra: {
             'verificationId': verificationId,
             'phoneNumber': '$_countryCode${_phoneController.text}',
+            'countryCode': _countryCode,
             'isRegistration': true,
-            'registrationData': registrationData,
           },
         );
       },
@@ -1007,7 +999,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           );
 
           // Navigate to login screen
-          Navigator.of(context).pushReplacementNamed('/login');
+          context.go('/login');
         }
       },
     );

@@ -10,10 +10,7 @@ class MerchantFirestoreDataSource {
   final FirebaseFunctions _functions;
 
   MerchantFirestoreDataSource()
-    : _firestore = FirebaseFirestore.instanceFor(
-        app: FirebaseFirestore.instance.app,
-        databaseId: 'bilee',
-      ),
+    : _firestore = FirebaseFirestore.instance,
       _functions = FirebaseFunctions.instance;
 
   /// Expose firestore instance for stream operations in repository

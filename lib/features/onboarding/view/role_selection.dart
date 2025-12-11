@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -150,7 +151,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         ? '/onboarding/merchant'
         : '/onboarding/customer';
 
-    Navigator.of(context).pushReplacementNamed(route);
+    context.go(route);
   }
 
   @override
