@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../providers/daily_aggregate_provider.dart';
@@ -107,7 +109,7 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
                     child: Column(
                       children: [
                         Text(
-                          'Summary for ${aggregate.date}',
+                          'Summary for ${DateFormat('MMMM dd, yyyy').format(DateTime.parse(aggregate.date))}',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -175,18 +177,7 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.picture_as_pdf),
                         label: const Text('Export PDF'),
-                        onPressed: () {
-                          provider.generateReport(
-                            widget.merchantId,
-                            selectedDate,
-                            'pdf',
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Generating PDF report...'),
-                            ),
-                          );
-                        },
+                        onPressed: () => _handleExportReport('pdf'),
                       ),
                     ),
                     const SizedBox(width: AppDimensions.spacingMD),
@@ -194,18 +185,7 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.table_chart),
                         label: const Text('Export CSV'),
-                        onPressed: () {
-                          provider.generateReport(
-                            widget.merchantId,
-                            selectedDate,
-                            'csv',
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Generating CSV report...'),
-                            ),
-                          );
-                        },
+                        onPressed: () => _handleExportReport('csv'),
                       ),
                     ),
                   ],
@@ -216,6 +196,120 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
         },
       ),
     );
+  }
+
+  /// Handle report export with URL download
+  Future<void> _handleExportReport(String format) async {
+    final provider = context.read<DailyAggregateProvider>();
+
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text('Generating ${format.toUpperCase()} report...'),
+          ],
+        ),
+        duration: const Duration(seconds: 30),
+      ),
+    );
+
+    try {
+      final url = await provider.generateReport(
+        widget.merchantId,
+        selectedDate,
+        format,
+      );
+
+      if (!mounted) return;
+
+      // Clear loading snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (url != null && url.isNotEmpty) {
+        // Try to launch URL
+        final uri = Uri.parse(url);
+        final canLaunch = await canLaunchUrl(uri);
+
+        if (canLaunch) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Text('${format.toUpperCase()} report opened!'),
+                  ],
+                ),
+                backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          // Show URL in snackbar with copy option
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Report URL: $url'),
+                backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 10),
+                action: SnackBarAction(
+                  label: 'Copy',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    // Copy to clipboard would require clipboard package
+                    // For now, just show the URL
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Failed to generate report'),
+                ],
+              ),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   Widget _buildMetric(String label, String value, IconData icon) {

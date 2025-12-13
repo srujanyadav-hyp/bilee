@@ -118,71 +118,30 @@ exports.finalizeSession = functions.https.onRequest(async (req, res) => {
 // ==================== GENERATE DAILY REPORT ====================
 /**
  * Generates daily summary report (PDF/CSV)
- * POST /generate_daily_report
- * Body: { merchant_id: string, date: string, format: 'PDF'|'CSV' }
+ * POST /generateDailyReport or called via httpsCallable
+ * Body: { merchantId: string, date: string, format: 'pdf'|'csv' }
  */
-exports.generateDailyReport = functions.https.onRequest(async (req, res) => {
+const { generateDailyReport: generateReport } = require('./src/reports');
+
+exports.generateDailyReport = functions.https.onCall(async (data, context) => {
   try {
-    const { merchant_id, date, format = 'PDF' } = req.body;
+    const { merchantId, date, format = 'pdf' } = data;
     
-    if (!merchant_id || !date) {
-      return res.status(400).json({ error: 'merchant_id and date are required' });
+    if (!merchantId || !date) {
+      throw new functions.https.HttpsError('invalid-argument', 'merchantId and date are required');
     }
 
-    // Fetch daily aggregate
-    const aggregateId = `${merchant_id}_${date}`;
-    const aggregateDoc = await admin.firestore()
-      .collection('daily_aggregates')
-      .doc(aggregateId)
-      .get();
-    
-    if (!aggregateDoc.exists) {
-      return res.status(404).json({ error: 'No data for this date' });
-    }
+    // Use the proper report generation function from reports.js
+    const downloadUrl = await generateReport(merchantId, date, format);
 
-    const aggregateData = aggregateDoc.data();
-    
-    // TODO: Generate actual PDF/CSV using pdfkit or csv-stringify
-    // For now, create a simple text representation
-    const reportContent = `
-Daily Summary Report
-Date: ${date}
-Merchant ID: ${merchant_id}
-
-Total Revenue: ₹${aggregateData.total.toFixed(2)}
-Orders: ${aggregateData.orders_count}
-Items Sold: ${aggregateData.items_sold.reduce((sum, item) => sum + item.qty, 0)}
-
-Items Breakdown:
-${aggregateData.items_sold.map(item => `- ${item.name}: ${item.qty}`).join('\n')}
-    `.trim();
-
-    // Upload to Cloud Storage
-    const [year, month, day] = date.split('-');
-    const storagePath = `reports/${merchant_id}/${year}/${month}/${day}/daily_summary.${format.toLowerCase()}`;
-    const bucket = admin.storage().bucket();
-    const file = bucket.file(storagePath);
-    
-    await file.save(reportContent, {
-      metadata: {
-        contentType: format === 'PDF' ? 'application/pdf' : 'text/csv',
-      },
-    });
-
-    // Generate signed URL (7-day expiry)
-    const [signedUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    res.json({
+    return {
       success: true,
-      report_url: signedUrl,
+      downloadUrl: downloadUrl,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    });
+    };
   } catch (error) {
     console.error('Error generating report:', error);
-    res.status(500).json({ error: error.message });
+    throw new functions.https.HttpsError('internal', error.message);
   }
 });
 
@@ -267,6 +226,113 @@ exports.simulatePayment = functions.https.onRequest(async (req, res) => {
     res.json({ success: true, message: 'Payment simulated' });
   } catch (error) {
     console.error('Error simulating payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== AUTO CLEANUP EXPIRED SESSIONS ====================
+/**
+ * Scheduled function to clean up expired sessions
+ * Runs every hour to delete sessions older than 24 hours
+ */
+exports.cleanupExpiredSessions = functions.pubsub
+  .schedule('every 1 hours')
+  .onRun(async (context) => {
+    const now = admin.firestore.Timestamp.now();
+    const twentyFourHoursAgo = new Date(now.toMillis() - (24 * 60 * 60 * 1000));
+    
+    console.log('Starting cleanup of expired sessions...');
+    
+    try {
+      // Find sessions older than 24 hours
+      const expiredSessionsSnapshot = await admin.firestore()
+        .collection('sessions')
+        .where('created_at', '<', admin.firestore.Timestamp.fromDate(twentyFourHoursAgo))
+        .get();
+      
+      console.log(`Found ${expiredSessionsSnapshot.size} expired sessions`);
+      
+      // Delete sessions in batches
+      const batch = admin.firestore().batch();
+      let deleteCount = 0;
+      
+      expiredSessionsSnapshot.forEach((doc) => {
+        const sessionData = doc.data();
+        
+        // Only delete if:
+        // 1. Session is expired OR
+        // 2. Session is completed OR
+        // 3. Session has a receipt (payment recorded)
+        const hasReceipt = sessionData.payment_status === 'PAID';
+        const isCompleted = sessionData.status === 'COMPLETED';
+        const isExpired = sessionData.status === 'EXPIRED' || 
+                         (sessionData.expires_at && sessionData.expires_at.toMillis() < now.toMillis());
+        
+        if (hasReceipt || isCompleted || isExpired) {
+          batch.delete(doc.ref);
+          deleteCount++;
+          console.log(`Marking session ${doc.id} for deletion`);
+        }
+      });
+      
+      if (deleteCount > 0) {
+        await batch.commit();
+        console.log(`Successfully deleted ${deleteCount} expired sessions`);
+      } else {
+        console.log('No sessions to delete');
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error cleaning up expired sessions:', error);
+      throw error;
+    }
+  });
+
+// ==================== MANUAL SESSION CLEANUP ====================
+/**
+ * HTTP function to manually trigger session cleanup
+ * Useful for testing or immediate cleanup
+ * POST /cleanup_sessions
+ */
+exports.cleanupSessions = functions.https.onRequest(async (req, res) => {
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const hoursAgo = req.body.hours || 24;
+    const cutoffTime = new Date(now.toMillis() - (hoursAgo * 60 * 60 * 1000));
+    
+    const expiredSessionsSnapshot = await admin.firestore()
+      .collection('sessions')
+      .where('created_at', '<', admin.firestore.Timestamp.fromDate(cutoffTime))
+      .get();
+    
+    const batch = admin.firestore().batch();
+    let deleteCount = 0;
+    
+    expiredSessionsSnapshot.forEach((doc) => {
+      const sessionData = doc.data();
+      const hasReceipt = sessionData.payment_status === 'PAID';
+      const isCompleted = sessionData.status === 'COMPLETED';
+      const isExpired = sessionData.status === 'EXPIRED' || 
+                       (sessionData.expires_at && sessionData.expires_at.toMillis() < now.toMillis());
+      
+      if (hasReceipt || isCompleted || isExpired) {
+        batch.delete(doc.ref);
+        deleteCount++;
+      }
+    });
+    
+    if (deleteCount > 0) {
+      await batch.commit();
+    }
+    
+    res.json({
+      success: true,
+      message: `Deleted ${deleteCount} expired sessions`,
+      cutoffTime: cutoffTime.toISOString(),
+    });
+  } catch (error) {
+    console.error('Error in manual cleanup:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../models/item_model.dart';
 import '../models/session_model.dart';
 import '../models/daily_aggregate_model.dart';
+import '../../domain/entities/merchant_entity.dart';
 
 /// Firestore Data Source - Handles all Firebase operations
 class MerchantFirestoreDataSource {
@@ -66,12 +67,41 @@ class MerchantFirestoreDataSource {
   /// Create a new billing session
   Future<SessionModel> createBillingSession(SessionModel session) async {
     try {
+      print('🔵 [DATASOURCE] Starting session creation...');
+      print('🔵 [DATASOURCE] Session data: ${session.toJson()}');
+
       final docRef = await _firestore
           .collection('billingSessions')
-          .add(session.toJson());
-      final doc = await docRef.get();
+          .add(session.toJson())
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception(
+                'Session creation timed out after 10 seconds. Check Firestore rules and network connection.',
+              );
+            },
+          );
+
+      print('🔵 [DATASOURCE] Session created with ID: ${docRef.id}');
+
+      final doc = await docRef.get().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          throw Exception(
+            'Failed to retrieve created session after 5 seconds.',
+          );
+        },
+      );
+
+      print('🔵 [DATASOURCE] Session retrieved successfully');
       return SessionModel.fromFirestore(doc);
     } catch (e) {
+      print('🔴 [DATASOURCE ERROR] Failed to create billing session: $e');
+      if (e.toString().contains('PERMISSION_DENIED')) {
+        throw Exception(
+          'Permission denied: Check Firestore security rules for billingSessions collection',
+        );
+      }
       throw Exception('Failed to create billing session: $e');
     }
   }
@@ -269,6 +299,61 @@ class MerchantFirestoreDataSource {
         return;
       }
       throw Exception('Failed to trigger daily aggregate update: $e');
+    }
+  }
+
+  // ==================== MERCHANT PROFILE OPERATIONS ====================
+
+  /// Get merchant profile
+  Future<MerchantEntity?> getMerchantProfile(String merchantId) async {
+    try {
+      final doc = await _firestore
+          .collection('merchants')
+          .doc(merchantId)
+          .get();
+
+      if (!doc.exists) return null;
+
+      final data = doc.data()!;
+      return MerchantEntity(
+        id: doc.id,
+        businessName: data['businessName'] ?? 'MY BUSINESS',
+        businessPhone: data['businessPhone'],
+        businessAddress: data['businessAddress'],
+        businessEmail: data['businessEmail'],
+        gstNumber: data['gstNumber'],
+        panNumber: data['panNumber'],
+        logoUrl: data['logoUrl'],
+        businessType: data['businessType'] ?? 'General',
+        isActive: data['isActive'] ?? true,
+        createdAt:
+            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        updatedAt:
+            (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+    } catch (e) {
+      throw Exception('Failed to get merchant profile: $e');
+    }
+  }
+
+  /// Create or update merchant profile
+  Future<void> saveMerchantProfile(MerchantEntity merchant) async {
+    try {
+      await _firestore.collection('merchants').doc(merchant.id).set({
+        'businessName': merchant.businessName,
+        'businessPhone': merchant.businessPhone,
+        'businessAddress': merchant.businessAddress,
+        'businessEmail': merchant.businessEmail,
+        'gstNumber': merchant.gstNumber,
+        'panNumber': merchant.panNumber,
+        'logoUrl': merchant.logoUrl,
+        'businessType': merchant.businessType,
+        'isActive': merchant.isActive,
+        'createdAt': Timestamp.fromDate(merchant.createdAt),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      throw Exception('Failed to save merchant profile: $e');
     }
   }
 }

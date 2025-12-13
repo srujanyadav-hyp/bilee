@@ -9,11 +9,14 @@ import '../../features/authentication/view/register_screen.dart';
 import '../../features/authentication/view/otp_screen.dart';
 import '../../features/authentication/view/forgot_password_screen.dart';
 import '../../features/merchant/presentation/pages/merchant_home_page.dart';
+import '../../features/merchant/presentation/pages/merchant_dashboard_page.dart';
 import '../../features/merchant/presentation/pages/start_billing_page.dart';
 import '../../features/merchant/presentation/pages/item_library_page.dart';
 import '../../features/merchant/presentation/pages/daily_summary_page.dart';
 import '../../features/merchant/presentation/pages/merchant_profile_page.dart';
 import '../../features/merchant/presentation/pages/live_session_page.dart';
+import '../../features/merchant/presentation/pages/staff_management_page.dart';
+import '../../features/merchant/presentation/pages/customer_ledger_page.dart';
 import '../../features/customer/dashboard/view/customer_dashboard.dart';
 
 /// App Router Configuration using GoRouter
@@ -86,6 +89,14 @@ class AppRouter {
         },
         routes: [
           GoRoute(
+            path: 'dashboard',
+            name: 'merchant-dashboard',
+            builder: (context, state) {
+              final merchantId = state.pathParameters['merchantId']!;
+              return MerchantDashboardPage(merchantId: merchantId);
+            },
+          ),
+          GoRoute(
             path: 'billing',
             name: 'start-billing',
             builder: (context, state) {
@@ -115,6 +126,22 @@ class AppRouter {
             builder: (context, state) {
               final merchantId = state.pathParameters['merchantId']!;
               return MerchantProfilePage(merchantId: merchantId);
+            },
+          ),
+          GoRoute(
+            path: 'staff',
+            name: 'staff-management',
+            builder: (context, state) {
+              final merchantId = state.pathParameters['merchantId']!;
+              return StaffManagementPage(merchantId: merchantId);
+            },
+          ),
+          GoRoute(
+            path: 'ledger',
+            name: 'customer-ledger',
+            builder: (context, state) {
+              final merchantId = state.pathParameters['merchantId']!;
+              return CustomerLedgerPage(merchantId: merchantId);
             },
           ),
           GoRoute(

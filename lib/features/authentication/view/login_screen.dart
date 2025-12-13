@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
@@ -66,330 +67,350 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.lightBackground,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 16,
-          left: AppDimensions.paddingLG,
-          right: AppDimensions.paddingLG,
-          bottom: AppDimensions.paddingLG,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Back Button
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
-                onPressed: () => Navigator.of(context).pop(),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Logo
-            Center(
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  shape: BoxShape.circle,
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/logos/logo_symbol_glow-removebg-preview.png',
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.contain,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        // Exit the app when back button is pressed
+        await SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightBackground,
+        body: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: AppDimensions.paddingLG,
+            right: AppDimensions.paddingLG,
+            bottom: AppDimensions.paddingLG,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Back Button
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.arrow_back,
+                    color: AppColors.lightTextPrimary,
                   ),
+                  onPressed: () async {
+                    // Exit the app when back button is tapped
+                    await SystemChannels.platform.invokeMethod(
+                      'SystemNavigator.pop',
+                    );
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ),
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Title
-            Text(
-              'Welcome Back',
-              style: AppTypography.h1.copyWith(
-                color: AppColors.lightTextPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppDimensions.spacingSM),
-            // Role Badge
-            if (_userRole != null)
+              SizedBox(height: AppDimensions.spacingLG),
+              // Logo
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                    gradient: AppColors.primaryGradient,
+                    shape: BoxShape.circle,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _userRole == 'merchant'
-                            ? Icons.store
-                            : Icons.shopping_bag_outlined,
-                        size: 16,
-                        color: AppColors.primaryBlue,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _userRole == 'merchant' ? 'Merchant' : 'Customer',
-                        style: AppTypography.body2.copyWith(
-                          color: AppColors.primaryBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            SizedBox(height: AppDimensions.spacingXL),
-            // Creative Sliding Indicator Tab Selector
-            Stack(
-              children: [
-                // Background Line
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: AppColors.lightBorder.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(2),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/logos/logo_symbol_glow-removebg-preview.png',
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
-                // Animated Sliding Indicator
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeInOutCubic,
-                  bottom: 0,
-                  left: _tabController.index == 0
-                      ? 0
-                      : MediaQuery.of(context).size.width / 2 -
-                            AppDimensions.paddingLG,
-                  width:
-                      MediaQuery.of(context).size.width / 2 -
-                      AppDimensions.paddingLG,
+              ),
+              SizedBox(height: AppDimensions.spacingLG),
+              // Title
+              Text(
+                'Welcome Back',
+                style: AppTypography.h1.copyWith(
+                  color: AppColors.lightTextPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppDimensions.spacingSM),
+              // Role Badge
+              if (_userRole != null)
+                Center(
                   child: Container(
-                    height: 3,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primaryBlue.withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                      color: AppColors.primaryBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusMD,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _userRole == 'merchant'
+                              ? Icons.store
+                              : Icons.shopping_bag_outlined,
+                          size: 16,
+                          color: AppColors.primaryBlue,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _userRole == 'merchant' ? 'Merchant' : 'Customer',
+                          style: AppTypography.body2.copyWith(
+                            color: AppColors.primaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                // Tab Buttons
-                Container(
-                  height: 64,
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      // Email Tab
-                      Expanded(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => _tabController.animateTo(0),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 350),
-                                  curve: Curves.easeInOutCubic,
-                                  padding: EdgeInsets.all(
-                                    _tabController.index == 0 ? 12 : 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: _tabController.index == 0
-                                        ? AppColors.primaryGradient
-                                        : null,
-                                    color: _tabController.index == 0
-                                        ? null
-                                        : AppColors.lightSurface,
-                                    shape: BoxShape.circle,
-                                    boxShadow: _tabController.index == 0
-                                        ? [
-                                            BoxShadow(
-                                              color: AppColors.primaryBlue
-                                                  .withOpacity(0.3),
-                                              blurRadius: 12,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
-                                        : [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.05,
+              SizedBox(height: AppDimensions.spacingXL),
+              // Creative Sliding Indicator Tab Selector
+              Stack(
+                children: [
+                  // Background Line
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: AppColors.lightBorder.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Animated Sliding Indicator
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeInOutCubic,
+                    bottom: 0,
+                    left: _tabController.index == 0
+                        ? 0
+                        : MediaQuery.of(context).size.width / 2 -
+                              AppDimensions.paddingLG,
+                    width:
+                        MediaQuery.of(context).size.width / 2 -
+                        AppDimensions.paddingLG,
+                    child: Container(
+                      height: 3,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryBlue.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Tab Buttons
+                  Container(
+                    height: 64,
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        // Email Tab
+                        Expanded(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _tabController.animateTo(0),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 350),
+                                    curve: Curves.easeInOutCubic,
+                                    padding: EdgeInsets.all(
+                                      _tabController.index == 0 ? 12 : 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: _tabController.index == 0
+                                          ? AppColors.primaryGradient
+                                          : null,
+                                      color: _tabController.index == 0
+                                          ? null
+                                          : AppColors.lightSurface,
+                                      shape: BoxShape.circle,
+                                      boxShadow: _tabController.index == 0
+                                          ? [
+                                              BoxShadow(
+                                                color: AppColors.primaryBlue
+                                                    .withOpacity(0.3),
+                                                blurRadius: 12,
+                                                spreadRadius: 2,
                                               ),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.05,
+                                                ),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                    ),
+                                    child: Icon(
+                                      Icons.email_rounded,
+                                      size: _tabController.index == 0 ? 28 : 24,
+                                      color: _tabController.index == 0
+                                          ? Colors.white
+                                          : AppColors.lightTextSecondary,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.email_rounded,
-                                    size: _tabController.index == 0 ? 28 : 24,
-                                    color: _tabController.index == 0
-                                        ? Colors.white
-                                        : AppColors.lightTextSecondary,
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      // Phone Tab
-                      Expanded(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => _tabController.animateTo(1),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 350),
-                                  curve: Curves.easeInOutCubic,
-                                  padding: EdgeInsets.all(
-                                    _tabController.index == 1 ? 12 : 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: _tabController.index == 1
-                                        ? AppColors.primaryGradient
-                                        : null,
-                                    color: _tabController.index == 1
-                                        ? null
-                                        : AppColors.lightSurface,
-                                    shape: BoxShape.circle,
-                                    boxShadow: _tabController.index == 1
-                                        ? [
-                                            BoxShadow(
-                                              color: AppColors.primaryBlue
-                                                  .withOpacity(0.3),
-                                              blurRadius: 12,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
-                                        : [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.05,
+                        // Phone Tab
+                        Expanded(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _tabController.animateTo(1),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 350),
+                                    curve: Curves.easeInOutCubic,
+                                    padding: EdgeInsets.all(
+                                      _tabController.index == 1 ? 12 : 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: _tabController.index == 1
+                                          ? AppColors.primaryGradient
+                                          : null,
+                                      color: _tabController.index == 1
+                                          ? null
+                                          : AppColors.lightSurface,
+                                      shape: BoxShape.circle,
+                                      boxShadow: _tabController.index == 1
+                                          ? [
+                                              BoxShadow(
+                                                color: AppColors.primaryBlue
+                                                    .withOpacity(0.3),
+                                                blurRadius: 12,
+                                                spreadRadius: 2,
                                               ),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.05,
+                                                ),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                    ),
+                                    child: Icon(
+                                      Icons.phone_rounded,
+                                      size: _tabController.index == 1 ? 28 : 24,
+                                      color: _tabController.index == 1
+                                          ? Colors.white
+                                          : AppColors.lightTextSecondary,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.phone_rounded,
-                                    size: _tabController.index == 1 ? 28 : 24,
-                                    color: _tabController.index == 1
-                                        ? Colors.white
-                                        : AppColors.lightTextSecondary,
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Google Sign-In Button
-            SizedBox(
-              height: 56,
-              child: OutlinedButton.icon(
-                onPressed: _isLoading ? null : _signInWithGoogle,
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.primaryBlue, width: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-                  ),
-                ),
-                icon: Image.asset(
-                  'assets/logos/google_logo.png',
-                  width: 24,
-                  height: 24,
-                ),
-                label: Text(
-                  'Sign in with Google',
-                  style: AppTypography.button.copyWith(
-                    color: AppColors.primaryBlue,
-                  ),
-                ),
+                ],
               ),
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Divider
-            Row(
-              children: [
-                Expanded(child: Divider(color: AppColors.lightBorder)),
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppDimensions.spacingMD,
+              SizedBox(height: AppDimensions.spacingLG),
+              // Google Sign-In Button
+              SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _signInWithGoogle,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.primaryBlue, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusMD,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    'OR',
-                    style: AppTypography.body2.copyWith(
-                      color: AppColors.lightTextSecondary,
+                  icon: Image.asset(
+                    'assets/logos/google_logo.png',
+                    width: 24,
+                    height: 24,
+                  ),
+                  label: Text(
+                    'Sign in with Google',
+                    style: AppTypography.button.copyWith(
+                      color: AppColors.primaryBlue,
                     ),
                   ),
                 ),
-                Expanded(child: Divider(color: AppColors.lightBorder)),
-              ],
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Tab Views
-            SizedBox(
-              height: 300,
-              child: TabBarView(
-                controller: _tabController,
-                children: [_buildEmailForm(), _buildPhoneForm()],
               ),
-            ),
-            SizedBox(height: AppDimensions.spacingMD),
-            // Sign Up Link
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  context.go('/register');
-                },
-                child: Text(
-                  'Don\'t have an account? Create account',
-                  style: AppTypography.body2.copyWith(
-                    color: AppColors.primaryBlue,
+              SizedBox(height: AppDimensions.spacingLG),
+              // Divider
+              Row(
+                children: [
+                  Expanded(child: Divider(color: AppColors.lightBorder)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppDimensions.spacingMD,
+                    ),
+                    child: Text(
+                      'OR',
+                      style: AppTypography.body2.copyWith(
+                        color: AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: AppColors.lightBorder)),
+                ],
+              ),
+              SizedBox(height: AppDimensions.spacingLG),
+              // Tab Views
+              SizedBox(
+                height: 300,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [_buildEmailForm(), _buildPhoneForm()],
+                ),
+              ),
+              SizedBox(height: AppDimensions.spacingMD),
+              // Sign Up Link
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    context.go('/register');
+                  },
+                  child: Text(
+                    'Don\'t have an account? Create account',
+                    style: AppTypography.body2.copyWith(
+                      color: AppColors.primaryBlue,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+      ), // Close PopScope child
     );
   }
 

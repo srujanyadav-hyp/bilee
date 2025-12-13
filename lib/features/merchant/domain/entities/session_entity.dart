@@ -6,6 +6,7 @@ class SessionItemEntity {
   final int qty;
   final double taxRate;
   final double tax;
+  final double discount; // Item-level discount amount
   final double total;
 
   const SessionItemEntity({
@@ -15,8 +16,12 @@ class SessionItemEntity {
     required this.qty,
     required this.taxRate,
     required this.tax,
+    this.discount = 0,
     required this.total,
   });
+
+  double get subtotal => price * qty;
+  double get subtotalAfterDiscount => subtotal - discount;
 }
 
 /// Domain Entity - Billing Session

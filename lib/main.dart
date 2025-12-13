@@ -7,9 +7,15 @@ import 'firebase_options.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/di/dependency_injection.dart';
 import 'core/router/app_router.dart';
+import 'core/services/connectivity_service.dart';
+import 'core/services/sync_service.dart';
+import 'core/services/local_database_service.dart';
 import 'features/merchant/presentation/providers/daily_aggregate_provider.dart';
 import 'features/merchant/presentation/providers/item_provider.dart';
 import 'features/merchant/presentation/providers/session_provider.dart';
+import 'features/merchant/presentation/providers/merchant_provider.dart';
+import 'features/merchant/presentation/providers/staff_provider.dart';
+import 'features/merchant/presentation/providers/customer_ledger_provider.dart';
 
 final getIt = GetIt.instance;
 
@@ -24,8 +30,11 @@ void main() async {
     // Use default Firestore database
     FirebaseFirestore.instance;
 
-    // Setup dependency injection
+    // Setup dependency injection (must be done before creating providers)
     setupDependencyInjection();
+
+    // Initialize local database for offline mode
+    await LocalDatabaseService().database;
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
   }
@@ -41,9 +50,18 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => StaffProvider()),
+        ChangeNotifierProvider(create: (_) => ConnectivityService()),
+        ChangeNotifierProxyProvider<ConnectivityService, SyncService>(
+          create: (context) => SyncService(context.read<ConnectivityService>()),
+          update: (context, connectivity, previous) =>
+              previous ?? SyncService(connectivity),
+        ),
         ChangeNotifierProvider(create: (_) => getIt<DailyAggregateProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<ItemProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<SessionProvider>()),
+        ChangeNotifierProvider(create: (_) => getIt<MerchantProvider>()),
+        ChangeNotifierProvider(create: (_) => CustomerLedgerProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

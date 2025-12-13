@@ -1,10 +1,15 @@
 import '../entities/item_entity.dart';
 import '../entities/session_entity.dart';
 import '../entities/daily_aggregate_entity.dart';
+import '../entities/merchant_entity.dart';
 
 /// Repository Interface (Contract) - Domain Layer
 /// Defines what operations are available, not how they work
 abstract class IMerchantRepository {
+  // Merchant profile operations
+  Future<MerchantEntity?> getMerchantProfile(String merchantId);
+  Future<void> saveMerchantProfile(MerchantEntity merchant);
+
   // Item operations
   Stream<List<ItemEntity>> getItemsStream(String merchantId);
   Future<void> createItem(ItemEntity item);

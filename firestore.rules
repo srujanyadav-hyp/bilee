@@ -218,6 +218,40 @@ service cloud.firestore {
       allow delete: if false;
     }
     
+    // ==================== RECEIPTS (PERMANENT RECORDS) ====================
+    
+    match /receipts/{receiptId} {
+      // Merchants can read their own receipts
+      // Customers can read receipts if they have customerId
+      allow read: if isSignedIn() && (
+                     isMerchant(resource.data.merchantId) ||
+                     (resource.data.customerId != null && 
+                      request.auth.uid == resource.data.customerId)
+                  );
+      
+      // Only merchants can create receipts
+      allow create: if isSignedIn() && 
+                       isMerchant(request.resource.data.merchantId);
+      
+      // Receipts can be updated to add access logs
+      allow update: if isSignedIn() && (
+                       isMerchant(resource.data.merchantId) ||
+                       (resource.data.customerId != null && 
+                        request.auth.uid == resource.data.customerId)
+                    );
+      
+      // Receipts can never be deleted (permanent records)
+      allow delete: if false;
+    }
+    
+    // ==================== USER PREFERENCES ====================
+    
+    match /userPreferences/{merchantId} {
+      // Merchants can read/write their own preferences
+      allow read, write: if isSignedIn() && 
+                            isMerchant(merchantId);
+    }
+    
     // ==================== DENY ALL OTHER COLLECTIONS ====================
     
     match /{document=**} {

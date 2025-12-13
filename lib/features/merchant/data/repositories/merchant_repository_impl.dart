@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/item_entity.dart';
 import '../../domain/entities/session_entity.dart';
 import '../../domain/entities/daily_aggregate_entity.dart';
+import '../../domain/entities/merchant_entity.dart';
 import '../../domain/repositories/i_merchant_repository.dart';
 import '../datasources/merchant_firestore_datasource.dart';
 import '../mappers/entity_model_mapper.dart';
@@ -15,6 +16,26 @@ class MerchantRepositoryImpl implements IMerchantRepository {
 
   MerchantRepositoryImpl(this._dataSource);
 
+  // ==================== MERCHANT PROFILE OPERATIONS ====================
+
+  @override
+  Future<MerchantEntity?> getMerchantProfile(String merchantId) async {
+    try {
+      return await _dataSource.getMerchantProfile(merchantId);
+    } catch (e) {
+      throw Exception('Repository: Failed to get merchant profile - $e');
+    }
+  }
+
+  @override
+  Future<void> saveMerchantProfile(MerchantEntity merchant) async {
+    try {
+      await _dataSource.saveMerchantProfile(merchant);
+    } catch (e) {
+      throw Exception('Repository: Failed to save merchant profile - $e');
+    }
+  }
+
   // ==================== ITEM OPERATIONS ====================
 
   @override
@@ -23,13 +44,17 @@ class MerchantRepositoryImpl implements IMerchantRepository {
       return _dataSource.firestore
           .collection('items')
           .where('merchantId', isEqualTo: merchantId)
-          .orderBy('name')
+          // Removed orderBy to avoid composite index requirement
+          // Client-side sorting is applied in the provider
           .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
+          .map((snapshot) {
+            final items = snapshot.docs
                 .map((doc) => ItemModel.fromFirestore(doc).toEntity())
-                .toList(),
-          );
+                .toList();
+            // Sort by name on client side
+            items.sort((a, b) => a.name.compareTo(b.name));
+            return items;
+          });
     } catch (e) {
       throw Exception('Repository: Failed to get items stream - $e');
     }
@@ -107,6 +132,7 @@ class MerchantRepositoryImpl implements IMerchantRepository {
   @override
   Future<String> createSession(SessionEntity session) async {
     try {
+      print('🟡 [REPOSITORY] Creating session model...');
       final model = SessionModel(
         sessionId: '', // Firestore will generate ID
         merchantId: session.merchantId,
@@ -121,12 +147,22 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         connectedCustomers: session.connectedCustomers,
         createdAt: Timestamp.now(),
         expiresAt: Timestamp.fromDate(session.expiresAt),
-        completedAt: null,
+        completedAt: session.completedAt != null
+            ? Timestamp.fromDate(session.completedAt!)
+            : null,
       );
 
+      print('🟡 [REPOSITORY] Model created, calling datasource...');
+      print('🟡 [REPOSITORY] Items count: ${model.items.length}');
+      print('🟡 [REPOSITORY] Total: ${model.total}');
+
       final createdModel = await _dataSource.createBillingSession(model);
+      print(
+        '🟡 [REPOSITORY] Session created with ID: ${createdModel.sessionId}',
+      );
       return createdModel.sessionId;
     } catch (e) {
+      print('🔴 [REPOSITORY ERROR] Failed to create session: $e');
       throw Exception('Repository: Failed to create session - $e');
     }
   }

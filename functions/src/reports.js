@@ -1,6 +1,4 @@
 const admin = require('firebase-admin');
-const puppeteer = require('puppeteer');
-const handlebars = require('handlebars');
 const { Parser } = require('json2csv');
 
 const db = admin.firestore();
@@ -10,19 +8,18 @@ const bucket = admin.storage().bucket();
  * Generate daily report in PDF or CSV format
  */
 async function generateDailyReport(merchantId, date, format) {
-  // Fetch daily aggregate from Firestore
-  const aggregateQuery = await db
+  // Fetch daily aggregate from Firestore using composite ID
+  const aggregateId = `${merchantId}_${date}`;
+  const aggregateDoc = await db
     .collection('dailyAggregates')
-    .where('merchantId', '==', merchantId)
-    .where('date', '==', date)
-    .limit(1)
+    .doc(aggregateId)
     .get();
 
-  if (aggregateQuery.empty) {
+  if (!aggregateDoc.exists) {
     throw new Error(`No data found for merchant ${merchantId} on ${date}`);
   }
 
-  const aggregateData = aggregateQuery.docs[0].data();
+  const aggregateData = aggregateDoc.data();
 
   if (format.toLowerCase() === 'pdf') {
     return await generatePDFReport(merchantId, date, aggregateData);
@@ -36,8 +33,10 @@ async function generateDailyReport(merchantId, date, format) {
  */
 async function generatePDFReport(merchantId, date, data) {
   const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
   });
 
   try {
@@ -119,12 +118,12 @@ async function generatePDFReport(merchantId, date, data) {
     const html = compiledTemplate({
       date: date,
       generatedDate: new Date().toLocaleString('en-IN'),
-      total: data.total.toFixed(2),
-      ordersCount: data.ordersCount,
-      items: data.itemsSold.map(item => ({
+      total: (data.total || 0).toFixed(2),
+      ordersCount: data.ordersCount || 0,
+      items: (data.items || []).map(item => ({
         name: item.name,
-        qty: item.qty,
-        revenue: item.revenue.toFixed(2),
+        qty: item.quantity || item.qty,
+        revenue: (item.revenue || 0).toFixed(2),
       })),
     });
 
@@ -167,10 +166,11 @@ async function generatePDFReport(merchantId, date, data) {
  */
 async function generateCSVReport(merchantId, date, data) {
   // Prepare data for CSV
-  const csvData = data.itemsSold.map(item => ({
+  const items = data.items || [];
+  const csvData = items.map(item => ({
     'Item Name': item.name,
-    'Quantity Sold': item.qty,
-    'Revenue (₹)': item.revenue.toFixed(2),
+    'Quantity Sold': item.quantity || item.qty || 0,
+    'Revenue (₹)': (item.revenue || 0).toFixed(2),
   }));
 
   // Add summary row
@@ -181,13 +181,13 @@ async function generateCSVReport(merchantId, date, data) {
   });
   csvData.push({
     'Item Name': 'Total Orders',
-    'Quantity Sold': data.ordersCount,
+    'Quantity Sold': data.ordersCount || 0,
     'Revenue (₹)': '',
   });
   csvData.push({
     'Item Name': 'Total Revenue',
     'Quantity Sold': '',
-    'Revenue (₹)': data.total.toFixed(2),
+    'Revenue (₹)': (data.total || 0).toFixed(2),
   });
 
   const parser = new Parser();
@@ -208,12 +208,15 @@ async function generateCSVReport(merchantId, date, data) {
     },
   });
 
+  console.log('[REPORT] CSV file uploaded, generating signed URL');
+
   // Make file publicly accessible for limited time (1 hour)
   const [url] = await file.getSignedUrl({
     action: 'read',
     expires: Date.now() + 60 * 60 * 1000, // 1 hour
   });
 
+  console.log(`[REPORT] CSV URL generated: ${url}`);
   return url;
 }
 

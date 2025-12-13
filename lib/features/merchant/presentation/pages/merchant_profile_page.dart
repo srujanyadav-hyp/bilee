@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/models/user_model.dart';
+import '../../domain/entities/merchant_entity.dart';
+import '../providers/merchant_provider.dart';
 
 /// Merchant Profile Page
 /// Shows merchant information, settings, and account management
@@ -20,79 +24,126 @@ class MerchantProfilePage extends StatefulWidget {
 class _MerchantProfilePageState extends State<MerchantProfilePage> {
   final AuthService _authService = AuthService();
   UserModel? _userData;
-  bool _isLoading = true;
+  bool _loadingUserData = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<MerchantProvider>().loadProfile(widget.merchantId);
+      _loadUserData();
+    });
   }
 
   Future<void> _loadUserData() async {
-    setState(() => _isLoading = true);
     try {
-      final data = await _authService.getUserData(widget.merchantId);
-      if (mounted) {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.merchantId)
+          .get();
+      if (doc.exists) {
         setState(() {
-          _userData = data;
-          _isLoading = false;
+          _userData = UserModel.fromFirestore(doc.data()!);
+          _loadingUserData = false;
         });
+
+        // Create merchant profile if it doesn't exist
+        final provider = context.read<MerchantProvider>();
+        if (provider.profile == null && !provider.isLoading) {
+          await _createDefaultProfile(_userData!);
+        }
+      } else {
+        setState(() => _loadingUserData = false);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        _showError('Failed to load profile: $e');
-      }
+      setState(() => _loadingUserData = false);
+    }
+  }
+
+  Future<void> _createDefaultProfile(UserModel userData) async {
+    try {
+      final defaultProfile = MerchantEntity(
+        id: widget.merchantId,
+        businessName: userData.displayName,
+        businessEmail: userData.email,
+        businessPhone: userData.phone,
+        businessAddress: null,
+        gstNumber: null,
+        panNumber: null,
+        logoUrl: null,
+        businessType: userData.category ?? 'General',
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await context.read<MerchantProvider>().createProfile(defaultProfile);
+    } catch (e) {
+      debugPrint('Error creating default profile: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.lightBackground,
-      appBar: AppBar(
-        title: const Text('Profile'),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _isLoading ? null : _editProfile,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _userData == null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text('Failed to load profile'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadUserData,
-                    child: const Text('Retry'),
-                  ),
-                ],
+    return Consumer<MerchantProvider>(
+      builder: (context, provider, _) {
+        return Scaffold(
+          backgroundColor: AppColors.lightBackground,
+          appBar: AppBar(
+            title: const Text('Profile'),
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: AppColors.primaryGradient,
               ),
-            )
-          : _buildProfileContent(),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: provider.isLoading ? null : _editProfile,
+              ),
+            ],
+          ),
+          body: provider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : provider.profile == null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        provider.error ?? 'Failed to load profile',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () =>
+                            provider.loadProfile(widget.merchantId),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : _buildProfileContent(provider.profile!),
+        );
+      },
     );
   }
 
-  Widget _buildProfileContent() {
+  Widget _buildProfileContent(profile) {
     return SingleChildScrollView(
       child: Column(
         children: [
-          _buildProfileHeader(),
+          _buildProfileHeader(profile),
           const SizedBox(height: AppDimensions.spacingLG),
-          _buildInfoSection(),
+          _buildInfoSection(profile),
           const SizedBox(height: AppDimensions.spacingLG),
-          _buildKYCSection(),
+          if (!_loadingUserData) _buildKYCSection(profile),
           const SizedBox(height: AppDimensions.spacingLG),
           _buildSettingsSection(),
           const SizedBox(height: AppDimensions.spacingLG),
@@ -103,7 +154,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(profile) {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
@@ -113,19 +164,24 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
           CircleAvatar(
             radius: 50,
             backgroundColor: Colors.white,
-            child: Text(
-              _userData!.displayName.isNotEmpty
-                  ? _userData!.displayName[0].toUpperCase()
-                  : 'M',
-              style: AppTypography.h1.copyWith(
-                color: AppColors.primaryBlue,
-                fontSize: 40,
-              ),
-            ),
+            backgroundImage: profile.logoUrl != null
+                ? NetworkImage(profile.logoUrl!)
+                : null,
+            child: profile.logoUrl == null
+                ? Text(
+                    profile.businessName.isNotEmpty
+                        ? profile.businessName[0].toUpperCase()
+                        : 'M',
+                    style: AppTypography.h1.copyWith(
+                      color: AppColors.primaryBlue,
+                      fontSize: 40,
+                    ),
+                  )
+                : null,
           ),
           const SizedBox(height: AppDimensions.spacingMD),
           Text(
-            _userData!.displayName,
+            profile.businessName,
             style: AppTypography.h2.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -153,7 +209,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
     );
   }
 
-  Widget _buildInfoSection() {
+  Widget _buildInfoSection(profile) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingMD),
       child: Padding(
@@ -162,34 +218,40 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Personal Information',
+              'Business Information',
               style: AppTypography.h3.copyWith(fontWeight: FontWeight.bold),
             ),
             const Divider(height: AppDimensions.spacingLG),
             _buildInfoRow(
               icon: Icons.email_outlined,
               label: 'Email',
-              value: _userData!.email ?? 'Not provided',
+              value: profile.businessEmail ?? 'Not provided',
             ),
             const SizedBox(height: AppDimensions.spacingMD),
             _buildInfoRow(
               icon: Icons.phone_outlined,
               label: 'Phone',
-              value: _userData!.phone ?? 'Not provided',
+              value: profile.businessPhone ?? 'Not provided',
             ),
-            if (_userData!.category != null) ...[
+            const SizedBox(height: AppDimensions.spacingMD),
+            _buildInfoRow(
+              icon: Icons.location_on_outlined,
+              label: 'Address',
+              value: profile.businessAddress ?? 'Not provided',
+            ),
+            if (profile.businessType.isNotEmpty) ...[
               const SizedBox(height: AppDimensions.spacingMD),
               _buildInfoRow(
                 icon: Icons.category_outlined,
-                label: 'Business Category',
-                value: _userData!.category!,
+                label: 'Business Type',
+                value: profile.businessType,
               ),
             ],
             const SizedBox(height: AppDimensions.spacingMD),
             _buildInfoRow(
               icon: Icons.calendar_today_outlined,
-              label: 'Member Since',
-              value: _formatDate(_userData!.createdAt),
+              label: 'Registered Since',
+              value: _formatDate(profile.createdAt),
             ),
           ],
         ),
@@ -225,8 +287,10 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
     );
   }
 
-  Widget _buildKYCSection() {
-    final isVerified = _userData!.kycStatus == 'VERIFIED';
+  Widget _buildKYCSection(profile) {
+    final isActive = profile.isActive;
+    final kycStatus = _userData?.kycStatus ?? 'PENDING';
+    final isVerified = kycStatus == 'VERIFIED';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingMD),
@@ -238,10 +302,29 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
             Row(
               children: [
                 Text(
-                  'KYC Status',
+                  'Account & KYC Status',
                   style: AppTypography.h3.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const Spacer(),
+              ],
+            ),
+            const Divider(height: AppDimensions.spacingLG),
+            // Account Status
+            _buildInfoRow(
+              icon: Icons.account_circle,
+              label: 'Account Status',
+              value: isActive ? 'Active' : 'Inactive',
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            // KYC Status
+            Row(
+              children: [
+                Text(
+                  'KYC Status',
+                  style: AppTypography.body1.copyWith(
+                    color: AppColors.lightTextSecondary,
+                  ),
+                ),
+                const SizedBox(width: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -265,7 +348,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _userData!.kycStatus,
+                        kycStatus,
                         style: AppTypography.caption.copyWith(
                           color: isVerified
                               ? AppColors.success
@@ -278,12 +361,50 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                 ),
               ],
             ),
+            const SizedBox(height: AppDimensions.spacingLG),
             const Divider(height: AppDimensions.spacingLG),
+            Text(
+              'Tax Information',
+              style: AppTypography.h3.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            _buildInfoRow(
+              icon: Icons.receipt_long,
+              label: 'GST Number',
+              value: profile.gstNumber ?? 'Not provided',
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            _buildInfoRow(
+              icon: Icons.credit_card,
+              label: 'PAN Number',
+              value: profile.panNumber ?? 'Not provided',
+            ),
+            const SizedBox(height: AppDimensions.spacingLG),
             if (!isVerified) ...[
-              Text(
-                'Complete your KYC verification to unlock all features and increase transaction limits.',
-                style: AppTypography.body2.copyWith(
-                  color: AppColors.lightTextSecondary,
+              Container(
+                padding: const EdgeInsets.all(AppDimensions.paddingMD),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColors.warning,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Complete your KYC verification to unlock all features and increase transaction limits.',
+                        style: AppTypography.body2.copyWith(
+                          color: AppColors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppDimensions.spacingMD),
@@ -300,25 +421,42 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                 ),
               ),
             ] else ...[
-              Row(
-                children: [
-                  Icon(Icons.check_circle, color: AppColors.success, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Your account is verified. You have access to all features.',
-                      style: AppTypography.body2.copyWith(
-                        color: AppColors.success,
+              Container(
+                padding: const EdgeInsets.all(AppDimensions.paddingMD),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: AppColors.success,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Your KYC is verified. You have access to all features.',
+                        style: AppTypography.body2.copyWith(
+                          color: AppColors.success,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  void _startKYC() {
+    // TODO: Navigate to KYC verification flow
+    _showComingSoon();
   }
 
   Widget _buildSettingsSection() {
@@ -461,11 +599,6 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
     _showComingSoon();
   }
 
-  void _startKYC() {
-    // TODO: Navigate to KYC verification flow
-    _showComingSoon();
-  }
-
   void _showComingSoon() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -535,15 +668,5 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
       // TODO: Implement account deletion
       _showComingSoon();
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 }

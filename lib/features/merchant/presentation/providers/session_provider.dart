@@ -1,7 +1,12 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/session_entity.dart';
 import '../../domain/entities/item_entity.dart';
+import '../../domain/entities/receipt_entity.dart';
+import '../../domain/entities/payment_entity.dart';
 import '../../domain/usecases/session_usecases.dart';
+import '../../domain/usecases/receipt_usecases.dart';
+import '../../domain/usecases/merchant_usecases.dart';
 
 /// Session Provider - State management for billing sessions
 class SessionProvider with ChangeNotifier {
@@ -9,16 +14,26 @@ class SessionProvider with ChangeNotifier {
   final GetLiveSession _getLiveSession;
   final MarkSessionPaid _markSessionPaid;
   final FinalizeSession _finalizeSession;
+  final CreateReceipt _createReceipt;
+  // ignore: unused_field
+  final LogReceiptAccess _logReceiptAccess;
+  final GetMerchantProfile _getMerchantProfile;
 
   SessionProvider({
     required CreateBillingSession createBillingSession,
     required GetLiveSession getLiveSession,
     required MarkSessionPaid markSessionPaid,
     required FinalizeSession finalizeSession,
+    required CreateReceipt createReceipt,
+    required LogReceiptAccess logReceiptAccess,
+    required GetMerchantProfile getMerchantProfile,
   }) : _createBillingSession = createBillingSession,
        _getLiveSession = getLiveSession,
        _markSessionPaid = markSessionPaid,
-       _finalizeSession = finalizeSession;
+       _finalizeSession = finalizeSession,
+       _createReceipt = createReceipt,
+       _logReceiptAccess = logReceiptAccess,
+       _getMerchantProfile = getMerchantProfile;
 
   SessionEntity? _currentSession;
   bool _isLoading = false;
@@ -26,6 +41,13 @@ class SessionProvider with ChangeNotifier {
 
   // Cart items for building a session
   final Map<String, SessionItemEntity> _cartItems = {};
+
+  // Bill parking - Multiple parked carts
+  final Map<String, Map<String, SessionItemEntity>> _parkedCarts = {};
+  String? _activeCartId;
+
+  // Stream subscription for proper disposal
+  StreamSubscription<SessionEntity?>? _sessionSubscription;
 
   SessionEntity? get currentSession => _currentSession;
   bool get isLoading => _isLoading;
@@ -35,20 +57,49 @@ class SessionProvider with ChangeNotifier {
   List<SessionItemEntity> get cartItems => _cartItems.values.toList();
   int get cartItemCount =>
       _cartItems.values.fold(0, (sum, item) => sum + item.qty);
-  double get cartSubtotal =>
-      _cartItems.values.fold(0.0, (sum, item) => sum + (item.price * item.qty));
+  double get cartSubtotal => _cartItems.values.fold(
+    0.0,
+    (sum, item) => sum + item.subtotalAfterDiscount,
+  );
   double get cartTax =>
       _cartItems.values.fold(0.0, (sum, item) => sum + item.tax);
   double get cartTotal => cartSubtotal + cartTax;
+  double get cartTotalDiscount =>
+      _cartItems.values.fold(0.0, (sum, item) => sum + item.discount);
+
+  // Bill parking getters
+  Map<String, Map<String, SessionItemEntity>> get parkedCarts => _parkedCarts;
+  int get parkedCartsCount => _parkedCarts.length;
+  String? get activeCartId => _activeCartId;
 
   /// Watch live session updates
   void watchSession(String sessionId) {
+    // Cancel any existing subscription
+    _sessionSubscription?.cancel();
+
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    _getLiveSession(sessionId).listen(
+    _sessionSubscription = _getLiveSession(sessionId).listen(
       (session) {
+        // Validate session exists and is not expired
+        if (session == null) {
+          _error = 'Session not found';
+          _currentSession = null;
+          _isLoading = false;
+          notifyListeners();
+          return;
+        }
+
+        if (session.isExpired) {
+          _error = 'Session has expired';
+          _currentSession = null;
+          _isLoading = false;
+          notifyListeners();
+          return;
+        }
+
         _currentSession = session;
         _isLoading = false;
         notifyListeners();
@@ -59,6 +110,12 @@ class SessionProvider with ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  /// Stop watching session
+  void stopWatchingSession() {
+    _sessionSubscription?.cancel();
+    _sessionSubscription = null;
   }
 
   /// Add item to cart
@@ -137,22 +194,111 @@ class SessionProvider with ChangeNotifier {
   /// Clear cart
   void clearCart() {
     _cartItems.clear();
+    _activeCartId = null;
     notifyListeners();
   }
 
-  /// Create a billing session from cart
-  Future<String?> createSession(String merchantId) async {
+  // ==================== BILL PARKING OPERATIONS ====================
+
+  /// Park current cart and start a new one
+  String parkCurrentCart({String? cartName}) {
+    if (_cartItems.isEmpty) return '';
+
+    final cartId = 'cart_${DateTime.now().millisecondsSinceEpoch}';
+    _parkedCarts[cartId] = Map.from(_cartItems);
+    _cartItems.clear();
+    _activeCartId = null;
+    notifyListeners();
+    return cartId;
+  }
+
+  /// Switch to a parked cart
+  void switchToParkedCart(String cartId) {
+    if (!_parkedCarts.containsKey(cartId)) return;
+
+    // Save current cart if not empty
+    if (_cartItems.isNotEmpty && _activeCartId != null) {
+      _parkedCarts[_activeCartId!] = Map.from(_cartItems);
+    }
+
+    // Load parked cart
+    _cartItems.clear();
+    _cartItems.addAll(_parkedCarts[cartId]!);
+    _activeCartId = cartId;
+    notifyListeners();
+  }
+
+  /// Delete a parked cart
+  void deleteParkedCart(String cartId) {
+    _parkedCarts.remove(cartId);
+    if (_activeCartId == cartId) {
+      _activeCartId = null;
+    }
+    notifyListeners();
+  }
+
+  /// Get parked cart summary
+  Map<String, dynamic> getParkedCartSummary(String cartId) {
+    if (!_parkedCarts.containsKey(cartId)) {
+      return {'items': 0, 'total': 0.0};
+    }
+
+    final cart = _parkedCarts[cartId]!;
+    final itemCount = cart.values.fold(0, (sum, item) => sum + item.qty);
+    final total = cart.values.fold(0.0, (sum, item) => sum + item.total);
+
+    return {'items': itemCount, 'total': total};
+  }
+
+  /// Create a billing session from cart with payment details
+  Future<String?> createSessionWithPayment(
+    String merchantId,
+    PaymentDetails paymentDetails,
+  ) async {
     if (_cartItems.isEmpty) {
       _error = 'Cart is empty';
       notifyListeners();
       return null;
     }
 
+    print('🟢 [PROVIDER] Starting createSessionWithPayment');
+    print('🟢 [PROVIDER] Merchant ID: $merchantId');
+    print(
+      '🟢 [PROVIDER] Payment details: ${paymentDetails.payments.length} payment(s)',
+    );
+    print('🟢 [PROVIDER] Total amount: ${paymentDetails.billTotal}');
+
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      // Determine payment method and status for session
+      String? paymentMethod;
+      String? paymentStatus;
+      String? txnId;
+
+      if (paymentDetails.payments.length == 1) {
+        // Single payment
+        paymentMethod = paymentDetails.payments.first.method.displayName;
+        txnId = paymentDetails.payments.first.transactionId;
+        print('🟢 [PROVIDER] Single payment: $paymentMethod');
+      } else if (paymentDetails.payments.length > 1) {
+        // Split payment - use "Split Payment" as method
+        paymentMethod = 'Split Payment';
+        print(
+          '🟢 [PROVIDER] Split payment with ${paymentDetails.payments.length} methods',
+        );
+      }
+
+      if (paymentDetails.isFullyPaid) {
+        paymentStatus = 'PAID';
+        print('🟢 [PROVIDER] Payment status: PAID (fully paid)');
+      } else if (paymentDetails.hasCredit) {
+        paymentStatus = 'PARTIAL';
+        print('🟢 [PROVIDER] Payment status: PARTIAL (has credit)');
+      }
+
       final session = SessionEntity(
         id: '', // Will be generated
         merchantId: merchantId,
@@ -161,22 +307,28 @@ class SessionProvider with ChangeNotifier {
         tax: cartTax,
         total: cartTotal,
         status: 'ACTIVE',
-        paymentStatus: null,
-        paymentMethod: null,
-        paymentTxnId: null,
+        paymentStatus: paymentStatus,
+        paymentMethod: paymentMethod,
+        paymentTxnId: txnId,
         connectedCustomers: [],
         createdAt: DateTime.now(),
         expiresAt: DateTime.now().add(const Duration(hours: 1)),
-        completedAt: null,
+        completedAt: paymentDetails.isFullyPaid ? DateTime.now() : null,
       );
 
+      print(
+        '🟢 [PROVIDER] Session entity created, calling _createBillingSession...',
+      );
       final sessionId = await _createBillingSession(session);
+      print('🟢 [PROVIDER] Session created successfully with ID: $sessionId');
+
       _currentSession = session.copyWith(id: sessionId);
       _cartItems.clear();
       _isLoading = false;
       notifyListeners();
       return sessionId;
     } catch (e) {
+      print('🔴 [PROVIDER ERROR] Failed to create session: $e');
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
@@ -184,7 +336,31 @@ class SessionProvider with ChangeNotifier {
     }
   }
 
-  /// Mark session as paid
+  /// Create a billing session from cart (legacy method for backward compatibility)
+  Future<String?> createSession(String merchantId) async {
+    // Create default payment details with full cash payment
+    final paymentDetails = PaymentDetails(
+      sessionId: '',
+      billTotal: cartTotal,
+      discountAmount: 0,
+      finalAmount: cartTotal,
+      payments: [
+        PaymentEntry(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          method: PaymentMethodType.cash,
+          amount: cartTotal,
+          timestamp: DateTime.now(),
+        ),
+      ],
+      status: PaymentStatus.paid,
+      pendingAmount: 0,
+      createdAt: DateTime.now(),
+    );
+
+    return createSessionWithPayment(merchantId, paymentDetails);
+  }
+
+  /// Mark session as paid and create permanent receipt
   Future<bool> markAsPaid(
     String sessionId,
     String paymentMethod,
@@ -194,7 +370,56 @@ class SessionProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Mark session as paid
       await _markSessionPaid(sessionId, paymentMethod, txnId);
+
+      // Create permanent receipt
+      if (_currentSession != null) {
+        // Get merchant profile for business details
+        final merchantProfile = await _getMerchantProfile(
+          _currentSession!.merchantId,
+        );
+
+        final receipt = ReceiptEntity(
+          id: '', // Will be generated
+          sessionId: sessionId,
+          merchantId: _currentSession!.merchantId,
+          customerId: null, // Can be set if customer logs in
+          businessName: merchantProfile?.businessName ?? 'MY BUSINESS',
+          businessPhone: merchantProfile?.businessPhone,
+          businessAddress: merchantProfile?.businessAddress,
+          items: _currentSession!.items
+              .map(
+                (item) => ReceiptItemEntity(
+                  name: item.name,
+                  hsnCode: item.hsnCode,
+                  price: item.price,
+                  qty: item.qty,
+                  taxRate: item.taxRate,
+                  tax: item.tax,
+                  total: item.total,
+                ),
+              )
+              .toList(),
+          subtotal: _currentSession!.subtotal,
+          tax: _currentSession!.tax,
+          total: _currentSession!.total,
+          paymentMethod: paymentMethod,
+          paymentTxnId: txnId,
+          paidAt: DateTime.now(),
+          createdAt: _currentSession!.createdAt,
+          accessLogs: [
+            ReceiptAccessLog(
+              userId: _currentSession!.merchantId,
+              accessType: 'CREATE',
+              accessedAt: DateTime.now(),
+            ),
+          ],
+        );
+
+        await _createReceipt(receipt);
+      }
+
       return true;
     } catch (e) {
       _error = e.toString();
@@ -227,6 +452,7 @@ class SessionProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    _sessionSubscription?.cancel();
     _currentSession = null;
     _cartItems.clear();
     super.dispose();
