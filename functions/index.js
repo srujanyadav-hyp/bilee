@@ -375,6 +375,38 @@ async function generateReceiptForSession(sessionId, sessionData) {
     const merchantData = merchantDoc.exists ? merchantDoc.data() : null;
     console.log('📝 [RECEIPT] Merchant data loaded:', merchantData?.businessName || 'N/A');
 
+    // Get merchant's business category from users collection
+    const userDoc = await admin.firestore()
+      .collection('users')
+      .doc(sessionData.merchantId)
+      .get();
+
+    const userData = userDoc.exists ? userDoc.data() : null;
+    let businessCategory = userData?.category || merchantData?.businessType || 'Other';
+    
+    // Normalize category names to match Flutter app categories
+    const categoryMap = {
+      'restaurant': 'Restaurant',
+      'retail': 'Retail',
+      'grocery': 'Grocery',
+      'groceries': 'Grocery',
+      'pharmacy': 'Pharmacy',
+      'healthcare': 'Pharmacy',
+      'electronics': 'Electronics',
+      'clothing': 'Clothing',
+      'fashion': 'Clothing',
+      'services': 'Services',
+      'entertainment': 'Entertainment',
+      'other': 'Other',
+      'general': 'Other',
+    };
+    
+    // Normalize the category
+    const normalizedKey = businessCategory.toLowerCase();
+    businessCategory = categoryMap[normalizedKey] || businessCategory;
+    
+    console.log('📝 [RECEIPT] Business category:', businessCategory);
+
     // Get customer ID from connectedCustomers array (first customer who scanned)
     const customerId = sessionData.connectedCustomers && sessionData.connectedCustomers.length > 0
       ? sessionData.connectedCustomers[0]
@@ -396,6 +428,7 @@ async function generateReceiptForSession(sessionId, sessionData) {
       merchantAddress: merchantData?.businessAddress || null,
       merchantPhone: merchantData?.businessPhone || null,
       merchantGst: merchantData?.gstNumber || null,
+      businessCategory: businessCategory, // Add business category for spending analytics
       customerId: customerId, // Will be null for walk-in customers
       customerName: null,
       customerPhone: null,

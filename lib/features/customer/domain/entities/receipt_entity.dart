@@ -10,6 +10,7 @@ class ReceiptEntity {
   final String? merchantAddress;
   final String? merchantPhone;
   final String? merchantGst;
+  final String? businessCategory; // Restaurant, Retail, Grocery, etc.
 
   // Customer details
   final String? customerId;
@@ -49,6 +50,7 @@ class ReceiptEntity {
     this.merchantAddress,
     this.merchantPhone,
     this.merchantGst,
+    this.businessCategory,
     this.customerId,
     this.customerName,
     this.customerPhone,

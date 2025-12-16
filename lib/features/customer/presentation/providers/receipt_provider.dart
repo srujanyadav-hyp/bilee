@@ -130,4 +130,67 @@ class ReceiptProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  /// Get monthly spending by category
+  Map<String, double> getMonthlySpendingByCategory() {
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+
+    final categorySpending = <String, double>{};
+
+    for (final receipt in _receipts) {
+      final receiptMonth = DateTime(
+        receipt.createdAt.year,
+        receipt.createdAt.month,
+      );
+
+      // Only include receipts from current month
+      if (receiptMonth.isAtSameMomentAs(currentMonth)) {
+        final category = receipt.businessCategory ?? 'Other';
+        categorySpending[category] =
+            (categorySpending[category] ?? 0) + receipt.total;
+      }
+    }
+
+    // Sort by amount (highest first)
+    final sortedEntries = categorySpending.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Map.fromEntries(sortedEntries);
+  }
+
+  /// Get total monthly spending
+  double getTotalMonthlySpending() {
+    final spending = getMonthlySpendingByCategory();
+    return spending.values.fold(0.0, (sum, amount) => sum + amount);
+  }
+
+  /// Get category icon
+  static String getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'restaurant':
+      case 'food':
+        return '🍽️';
+      case 'grocery':
+      case 'groceries':
+        return '🛒';
+      case 'pharmacy':
+      case 'healthcare':
+        return '💊';
+      case 'electronics':
+        return '📱';
+      case 'clothing':
+      case 'fashion':
+        return '👕';
+      case 'retail':
+      case 'shopping':
+        return '🛍️';
+      case 'services':
+        return '🔧';
+      case 'entertainment':
+        return '🎬';
+      default:
+        return '💰';
+    }
+  }
 }

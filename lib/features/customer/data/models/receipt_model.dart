@@ -12,6 +12,7 @@ class ReceiptModel {
   final String? merchantAddress;
   final String? merchantPhone;
   final String? merchantGst;
+  final String? businessCategory;
   final String? customerId;
   final String? customerName;
   final String? customerPhone;
@@ -41,6 +42,7 @@ class ReceiptModel {
     this.merchantAddress,
     this.merchantPhone,
     this.merchantGst,
+    this.businessCategory,
     this.customerId,
     this.customerName,
     this.customerPhone,
@@ -81,6 +83,7 @@ class ReceiptModel {
       merchantAddress: json['merchantAddress'],
       merchantPhone: json['merchantPhone'],
       merchantGst: json['merchantGst'],
+      businessCategory: json['businessCategory'],
       customerId: json['customerId'],
       customerName: json['customerName'],
       customerPhone: json['customerPhone'],
@@ -113,6 +116,7 @@ class ReceiptModel {
       'merchantAddress': merchantAddress,
       'merchantPhone': merchantPhone,
       'merchantGst': merchantGst,
+      'businessCategory': businessCategory,
       'customerId': customerId,
       'customerName': customerName,
       'customerPhone': customerPhone,
@@ -146,6 +150,7 @@ class ReceiptModel {
       merchantAddress: merchantAddress,
       merchantPhone: merchantPhone,
       merchantGst: merchantGst,
+      businessCategory: businessCategory,
       customerId: customerId,
       customerName: customerName,
       customerPhone: customerPhone,
@@ -179,6 +184,7 @@ class ReceiptModel {
       merchantAddress: entity.merchantAddress,
       merchantPhone: entity.merchantPhone,
       merchantGst: entity.merchantGst,
+      businessCategory: entity.businessCategory,
       customerId: entity.customerId,
       customerName: entity.customerName,
       customerPhone: entity.customerPhone,

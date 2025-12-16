@@ -595,8 +595,21 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
   }
 
   void _editProfile() {
-    // TODO: Navigate to edit profile page
-    _showComingSoon();
+    final profile = context.read<MerchantProvider>().profile;
+    if (profile == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => _EditProfileSheet(
+        profile: profile,
+        userData: _userData,
+        onSave: _saveProfile,
+      ),
+    );
   }
 
   void _showComingSoon() {
@@ -667,6 +680,331 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
     if (confirm == true) {
       // TODO: Implement account deletion
       _showComingSoon();
+    }
+  }
+
+  Future<void> _saveProfile(
+    MerchantEntity updatedProfile,
+    String? category,
+  ) async {
+    try {
+      // Update merchant profile
+      await context.read<MerchantProvider>().updateProfile(updatedProfile);
+
+      // Update category in users collection if changed
+      if (category != null && category != _userData?.category) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.merchantId)
+            .update({'category': category});
+
+        // Reload user data
+        await _loadUserData();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// Edit Profile Bottom Sheet
+class _EditProfileSheet extends StatefulWidget {
+  final MerchantEntity profile;
+  final UserModel? userData;
+  final Future<void> Function(MerchantEntity, String?) onSave;
+
+  const _EditProfileSheet({
+    required this.profile,
+    required this.userData,
+    required this.onSave,
+  });
+
+  @override
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  late TextEditingController _businessNameController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+  late TextEditingController _addressController;
+  late TextEditingController _gstController;
+  late TextEditingController _panController;
+
+  String? _selectedCategory;
+  bool _isSaving = false;
+
+  final List<String> _categories = [
+    'Restaurant',
+    'Retail',
+    'Grocery',
+    'Pharmacy',
+    'Electronics',
+    'Clothing',
+    'Services',
+    'Entertainment',
+    'Other',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _businessNameController = TextEditingController(
+      text: widget.profile.businessName,
+    );
+    _emailController = TextEditingController(
+      text: widget.profile.businessEmail ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: widget.profile.businessPhone ?? '',
+    );
+    _addressController = TextEditingController(
+      text: widget.profile.businessAddress ?? '',
+    );
+    _gstController = TextEditingController(
+      text: widget.profile.gstNumber ?? '',
+    );
+    _panController = TextEditingController(
+      text: widget.profile.panNumber ?? '',
+    );
+    _selectedCategory =
+        widget.userData?.category ?? widget.profile.businessType;
+  }
+
+  @override
+  void dispose() {
+    _businessNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _gstController.dispose();
+    _panController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(AppDimensions.paddingLG),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Edit Profile',
+                    style: AppTypography.h2.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppDimensions.spacingLG),
+
+              // Business Name
+              TextField(
+                controller: _businessNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Business Name',
+                  prefixIcon: Icon(Icons.business),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spacingMD),
+
+              // Business Category
+              DropdownButtonFormField<String>(
+                value: _selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Business Category',
+                  prefixIcon: Icon(Icons.category),
+                  border: OutlineInputBorder(),
+                ),
+                items: _categories.map((category) {
+                  return DropdownMenuItem(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedCategory = value;
+                  });
+                },
+              ),
+              const SizedBox(height: AppDimensions.spacingMD),
+
+              // Email
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: AppDimensions.spacingMD),
+
+              // Phone
+              TextField(
+                controller: _phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone',
+                  prefixIcon: Icon(Icons.phone),
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: AppDimensions.spacingMD),
+
+              // Address
+              TextField(
+                controller: _addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Address',
+                  prefixIcon: Icon(Icons.location_on),
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: AppDimensions.spacingMD),
+
+              // GST Number
+              TextField(
+                controller: _gstController,
+                decoration: const InputDecoration(
+                  labelText: 'GST Number (Optional)',
+                  prefixIcon: Icon(Icons.receipt_long),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spacingMD),
+
+              // PAN Number
+              TextField(
+                controller: _panController,
+                decoration: const InputDecoration(
+                  labelText: 'PAN Number (Optional)',
+                  prefixIcon: Icon(Icons.credit_card),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spacingXL),
+
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _handleSave,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusMD,
+                      ),
+                    ),
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          'Save Changes',
+                          style: AppTypography.button.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSave() async {
+    if (_businessNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Business name is required')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final updatedProfile = MerchantEntity(
+        id: widget.profile.id,
+        businessName: _businessNameController.text.trim(),
+        businessEmail: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+        businessPhone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        businessAddress: _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        gstNumber: _gstController.text.trim().isEmpty
+            ? null
+            : _gstController.text.trim(),
+        panNumber: _panController.text.trim().isEmpty
+            ? null
+            : _panController.text.trim(),
+        logoUrl: widget.profile.logoUrl,
+        businessType: _selectedCategory ?? 'Other',
+        isActive: widget.profile.isActive,
+        createdAt: widget.profile.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      await widget.onSave(updatedProfile, _selectedCategory);
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() => _isSaving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 }
