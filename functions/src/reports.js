@@ -2,7 +2,8 @@ const admin = require('firebase-admin');
 const { Parser } = require('json2csv');
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket();
+// Lazy-load bucket to avoid initialization errors
+const getBucket = () => admin.storage().bucket();
 
 /**
  * Generate daily report in PDF or CSV format
@@ -136,7 +137,7 @@ async function generatePDFReport(merchantId, date, data) {
 
     // Upload to Firebase Storage
     const fileName = `bilee-reports/${merchantId}/${date}.pdf`;
-    const file = bucket.file(fileName);
+    const file = getBucket().file(fileName);
     
     await file.save(pdfBuffer, {
       metadata: {
@@ -195,7 +196,7 @@ async function generateCSVReport(merchantId, date, data) {
 
   // Upload to Firebase Storage
   const fileName = `bilee-reports/${merchantId}/${date}.csv`;
-  const file = bucket.file(fileName);
+  const file = getBucket().file(fileName);
   
   await file.save(csv, {
     metadata: {

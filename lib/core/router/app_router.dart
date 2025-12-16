@@ -17,7 +17,13 @@ import '../../features/merchant/presentation/pages/merchant_profile_page.dart';
 import '../../features/merchant/presentation/pages/live_session_page.dart';
 import '../../features/merchant/presentation/pages/staff_management_page.dart';
 import '../../features/merchant/presentation/pages/customer_ledger_page.dart';
-import '../../features/customer/dashboard/view/customer_dashboard.dart';
+import '../../features/customer/presentation/pages/customer_home_screen.dart';
+import '../../features/customer/presentation/pages/scan_qr_screen.dart';
+import '../../features/customer/presentation/pages/live_bill_screen.dart';
+import '../../features/customer/presentation/pages/payment_status_screen.dart';
+import '../../features/customer/presentation/pages/receipt_detail_screen.dart';
+import '../../features/customer/presentation/pages/receipt_list_screen.dart';
+import '../../features/customer/presentation/pages/customer_profile_screen.dart';
 
 /// App Router Configuration using GoRouter
 class AppRouter {
@@ -162,8 +168,49 @@ class AppRouter {
       // Customer Routes
       GoRoute(
         path: '/customer',
-        name: 'customer-dashboard',
-        builder: (context, state) => const CustomerDashboardScreen(),
+        name: 'customer-home',
+        builder: (context, state) => const CustomerHomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'scan-qr',
+            name: 'customer-scan-qr',
+            builder: (context, state) => const ScanQRScreen(),
+          ),
+          GoRoute(
+            path: 'live-bill/:sessionId',
+            name: 'customer-live-bill',
+            builder: (context, state) {
+              final sessionId = state.pathParameters['sessionId']!;
+              return LiveBillScreen(sessionId: sessionId);
+            },
+          ),
+          GoRoute(
+            path: 'payment-status/:sessionId',
+            name: 'customer-payment-status',
+            builder: (context, state) {
+              final sessionId = state.pathParameters['sessionId']!;
+              return PaymentStatusScreen(sessionId: sessionId);
+            },
+          ),
+          GoRoute(
+            path: 'receipt/:receiptId',
+            name: 'customer-receipt-detail',
+            builder: (context, state) {
+              final receiptId = state.pathParameters['receiptId']!;
+              return ReceiptDetailScreen(receiptId: receiptId);
+            },
+          ),
+          GoRoute(
+            path: 'receipts',
+            name: 'customer-receipts',
+            builder: (context, state) => const ReceiptListScreen(),
+          ),
+          GoRoute(
+            path: 'profile',
+            name: 'customer-profile',
+            builder: (context, state) => const CustomerProfileScreen(),
+          ),
+        ],
       ),
     ],
 

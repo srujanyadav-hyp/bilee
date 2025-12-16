@@ -56,6 +56,7 @@ class SessionModel {
   final double total;
   final String status; // ACTIVE, EXPIRED, COMPLETED
   final String? paymentStatus; // null, PENDING, PAID
+  final bool? paymentConfirmed; // Flag for Cloud Function trigger
   final String? paymentMethod;
   final String? txnId;
   final List<String> connectedCustomers;
@@ -72,6 +73,7 @@ class SessionModel {
     required this.total,
     required this.status,
     this.paymentStatus,
+    this.paymentConfirmed,
     this.paymentMethod,
     this.txnId,
     required this.connectedCustomers,
@@ -94,6 +96,7 @@ class SessionModel {
       total: (data['total'] as num).toDouble(),
       status: data['status'] as String,
       paymentStatus: data['paymentStatus'] as String?,
+      paymentConfirmed: data['paymentConfirmed'] as bool?,
       paymentMethod: data['paymentMethod'] as String?,
       txnId: data['txnId'] as String?,
       connectedCustomers: List<String>.from(data['connectedCustomers'] as List),
@@ -116,6 +119,7 @@ class SessionModel {
       total: (json['total'] as num).toDouble(),
       status: json['status'] as String,
       paymentStatus: json['paymentStatus'] as String?,
+      paymentConfirmed: json['paymentConfirmed'] as bool?,
       paymentMethod: json['paymentMethod'] as String?,
       txnId: json['txnId'] as String?,
       connectedCustomers: List<String>.from(json['connectedCustomers'] as List),
@@ -135,6 +139,7 @@ class SessionModel {
       'total': total,
       'status': status,
       'paymentStatus': paymentStatus,
+      'paymentConfirmed': paymentConfirmed,
       'paymentMethod': paymentMethod,
       'txnId': txnId,
       'connectedCustomers': connectedCustomers,

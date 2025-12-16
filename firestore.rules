@@ -109,14 +109,38 @@ service cloud.firestore {
                        isMerchant(resource.data.merchantId);
     }
     
+    // ==================== SESSIONS COLLECTION ====================
+    
+    match /sessions/{sessionId} {
+      // Merchants can read their own sessions
+      // Customers can read any session (they need sessionId to access)
+      allow read: if isSignedIn() && (
+                     isMerchant(resource.data.merchantId) ||
+                     request.auth != null
+                  );
+      
+      // Merchants can create sessions for themselves
+      allow create: if isSignedIn() && 
+                       isMerchant(request.resource.data.merchantId);
+      
+      // Merchants can update their own sessions
+      // Customers can't update sessions
+      allow update: if isSignedIn() &&
+                       isMerchant(resource.data.merchantId) &&
+                       request.resource.data.merchantId == resource.data.merchantId;
+      
+      // Sessions should not be deleted (keep for records)
+      allow delete: if false;
+    }
+    
     // ==================== BILLING SESSIONS COLLECTION ====================
     
     match /billingSessions/{sessionId} {
       // Merchants can read their own sessions
-      // Customers can read sessions they're connected to
+      // Any authenticated customer can read sessions (they need sessionId from QR code)
       allow read: if isSignedIn() && (
                        isMerchant(resource.data.merchantId) ||
-                       request.auth.uid in resource.data.connectedCustomers
+                       request.auth != null
                      );
       
       // Merchants can create sessions for themselves
@@ -126,23 +150,34 @@ service cloud.firestore {
                        request.resource.data.status == 'ACTIVE';
       
       // Merchants can update their own sessions
-      // Allow payment status updates and customer connections
-      allow update: if isSignedIn() &&
-                       isMerchant(resource.data.merchantId) &&
-                       isMerchant(request.resource.data.merchantId) &&
-                       resource.data.merchantId == request.resource.data.merchantId &&
-                       (
-                         // Allow status changes from ACTIVE to EXPIRED or COMPLETED
-                         (resource.data.status == 'ACTIVE' && 
-                          request.resource.data.status in ['EXPIRED', 'COMPLETED']) ||
-                         // Allow payment status updates
-                         (resource.data.paymentStatus == null && 
-                          request.resource.data.paymentStatus in ['PENDING', 'PAID']) ||
-                         (resource.data.paymentStatus == 'PENDING' && 
-                          request.resource.data.paymentStatus == 'PAID') ||
-                         // Allow adding connected customers
-                         (resource.data.connectedCustomers.size() < request.resource.data.connectedCustomers.size())
-                       );
+      // Customers can update to add themselves to connectedCustomers or confirm payment
+      allow update: if isSignedIn() && (
+                       // Merchant can update their own session
+                       (isMerchant(resource.data.merchantId) &&
+                        isMerchant(request.resource.data.merchantId) &&
+                        resource.data.merchantId == request.resource.data.merchantId &&
+                        (
+                          // Allow status changes from ACTIVE to EXPIRED or COMPLETED
+                          (resource.data.status == 'ACTIVE' && 
+                           request.resource.data.status in ['EXPIRED', 'COMPLETED']) ||
+                          // Allow payment status updates
+                          (resource.data.paymentStatus == null && 
+                           request.resource.data.paymentStatus in ['PENDING', 'PAID']) ||
+                          (resource.data.paymentStatus == 'PENDING' && 
+                           request.resource.data.paymentStatus == 'PAID') ||
+                          // Allow adding connected customers
+                          (resource.data.connectedCustomers.size() < request.resource.data.connectedCustomers.size())
+                        )) ||
+                       // Customer can add themselves to connectedCustomers array
+                       (request.auth != null &&
+                        request.resource.data.connectedCustomers.hasAny([request.auth.uid]) &&
+                        !resource.data.connectedCustomers.hasAny([request.auth.uid]) &&
+                        resource.data.merchantId == request.resource.data.merchantId) ||
+                       // Customer can confirm payment
+                       (request.auth != null &&
+                        resource.data.connectedCustomers.hasAny([request.auth.uid]) &&
+                        request.resource.data.keys().hasAny(['paymentConfirmed', 'paymentMethod', 'paymentAmount']))
+                     );
       
       // Sessions should never be deleted (keep for records)
       allow delete: if false;
@@ -176,10 +211,14 @@ service cloud.firestore {
     
     match /receipts/{receiptId} {
       // Merchants can read their own receipts
-      // Customers can read receipts for their sessions
+      // Customers can read receipts if:
+      //   1. They own the receipt (customerId matches)
+      //   2. OR the receipt has no customerId (walk-in customer, anyone can view)
       allow read: if isSignedIn() && (
                        isMerchant(resource.data.merchantId) ||
-                       request.auth.uid == resource.data.customerId
+                       request.auth.uid == resource.data.customerId ||
+                       !('customerId' in resource.data) ||
+                       resource.data.customerId == null
                      );
       
       // Only cloud functions can create receipts
@@ -215,32 +254,6 @@ service cloud.firestore {
                                request.auth.uid == customerId;
       
       // Users cannot delete their profile
-      allow delete: if false;
-    }
-    
-    // ==================== RECEIPTS (PERMANENT RECORDS) ====================
-    
-    match /receipts/{receiptId} {
-      // Merchants can read their own receipts
-      // Customers can read receipts if they have customerId
-      allow read: if isSignedIn() && (
-                     isMerchant(resource.data.merchantId) ||
-                     (resource.data.customerId != null && 
-                      request.auth.uid == resource.data.customerId)
-                  );
-      
-      // Only merchants can create receipts
-      allow create: if isSignedIn() && 
-                       isMerchant(request.resource.data.merchantId);
-      
-      // Receipts can be updated to add access logs
-      allow update: if isSignedIn() && (
-                       isMerchant(resource.data.merchantId) ||
-                       (resource.data.customerId != null && 
-                        request.auth.uid == resource.data.customerId)
-                    );
-      
-      // Receipts can never be deleted (permanent records)
       allow delete: if false;
     }
     

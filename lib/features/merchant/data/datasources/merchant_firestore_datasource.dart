@@ -132,8 +132,10 @@ class MerchantFirestoreDataSource {
     try {
       await _firestore.collection('billingSessions').doc(sessionId).update({
         'paymentStatus': 'PAID',
+        'paymentConfirmed': true, // Trigger Cloud Function
         'paymentMethod': paymentMethod,
         'txnId': txnId,
+        'paidAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       throw Exception('Failed to mark session as paid: $e');

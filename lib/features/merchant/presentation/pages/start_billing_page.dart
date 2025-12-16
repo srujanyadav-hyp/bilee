@@ -1919,14 +1919,21 @@ class _StartBillingPageState extends State<StartBillingPage>
       }
 
       print('🟣 [CHECKOUT] Closing processing dialog...');
-      Navigator.of(context).pop(); // Close processing dialog
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context).pop(); // Close processing dialog
+      }
 
-      if (sessionId != null) {
+      if (sessionId != null && mounted) {
+        // Small delay to ensure dialog is fully closed before navigation
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        if (!mounted) return;
+
         final route = '/merchant/${widget.merchantId}/session/$sessionId';
         print('🟣 [CHECKOUT] Navigating to: $route');
         context.push(route);
         print('🟣 [CHECKOUT] Navigation completed');
-      } else {
+      } else if (sessionId == null && mounted) {
         print('🔴 [CHECKOUT ERROR] Session ID is null');
         _showError('Failed to create billing session');
       }

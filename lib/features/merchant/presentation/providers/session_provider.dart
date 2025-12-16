@@ -299,6 +299,17 @@ class SessionProvider with ChangeNotifier {
         print('🟢 [PROVIDER] Payment status: PARTIAL (has credit)');
       }
 
+      // Critical: Set paymentConfirmed flag to trigger Cloud Function for receipt generation
+      bool? paymentConfirmed;
+      if (paymentDetails.isFullyPaid) {
+        paymentConfirmed = true;
+        print(
+          '✅ [PROVIDER] paymentConfirmed: true (triggers receipt generation)',
+        );
+      } else {
+        paymentConfirmed = false;
+      }
+
       final session = SessionEntity(
         id: '', // Will be generated
         merchantId: merchantId,
@@ -308,6 +319,8 @@ class SessionProvider with ChangeNotifier {
         total: cartTotal,
         status: 'ACTIVE',
         paymentStatus: paymentStatus,
+        paymentConfirmed:
+            paymentConfirmed, // ✅ Added field - triggers Cloud Function
         paymentMethod: paymentMethod,
         paymentTxnId: txnId,
         connectedCustomers: [],

@@ -34,6 +34,7 @@ class SessionEntity {
   final double total;
   final String status; // ACTIVE, EXPIRED, COMPLETED
   final String? paymentStatus; // null, PENDING, PAID
+  final bool? paymentConfirmed; // Flag for Cloud Function trigger
   final String? paymentMethod;
   final String? paymentTxnId;
   final List<String> connectedCustomers;
@@ -50,6 +51,7 @@ class SessionEntity {
     required this.total,
     required this.status,
     this.paymentStatus,
+    this.paymentConfirmed,
     this.paymentMethod,
     this.paymentTxnId,
     required this.connectedCustomers,
@@ -62,4 +64,41 @@ class SessionEntity {
   bool get isActive => status == 'ACTIVE';
   bool get isExpired =>
       status == 'EXPIRED' || DateTime.now().isAfter(expiresAt);
+
+  /// Create a copy of this entity with some fields replaced
+  SessionEntity copyWith({
+    String? id,
+    String? merchantId,
+    List<SessionItemEntity>? items,
+    double? subtotal,
+    double? tax,
+    double? total,
+    String? status,
+    String? paymentStatus,
+    bool? paymentConfirmed,
+    String? paymentMethod,
+    String? paymentTxnId,
+    List<String>? connectedCustomers,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+    DateTime? completedAt,
+  }) {
+    return SessionEntity(
+      id: id ?? this.id,
+      merchantId: merchantId ?? this.merchantId,
+      items: items ?? this.items,
+      subtotal: subtotal ?? this.subtotal,
+      tax: tax ?? this.tax,
+      total: total ?? this.total,
+      status: status ?? this.status,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentConfirmed: paymentConfirmed ?? this.paymentConfirmed,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentTxnId: paymentTxnId ?? this.paymentTxnId,
+      connectedCustomers: connectedCustomers ?? this.connectedCustomers,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      completedAt: completedAt ?? this.completedAt,
+    );
+  }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/services/role_storage_service.dart';
 
 /// BILEE Splash Animation
 /// Smooth, fluid animation with overlapping transitions
@@ -156,18 +159,57 @@ class _SplashAnimationState extends State<SplashAnimation>
   Future<void> _startAnimationSequence() async {
     if (_reducedMotion) {
       await Future.delayed(const Duration(milliseconds: 600));
-      _navigateToOnboarding();
+      await _navigateToAppropriateScreen();
       return;
     }
 
     // Start master animation
     await _masterController.forward();
-    _navigateToOnboarding();
+    await _navigateToAppropriateScreen();
   }
 
-  void _navigateToOnboarding() {
-    if (mounted) {
-      context.go('/role-selection');
+  Future<void> _navigateToAppropriateScreen() async {
+    if (!mounted) return;
+
+    try {
+      // Check if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        // User is logged in, check their role and navigate to home
+        final roleService = RoleStorageService();
+        final role = await roleService.getRole();
+
+        if (role == 'merchant') {
+          // Navigate to merchant home
+          context.go('/merchant/${user.uid}');
+        } else if (role == 'customer') {
+          // Navigate to customer home
+          context.go('/customer');
+        } else {
+          // Role not set, go to role selection
+          context.go('/role-selection');
+        }
+      } else {
+        // User not logged in, check if onboarding was completed
+        final prefs = await SharedPreferences.getInstance();
+        final onboardingCompleted =
+            prefs.getBool('onboarding_completed') ?? false;
+
+        if (onboardingCompleted) {
+          // Onboarding done, go to login
+          context.go('/login');
+        } else {
+          // First time user, show role selection
+          context.go('/role-selection');
+        }
+      }
+    } catch (e) {
+      debugPrint('Navigation error: $e');
+      // Fallback to role selection on error
+      if (mounted) {
+        context.go('/role-selection');
+      }
     }
   }
 

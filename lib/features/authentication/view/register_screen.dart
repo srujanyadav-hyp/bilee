@@ -108,7 +108,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               alignment: Alignment.centerLeft,
               child: IconButton(
                 icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => context.go('/login'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -357,9 +357,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             // Sign In Link
             Center(
               child: TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
+                onPressed: () => context.go('/login'),
                 child: Text(
                   'Already have an account? Sign in',
                   style: AppTypography.body2.copyWith(

@@ -81,6 +81,7 @@ extension SessionModelToEntity on SessionModel {
       total: total,
       status: status,
       paymentStatus: paymentStatus,
+      paymentConfirmed: paymentConfirmed, // ✅ Added field
       paymentMethod: paymentMethod,
       paymentTxnId: txnId, // Firestore: txnId → Entity: paymentTxnId
       connectedCustomers: connectedCustomers,
@@ -103,6 +104,7 @@ extension SessionEntityToModel on SessionEntity {
       total: total,
       status: status,
       paymentStatus: paymentStatus,
+      paymentConfirmed: paymentConfirmed, // ✅ Added field
       paymentMethod: paymentMethod,
       txnId: paymentTxnId, // Entity: paymentTxnId → Firestore: txnId
       connectedCustomers: connectedCustomers,

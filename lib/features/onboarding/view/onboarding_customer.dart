@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -160,15 +161,27 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen>
     );
   }
 
-  void _getStarted() {
+  void _getStarted() async {
     // Analytics: onboarding_customer_continue
     debugPrint('Analytics: onboarding_customer_continue');
 
-    context.go('/login');
+    // Mark onboarding as completed
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_completed', true);
+
+    if (mounted) {
+      context.go('/login');
+    }
   }
 
-  void _signIn() {
-    context.go('/login');
+  void _signIn() async {
+    // Mark onboarding as completed even if signing in
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_completed', true);
+
+    if (mounted) {
+      context.go('/login');
+    }
   }
 }
 

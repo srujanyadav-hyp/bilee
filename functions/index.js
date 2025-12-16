@@ -1,5 +1,6 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const zlib = require('zlib');
 
 admin.initializeApp();
 
@@ -336,3 +337,174 @@ exports.cleanupSessions = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ==================== AUTO GENERATE RECEIPT ON PAYMENT ====================
+
+/**
+ * Helper function to generate receipt (used by both onCreate and onUpdate triggers)
+ */
+async function generateReceiptForSession(sessionId, sessionData) {
+  console.log('📝 [RECEIPT] Starting receipt generation for session:', sessionId);
+  console.log('📝 [RECEIPT] Session status:', sessionData.status, '| Payment status:', sessionData.paymentStatus);
+
+  // Validate session has required payment status
+  if (sessionData.paymentStatus !== 'PAID') {
+    console.log('⚠️ [RECEIPT] Session not paid yet, skipping receipt generation');
+    return null;
+  }
+
+  // Check if receipt already exists
+  const existingReceipts = await admin.firestore()
+    .collection('receipts')
+    .where('sessionId', '==', sessionId)
+    .limit(1)
+    .get();
+
+  if (!existingReceipts.empty) {
+    console.log('✅ [RECEIPT] Receipt already exists for session:', sessionId);
+    return { alreadyExists: true, receiptId: existingReceipts.docs[0].id };
+  }
+
+  try {
+    // Get merchant profile for business details
+    const merchantDoc = await admin.firestore()
+      .collection('merchants')
+      .doc(sessionData.merchantId)
+      .get();
+
+    const merchantData = merchantDoc.exists ? merchantDoc.data() : null;
+    console.log('📝 [RECEIPT] Merchant data loaded:', merchantData?.businessName || 'N/A');
+
+    // Get customer ID from connectedCustomers array (first customer who scanned)
+    const customerId = sessionData.connectedCustomers && sessionData.connectedCustomers.length > 0
+      ? sessionData.connectedCustomers[0]
+      : null;
+
+    console.log('📝 [RECEIPT] Customer ID:', customerId || 'Walk-in customer (no QR scan)');
+
+    // Generate receipt ID
+    const receiptId = `RC${Date.now().toString().slice(-8)}`;
+    console.log('📝 [RECEIPT] Generated receipt ID:', receiptId);
+
+    // Prepare receipt data (matching ReceiptModel structure from Flutter)
+    const receiptData = {
+      receiptId: receiptId,
+      sessionId: sessionId,
+      merchantId: sessionData.merchantId,
+      merchantName: merchantData?.businessName || 'MY BUSINESS',
+      merchantLogo: merchantData?.businessLogo || null,
+      merchantAddress: merchantData?.businessAddress || null,
+      merchantPhone: merchantData?.businessPhone || null,
+      merchantGst: merchantData?.gstNumber || null,
+      customerId: customerId, // Will be null for walk-in customers
+      customerName: null,
+      customerPhone: null,
+      customerEmail: null,
+      items: sessionData.items || [],
+      subtotal: sessionData.subtotal || 0,
+      tax: sessionData.tax || 0,
+      discount: 0,
+      total: sessionData.total || 0,
+      paidAmount: sessionData.paymentAmount || sessionData.total || 0,
+      pendingAmount: 0,
+      paymentMethod: (sessionData.paymentMethod || 'Cash').toLowerCase(),
+      transactionId: sessionData.txnId || null,
+      paymentTime: sessionData.paymentTime || sessionData.completedAt || admin.firestore.Timestamp.now(),
+      createdAt: admin.firestore.Timestamp.now(),
+      isVerified: true,
+      notes: null,
+      signatureUrl: null,
+    };
+
+    // Save receipt to Firestore with explicit document ID
+    await admin.firestore()
+      .collection('receipts')
+      .doc(receiptId)
+      .set(receiptData);
+
+    console.log('✅ [RECEIPT] Receipt saved successfully:', receiptId);
+
+    // Update session with receipt reference
+    await admin.firestore()
+      .collection('billingSessions')
+      .doc(sessionId)
+      .update({
+        receiptGenerated: true,
+        receiptId: receiptId,
+      });
+
+    console.log('✅ [RECEIPT] Session updated with receipt reference');
+
+    return { success: true, receiptId: receiptId, customerId: customerId };
+  } catch (error) {
+    console.error('❌ [RECEIPT ERROR] Failed to generate receipt:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Firestore Trigger: Generate receipt when session is CREATED as PAID (instant checkout)
+ * This handles walk-in customers who pay immediately at the counter
+ */
+exports.onSessionCreated = functions.firestore
+  .document('billingSessions/{sessionId}')
+  .onCreate(async (snapshot, context) => {
+    // CRITICAL: Log immediately to confirm trigger fires - v2
+    console.log('========================================');
+    console.log('🚨 TRIGGER FIRED: onSessionCreated - VERSION 2');
+    console.log('========================================');
+    
+    const sessionId = context.params.sessionId;
+    const sessionData = snapshot.data();
+
+    console.log('🆕 [CREATE] New session created:', sessionId);
+    console.log('🆕 [CREATE] Payment status:', sessionData.paymentStatus);
+    console.log('🆕 [CREATE] Session status:', sessionData.status);
+
+    // Only generate receipt if session is created already PAID (instant checkout)
+    if (sessionData.paymentStatus === 'PAID') {
+      console.log('💰 [CREATE] Session created as PAID - generating receipt immediately');
+      return await generateReceiptForSession(sessionId, sessionData);
+    } else {
+      console.log('⏳ [CREATE] Session not paid yet, waiting for payment update');
+      return null;
+    }
+  });
+
+/**
+ * Firestore Trigger: Generate receipt when session is UPDATED to PAID (QR scan flow)
+ * This handles customers who scan QR code, view bill, then pay
+ */
+exports.onPaymentConfirmed = functions.firestore
+  .document('billingSessions/{sessionId}')
+  .onUpdate(async (change, context) => {
+    // CRITICAL: Log immediately to confirm trigger fires - v2
+    console.log('========================================');
+    console.log('🚨 TRIGGER FIRED: onPaymentConfirmed - VERSION 2');
+    console.log('========================================');
+    
+    const sessionId = context.params.sessionId;
+    const before = change.before.data();
+    const after = change.after.data();
+
+    console.log('🔄 [UPDATE] Session updated:', sessionId);
+    console.log('🔄 [UPDATE] Before - Payment status:', before.paymentStatus);
+    console.log('🔄 [UPDATE] After - Payment status:', after.paymentStatus);
+    
+    // Check if payment was just confirmed
+    const paymentJustConfirmed = 
+      !before.paymentConfirmed && after.paymentConfirmed;
+    
+    const paymentStatusChanged = 
+      before.paymentStatus !== 'PAID' && after.paymentStatus === 'PAID';
+
+    if (!paymentJustConfirmed && !paymentStatusChanged) {
+      console.log('⚠️ [UPDATE] Not a payment confirmation event, skipping');
+      return null;
+    }
+
+    console.log('💰 [UPDATE] Payment confirmed - generating receipt');
+
+    return await generateReceiptForSession(sessionId, after);
+  });
+

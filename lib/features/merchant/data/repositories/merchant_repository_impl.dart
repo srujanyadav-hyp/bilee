@@ -142,6 +142,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         total: session.total,
         status: session.status,
         paymentStatus: session.paymentStatus,
+        paymentConfirmed: session
+            .paymentConfirmed, // ← CRITICAL: Include for Cloud Function trigger
         paymentMethod: session.paymentMethod,
         txnId: session.paymentTxnId,
         connectedCustomers: session.connectedCustomers,
