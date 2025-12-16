@@ -841,7 +841,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
               // Business Category
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Business Category',
                   prefixIcon: Icon(Icons.category),
