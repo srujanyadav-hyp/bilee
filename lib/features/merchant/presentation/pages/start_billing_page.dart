@@ -37,6 +37,7 @@ class _StartBillingPageState extends State<StartBillingPage>
 
   bool _showQuickAdd = false;
   int _selectedBillingMethod = 0; // 0=All Items, 1=Favorites, 2=Recent
+  bool _isTaxEnabled = false; // Toggle for tax calculation
 
   // User preferences - synced with database
   final Set<String> _favoriteItems = {};
@@ -118,6 +119,7 @@ class _StartBillingPageState extends State<StartBillingPage>
                         child: Column(
                           children: [
                             _buildSearchBar(),
+                            _buildTaxToggle(),
                             SizedBox(
                               height:
                                   constraints.maxHeight -
@@ -525,6 +527,81 @@ class _StartBillingPageState extends State<StartBillingPage>
     );
   }
 
+  // ==================== TAX TOGGLE ====================
+  Widget _buildTaxToggle() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppDimensions.paddingMD,
+        0,
+        AppDimensions.paddingMD,
+        AppDimensions.paddingSM,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.paddingMD,
+        vertical: AppDimensions.paddingSM,
+      ),
+      decoration: BoxDecoration(
+        color: _isTaxEnabled
+            ? AppColors.success.withOpacity(0.05)
+            : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        border: Border.all(
+          color: _isTaxEnabled
+              ? AppColors.success.withOpacity(0.3)
+              : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: AppDimensions.iconMD,
+            color: _isTaxEnabled
+                ? AppColors.success
+                : AppColors.lightTextTertiary,
+          ),
+          const SizedBox(width: AppDimensions.spacingSM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Apply Tax Separately',
+                  style: AppTypography.body1.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.lightTextPrimary,
+                  ),
+                ),
+                Text(
+                  _isTaxEnabled
+                      ? 'Tax will be added to item prices'
+                      : 'Items priced at MRP (tax included)',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _isTaxEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isTaxEnabled = value;
+                // Notify session provider about tax setting change
+                final provider = context.read<SessionProvider>();
+                provider.setTaxEnabled(_isTaxEnabled);
+              });
+              HapticFeedback.lightImpact();
+            },
+            activeThumbColor: AppColors.success,
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==================== ITEMS CONTENT ====================
   Widget _buildItemsContent() {
     return Consumer<ItemProvider>(
@@ -697,6 +774,7 @@ class _StartBillingPageState extends State<StartBillingPage>
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Favorite Button (Top Right)
             Align(
@@ -719,58 +797,64 @@ class _StartBillingPageState extends State<StartBillingPage>
               ),
             ),
             // Item Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppDimensions.paddingMD,
-                0,
-                AppDimensions.paddingMD,
-                AppDimensions.paddingMD,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Item Name
-                  Text(
-                    item.name,
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.lightTextPrimary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: AppDimensions.spacingXS),
-                  // Price
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimensions.paddingSM,
-                      vertical: AppDimensions.paddingXS,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: isInCart
-                          ? AppColors.primaryGradient
-                          : LinearGradient(
-                              colors: [
-                                AppColors.lightBackground,
-                                AppColors.lightBackground.withOpacity(0.5),
-                              ],
-                            ),
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.radiusSM,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppDimensions.paddingMD,
+                  0,
+                  AppDimensions.paddingMD,
+                  AppDimensions.paddingSM,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Item Name
+                    Flexible(
+                      child: Text(
+                        item.name,
+                        style: AppTypography.body1.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.lightTextPrimary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    child: Text(
-                      '₹${item.price.toStringAsFixed(2)}',
-                      style: AppTypography.h5.copyWith(
-                        color: isInCart ? Colors.white : AppColors.primaryBlue,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(height: AppDimensions.spacingXS),
+                    // Price
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimensions.paddingSM,
+                        vertical: AppDimensions.paddingXS,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: isInCart
+                            ? AppColors.primaryGradient
+                            : LinearGradient(
+                                colors: [
+                                  AppColors.lightBackground,
+                                  AppColors.lightBackground.withOpacity(0.5),
+                                ],
+                              ),
+                        borderRadius: BorderRadius.circular(
+                          AppDimensions.radiusSM,
+                        ),
+                      ),
+                      child: Text(
+                        '₹${item.price.toStringAsFixed(2)}',
+                        style: AppTypography.h5.copyWith(
+                          color: isInCart
+                              ? Colors.white
+                              : AppColors.primaryBlue,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            const Spacer(),
             // Add to Cart / Quantity Controls
             if (!isInCart)
               Container(
@@ -1196,23 +1280,46 @@ class _StartBillingPageState extends State<StartBillingPage>
                     ],
                   ),
                   const SizedBox(height: AppDimensions.spacingXS),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Tax',
-                        style: AppTypography.body2.copyWith(
-                          color: AppColors.lightTextSecondary,
+                  if (_isTaxEnabled) ...[
+                    // CGST (half of total tax)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'CGST',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.lightTextSecondary,
+                          ),
                         ),
-                      ),
-                      Text(
-                        '₹${provider.cartTax.toStringAsFixed(2)}',
-                        style: AppTypography.body1.copyWith(
-                          fontWeight: FontWeight.w600,
+                        Text(
+                          '₹${(provider.cartTax / 2).toStringAsFixed(2)}',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.lightTextSecondary,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    // SGST (half of total tax)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'SGST',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.lightTextSecondary,
+                          ),
+                        ),
+                        Text(
+                          '₹${(provider.cartTax / 2).toStringAsFixed(2)}',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.lightTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppDimensions.spacingXS),
+                  ],
                   const Divider(height: AppDimensions.spacingLG),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

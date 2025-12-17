@@ -70,7 +70,8 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                   const Spacer(flex: 1),
                   // Illustration Area
                   Container(
-                    height: 200,
+                    height: MediaQuery.of(context).size.height * 0.25,
+                    constraints: BoxConstraints(minHeight: 150, maxHeight: 250),
                     decoration: BoxDecoration(
                       gradient: AppColors.primaryGradient,
                       borderRadius: BorderRadius.circular(

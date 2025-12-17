@@ -69,7 +69,12 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> {
                 return RefreshIndicator(
                   onRefresh: () => provider.refresh(),
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(AppDimensions.paddingMD),
+                    padding: EdgeInsets.only(
+                      left: AppDimensions.paddingMD,
+                      right: AppDimensions.paddingMD,
+                      top: AppDimensions.paddingMD,
+                      bottom: 60 + MediaQuery.of(context).padding.bottom + 16,
+                    ),
                     itemCount: provider.receipts.length,
                     itemBuilder: (context, index) {
                       final receipt = provider.receipts[index];
@@ -82,9 +87,9 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> {
           ),
         ],
       ),
-      floatingActionButton: const CustomerFloatingScanButton(),
+      floatingActionButton: CustomerFloatingScanButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: const CustomerBottomNav(
+      bottomNavigationBar: CustomerBottomNav(
         currentRoute: '/customer/receipts',
       ),
     );

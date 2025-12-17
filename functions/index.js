@@ -247,8 +247,8 @@ exports.cleanupExpiredSessions = functions.pubsub
     try {
       // Find sessions older than 24 hours
       const expiredSessionsSnapshot = await admin.firestore()
-        .collection('sessions')
-        .where('created_at', '<', admin.firestore.Timestamp.fromDate(twentyFourHoursAgo))
+        .collection('billingSessions')
+        .where('createdAt', '<', admin.firestore.Timestamp.fromDate(twentyFourHoursAgo))
         .get();
       
       console.log(`Found ${expiredSessionsSnapshot.size} expired sessions`);
@@ -264,10 +264,10 @@ exports.cleanupExpiredSessions = functions.pubsub
         // 1. Session is expired OR
         // 2. Session is completed OR
         // 3. Session has a receipt (payment recorded)
-        const hasReceipt = sessionData.payment_status === 'PAID';
+        const hasReceipt = sessionData.paymentStatus === 'PAID' && sessionData.receiptGenerated;
         const isCompleted = sessionData.status === 'COMPLETED';
         const isExpired = sessionData.status === 'EXPIRED' || 
-                         (sessionData.expires_at && sessionData.expires_at.toMillis() < now.toMillis());
+                         (sessionData.expiresAt && sessionData.expiresAt.toMillis() < now.toMillis());
         
         if (hasReceipt || isCompleted || isExpired) {
           batch.delete(doc.ref);
@@ -443,6 +443,8 @@ async function generateReceiptForSession(sessionId, sessionData) {
       paymentMethod: (sessionData.paymentMethod || 'Cash').toLowerCase(),
       transactionId: sessionData.txnId || null,
       paymentTime: sessionData.paymentTime || sessionData.completedAt || admin.firestore.Timestamp.now(),
+      paymentStatus: 'pending', // Initialize as pending, customer will update when they pay
+      upiTransactionRef: null, // Will be populated by UPI payment service
       createdAt: admin.firestore.Timestamp.now(),
       isVerified: true,
       notes: null,

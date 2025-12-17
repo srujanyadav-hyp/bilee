@@ -93,280 +93,291 @@ class _RegisterScreenState extends State<RegisterScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 16,
-          left: AppDimensions.paddingLG,
-          right: AppDimensions.paddingLG,
-          bottom: AppDimensions.paddingLG,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Back Button
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
-                onPressed: () => context.go('/login'),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Logo
-            Center(
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  shape: BoxShape.circle,
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/logos/logo_symbol_glow-removebg-preview.png',
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.contain,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: AppDimensions.paddingLG,
+            right: AppDimensions.paddingLG,
+            top: 16,
+            bottom:
+                MediaQuery.of(context).viewInsets.bottom +
+                AppDimensions.paddingLG,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Back Button
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.arrow_back,
+                    color: AppColors.lightTextPrimary,
                   ),
+                  onPressed: () => context.go('/login'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ),
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Title
-            Text(
-              'Create Account',
-              style: AppTypography.h1.copyWith(
-                color: AppColors.lightTextPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppDimensions.spacingSM),
-            // Role Badge
-            if (_userRole != null)
+              SizedBox(height: AppDimensions.spacingLG),
+              // Logo
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                    gradient: AppColors.primaryGradient,
+                    shape: BoxShape.circle,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _userRole == 'merchant'
-                            ? Icons.store
-                            : Icons.shopping_bag_outlined,
-                        size: 16,
-                        color: AppColors.primaryBlue,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _userRole == 'merchant' ? 'Merchant' : 'Customer',
-                        style: AppTypography.body2.copyWith(
-                          color: AppColors.primaryBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            SizedBox(height: AppDimensions.spacingXL),
-            // Creative Sliding Indicator Tab Selector
-            Stack(
-              children: [
-                // Background Line
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: AppColors.lightBorder.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(2),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/logos/logo_symbol_glow-removebg-preview.png',
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
-                // Animated Sliding Indicator
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeInOutCubic,
-                  bottom: 0,
-                  left: _tabController.index == 0
-                      ? 0
-                      : MediaQuery.of(context).size.width / 2 -
-                            AppDimensions.paddingLG,
-                  width:
-                      MediaQuery.of(context).size.width / 2 -
-                      AppDimensions.paddingLG,
+              ),
+              SizedBox(height: AppDimensions.spacingLG),
+              // Title
+              Text(
+                'Create Account',
+                style: AppTypography.h1.copyWith(
+                  color: AppColors.lightTextPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppDimensions.spacingSM),
+              // Role Badge
+              if (_userRole != null)
+                Center(
                   child: Container(
-                    height: 3,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primaryBlue.withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                      color: AppColors.primaryBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusMD,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _userRole == 'merchant'
+                              ? Icons.store
+                              : Icons.shopping_bag_outlined,
+                          size: 16,
+                          color: AppColors.primaryBlue,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _userRole == 'merchant' ? 'Merchant' : 'Customer',
+                          style: AppTypography.body2.copyWith(
+                            color: AppColors.primaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                // Tab Buttons
-                Container(
-                  height: 64,
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      // Email Tab
-                      Expanded(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => _tabController.animateTo(0),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 350),
-                                  curve: Curves.easeInOutCubic,
-                                  padding: EdgeInsets.all(
-                                    _tabController.index == 0 ? 12 : 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: _tabController.index == 0
-                                        ? AppColors.primaryGradient
-                                        : null,
-                                    color: _tabController.index == 0
-                                        ? null
-                                        : AppColors.lightSurface,
-                                    shape: BoxShape.circle,
-                                    boxShadow: _tabController.index == 0
-                                        ? [
-                                            BoxShadow(
-                                              color: AppColors.primaryBlue
-                                                  .withOpacity(0.3),
-                                              blurRadius: 12,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
-                                        : [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.05,
+              SizedBox(height: AppDimensions.spacingXL),
+              // Creative Sliding Indicator Tab Selector
+              Stack(
+                children: [
+                  // Background Line
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: AppColors.lightBorder.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Animated Sliding Indicator
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeInOutCubic,
+                    bottom: 0,
+                    left: _tabController.index == 0
+                        ? 0
+                        : MediaQuery.of(context).size.width / 2 -
+                              AppDimensions.paddingLG,
+                    width:
+                        MediaQuery.of(context).size.width / 2 -
+                        AppDimensions.paddingLG,
+                    child: Container(
+                      height: 3,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryBlue.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Tab Buttons
+                  Container(
+                    height: 64,
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        // Email Tab
+                        Expanded(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _tabController.animateTo(0),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 350),
+                                    curve: Curves.easeInOutCubic,
+                                    padding: EdgeInsets.all(
+                                      _tabController.index == 0 ? 12 : 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: _tabController.index == 0
+                                          ? AppColors.primaryGradient
+                                          : null,
+                                      color: _tabController.index == 0
+                                          ? null
+                                          : AppColors.lightSurface,
+                                      shape: BoxShape.circle,
+                                      boxShadow: _tabController.index == 0
+                                          ? [
+                                              BoxShadow(
+                                                color: AppColors.primaryBlue
+                                                    .withOpacity(0.3),
+                                                blurRadius: 12,
+                                                spreadRadius: 2,
                                               ),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.05,
+                                                ),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                    ),
+                                    child: Icon(
+                                      Icons.email_rounded,
+                                      size: _tabController.index == 0 ? 28 : 24,
+                                      color: _tabController.index == 0
+                                          ? Colors.white
+                                          : AppColors.lightTextSecondary,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.email_rounded,
-                                    size: _tabController.index == 0 ? 28 : 24,
-                                    color: _tabController.index == 0
-                                        ? Colors.white
-                                        : AppColors.lightTextSecondary,
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      // Phone Tab
-                      Expanded(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => _tabController.animateTo(1),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 350),
-                                  curve: Curves.easeInOutCubic,
-                                  padding: EdgeInsets.all(
-                                    _tabController.index == 1 ? 12 : 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: _tabController.index == 1
-                                        ? AppColors.primaryGradient
-                                        : null,
-                                    color: _tabController.index == 1
-                                        ? null
-                                        : AppColors.lightSurface,
-                                    shape: BoxShape.circle,
-                                    boxShadow: _tabController.index == 1
-                                        ? [
-                                            BoxShadow(
-                                              color: AppColors.primaryBlue
-                                                  .withOpacity(0.3),
-                                              blurRadius: 12,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
-                                        : [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.05,
+                        // Phone Tab
+                        Expanded(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _tabController.animateTo(1),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 350),
+                                    curve: Curves.easeInOutCubic,
+                                    padding: EdgeInsets.all(
+                                      _tabController.index == 1 ? 12 : 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: _tabController.index == 1
+                                          ? AppColors.primaryGradient
+                                          : null,
+                                      color: _tabController.index == 1
+                                          ? null
+                                          : AppColors.lightSurface,
+                                      shape: BoxShape.circle,
+                                      boxShadow: _tabController.index == 1
+                                          ? [
+                                              BoxShadow(
+                                                color: AppColors.primaryBlue
+                                                    .withOpacity(0.3),
+                                                blurRadius: 12,
+                                                spreadRadius: 2,
                                               ),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.05,
+                                                ),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                    ),
+                                    child: Icon(
+                                      Icons.phone_rounded,
+                                      size: _tabController.index == 1 ? 28 : 24,
+                                      color: _tabController.index == 1
+                                          ? Colors.white
+                                          : AppColors.lightTextSecondary,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.phone_rounded,
-                                    size: _tabController.index == 1 ? 28 : 24,
-                                    color: _tabController.index == 1
-                                        ? Colors.white
-                                        : AppColors.lightTextSecondary,
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: AppDimensions.spacingLG),
-            // Tab Views
-            SizedBox(
-              height: _userRole == 'merchant' ? 550 : 450,
-              child: TabBarView(
-                controller: _tabController,
-                children: [_buildEmailForm(), _buildPhoneForm()],
+                ],
               ),
-            ),
-            SizedBox(height: AppDimensions.spacingMD),
-            // Sign In Link
-            Center(
-              child: TextButton(
-                onPressed: () => context.go('/login'),
-                child: Text(
-                  'Already have an account? Sign in',
-                  style: AppTypography.body2.copyWith(
-                    color: AppColors.primaryBlue,
-                  ),
+              SizedBox(height: AppDimensions.spacingLG),
+              // Tab Views
+              SizedBox(
+                height: _userRole == 'merchant' ? 550 : 450,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [_buildEmailForm(), _buildPhoneForm()],
                 ),
               ),
-            ),
-          ],
+              SizedBox(height: AppDimensions.spacingMD),
+              // Sign In Link
+              Center(
+                child: TextButton(
+                  onPressed: () => context.go('/login'),
+                  child: Text(
+                    'Already have an account? Sign in',
+                    style: AppTypography.body2.copyWith(
+                      color: AppColors.primaryBlue,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -850,9 +861,33 @@ class _RegisterScreenState extends State<RegisterScreen>
                       ),
                     ),
                     keyboardType: TextInputType.phone,
+                    onChanged: (value) {
+                      // Auto-strip country code if user pastes full number
+                      if (value.startsWith('+91')) {
+                        _phoneController.text = value.substring(3);
+                        _phoneController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _phoneController.text.length),
+                        );
+                      } else if (value.startsWith('+')) {
+                        // Strip any other country code
+                        final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                        if (digitsOnly.length > 10) {
+                          _phoneController.text = digitsOnly.substring(
+                            digitsOnly.length - 10,
+                          );
+                          _phoneController
+                              .selection = TextSelection.fromPosition(
+                            TextPosition(offset: _phoneController.text.length),
+                          );
+                        }
+                      }
+                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Enter phone number';
+                      }
+                      if (value.startsWith('+')) {
+                        return 'Enter only 10-digit number without country code';
                       }
                       if (!RegExp(r'^\d{10}$').hasMatch(value)) {
                         return 'Enter valid 10-digit number';
@@ -962,6 +997,17 @@ class _RegisterScreenState extends State<RegisterScreen>
         setState(() {
           _isLoading = false;
         });
+
+        // Create registration data for OTP verification
+        final registrationData = RegistrationData(
+          role: _userRole!,
+          method: AuthMethod.phone,
+          phone: _phoneController.text,
+          countryCode: _countryCode,
+          displayName: _phoneDisplayNameController.text,
+          category: _selectedCategory,
+        );
+
         context.push(
           '/otp',
           extra: {
@@ -969,6 +1015,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             'phoneNumber': '$_countryCode${_phoneController.text}',
             'countryCode': _countryCode,
             'isRegistration': true,
+            'registrationData': registrationData,
           },
         );
       },

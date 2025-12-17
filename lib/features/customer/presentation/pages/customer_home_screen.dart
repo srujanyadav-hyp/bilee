@@ -62,7 +62,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(AppDimensions.paddingMD),
+          padding: EdgeInsets.only(
+            left: AppDimensions.paddingMD,
+            right: AppDimensions.paddingMD,
+            top: AppDimensions.paddingMD,
+            bottom: 60 + MediaQuery.of(context).padding.bottom + 16,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -78,9 +83,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
         ),
       ),
-      floatingActionButton: const CustomerFloatingScanButton(),
+      floatingActionButton: CustomerFloatingScanButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: const CustomerBottomNav(currentRoute: '/customer'),
+      bottomNavigationBar: CustomerBottomNav(currentRoute: '/customer'),
     );
   }
 

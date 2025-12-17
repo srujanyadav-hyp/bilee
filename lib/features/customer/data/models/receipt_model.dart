@@ -27,6 +27,8 @@ class ReceiptModel {
   final String paymentMethod;
   final String? transactionId;
   final Timestamp paymentTime;
+  final String paymentStatus; // 'pending', 'paid', 'failed', 'cancelled'
+  final String? upiTransactionRef;
   final Timestamp createdAt;
   final bool isVerified;
   final String? notes;
@@ -57,6 +59,8 @@ class ReceiptModel {
     required this.paymentMethod,
     this.transactionId,
     required this.paymentTime,
+    this.paymentStatus = 'pending',
+    this.upiTransactionRef,
     required this.createdAt,
     this.isVerified = false,
     this.notes,
@@ -96,6 +100,8 @@ class ReceiptModel {
       paidAmount: (json['paidAmount'] ?? 0).toDouble(),
       pendingAmount: (json['pendingAmount'] ?? 0).toDouble(),
       paymentMethod: json['paymentMethod'] ?? 'upi',
+      paymentStatus: json['paymentStatus'] ?? 'pending',
+      upiTransactionRef: json['upiTransactionRef'],
       transactionId: json['transactionId'],
       paymentTime: json['paymentTime'] ?? Timestamp.now(),
       createdAt: json['createdAt'] ?? Timestamp.now(),
@@ -127,6 +133,8 @@ class ReceiptModel {
       'discount': discount,
       'total': total,
       'paidAmount': paidAmount,
+      'paymentStatus': paymentStatus,
+      'upiTransactionRef': upiTransactionRef,
       'pendingAmount': pendingAmount,
       'paymentMethod': paymentMethod,
       'transactionId': transactionId,
@@ -165,6 +173,8 @@ class ReceiptModel {
       paymentMethod: _parsePaymentMethod(paymentMethod),
       transactionId: transactionId,
       paymentTime: paymentTime.toDate(),
+      paymentStatus: _parsePaymentStatus(paymentStatus),
+      upiTransactionRef: upiTransactionRef,
       createdAt: createdAt.toDate(),
       isVerified: isVerified,
       notes: notes,
@@ -201,6 +211,8 @@ class ReceiptModel {
       paymentMethod: entity.paymentMethod.name,
       transactionId: entity.transactionId,
       paymentTime: Timestamp.fromDate(entity.paymentTime),
+      paymentStatus: entity.paymentStatus.name,
+      upiTransactionRef: entity.upiTransactionRef,
       createdAt: Timestamp.fromDate(entity.createdAt),
       isVerified: entity.isVerified,
       notes: entity.notes,
@@ -220,6 +232,19 @@ class ReceiptModel {
         return PaymentMethod.netBanking;
       default:
         return PaymentMethod.other;
+    }
+  }
+
+  static PaymentStatus _parsePaymentStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'paid':
+        return PaymentStatus.paid;
+      case 'failed':
+        return PaymentStatus.failed;
+      case 'cancelled':
+        return PaymentStatus.cancelled;
+      default:
+        return PaymentStatus.pending;
     }
   }
 }

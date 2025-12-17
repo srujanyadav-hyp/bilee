@@ -229,7 +229,7 @@ class AuthService {
             uid: userCredential.user!.uid,
             role: registrationData.role,
             displayName: registrationData.displayName,
-            phone: registrationData.phone,
+            phone: '${registrationData.countryCode}${registrationData.phone}',
             category: registrationData.category,
           );
 
@@ -239,8 +239,14 @@ class AuthService {
             'method': 'phone',
             'role': registrationData.role,
           });
+        } else if (!userDoc.exists && registrationData == null) {
+          // User trying to login but no Firestore document exists
+          await _auth.signOut();
+          return AuthResult.failure(
+            'Account not found. Please register first.',
+          );
         } else if (userDoc.exists && registrationData != null) {
-          // Existing user trying to sign in - validate role
+          // Existing user trying to register - validate role
           final userData = userDoc.data();
           final storedRole = userData?['role'] as String?;
 

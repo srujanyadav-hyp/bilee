@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/upi_payment_service.dart';
 import '../../domain/entities/receipt_entity.dart';
 import '../providers/receipt_provider.dart';
 
@@ -17,6 +19,9 @@ class ReceiptDetailScreen extends StatefulWidget {
 }
 
 class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
+  final CoreUpiPaymentService _upiService = CoreUpiPaymentService();
+  bool _isProcessingPayment = false;
+
   @override
   void initState() {
     super.initState();
@@ -150,6 +155,11 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                   _buildSummary(receipt),
 
                   const Divider(height: 1, color: AppColors.receiptBorder),
+
+                  // Pay Now Button (if payment is pending and method is UPI)
+                  if (receipt.paymentStatus == PaymentStatus.pending &&
+                      receipt.paymentMethod == PaymentMethod.upi)
+                    _buildPayNowButton(receipt),
 
                   // Payment Info
                   _buildPaymentInfo(receipt),
@@ -451,15 +461,21 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'PAYMENT DETAILS',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.lightTextSecondary,
-              letterSpacing: 1,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'PAYMENT DETAILS',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.lightTextSecondary,
+                  letterSpacing: 1,
+                ),
+              ),
+              _buildPaymentStatusBadge(receipt.paymentStatus),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
@@ -533,6 +549,384 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentStatusBadge(PaymentStatus status) {
+    Color badgeColor;
+    String badgeText;
+    IconData badgeIcon;
+
+    switch (status) {
+      case PaymentStatus.paid:
+        badgeColor = AppColors.success;
+        badgeText = 'PAID';
+        badgeIcon = Icons.check_circle;
+        break;
+      case PaymentStatus.pending:
+        badgeColor = Colors.orange;
+        badgeText = 'PENDING';
+        badgeIcon = Icons.access_time;
+        break;
+      case PaymentStatus.failed:
+        badgeColor = AppColors.error;
+        badgeText = 'FAILED';
+        badgeIcon = Icons.error;
+        break;
+      case PaymentStatus.cancelled:
+        badgeColor = AppColors.lightTextTertiary;
+        badgeText = 'CANCELLED';
+        badgeIcon = Icons.cancel;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: badgeColor, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(badgeIcon, size: 14, color: badgeColor),
+          const SizedBox(width: 4),
+          Text(
+            badgeText,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: badgeColor,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPayNowButton(ReceiptEntity receipt) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Divider(height: 1, color: AppColors.receiptBorder),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primaryBlue.withOpacity(0.1),
+                  AppColors.primaryBlueLight.withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBlue.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.payment,
+                        color: AppColors.primaryBlue,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Complete Payment',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Pay ₹${receipt.total.toStringAsFixed(2)} via UPI',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              color: AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _isProcessingPayment
+                      ? null
+                      : () => _handlePayNow(receipt),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isProcessingPayment
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.account_balance_wallet, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Pay Now with UPI',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handlePayNow(ReceiptEntity receipt) async {
+    try {
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('💳 RECEIPT PAYMENT FLOW STARTED');
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('📋 Receipt ID: ${receipt.id}');
+      debugPrint('📋 Receipt Number: ${receipt.receiptId}');
+      debugPrint('💰 Amount: ₹${receipt.total}');
+      debugPrint('🏪 Merchant: ${receipt.merchantName}');
+      debugPrint('🆔 Merchant ID: ${receipt.merchantId}');
+      debugPrint('───────────────────────────────────────────');
+
+      debugPrint('🔄 Setting processing state to true...');
+      setState(() => _isProcessingPayment = true);
+      debugPrint('✅ Processing state updated');
+      debugPrint('───────────────────────────────────────────');
+
+      // Fetch merchant UPI ID from merchant profile
+      debugPrint('🔍 Step 1: Fetching merchant UPI ID...');
+      debugPrint('   • Querying Firestore for merchant: ${receipt.merchantId}');
+      final merchantDoc = await FirebaseFirestore.instance
+          .collection('merchants')
+          .doc(receipt.merchantId)
+          .get();
+
+      final merchantUpiId = merchantDoc.data()?['upiId'] as String?;
+      debugPrint(
+        '   • Merchant UPI ID from Firestore: ${merchantUpiId ?? "NOT FOUND"}',
+      );
+
+      if (merchantUpiId == null || merchantUpiId.isEmpty) {
+        debugPrint('❌ Merchant UPI ID not configured');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Merchant has not configured UPI ID. Please contact merchant.',
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          setState(() => _isProcessingPayment = false);
+        }
+        return;
+      }
+      debugPrint('✅ Step 1 complete: Merchant UPI ID retrieved');
+      debugPrint('───────────────────────────────────────────');
+
+      // Mark payment as initiated BEFORE launching UPI app
+      debugPrint('💾 Step 2: Updating receipt payment status...');
+      final transactionId =
+          'BILEE${receipt.receiptId}${DateTime.now().millisecondsSinceEpoch}';
+      debugPrint('   • Transaction ID: $transactionId');
+      debugPrint('   • Status: pending');
+      await _upiService.updateReceiptPaymentStatus(
+        receiptId: receipt.id,
+        status: 'pending',
+        transactionId: transactionId,
+      );
+      debugPrint('✅ Step 2 complete: Payment status updated in Firestore');
+      debugPrint('───────────────────────────────────────────');
+
+      // Reload receipt to reflect updated payment status
+      debugPrint('🔄 Step 3: Reloading receipt data...');
+      if (mounted) {
+        await context.read<ReceiptProvider>().loadReceiptById(receipt.id);
+        debugPrint('✅ Step 3 complete: Receipt data reloaded');
+      }
+      debugPrint('───────────────────────────────────────────');
+
+      // Reset processing state BEFORE launching UPI app
+      debugPrint('🔄 Step 4: Resetting processing state...');
+      if (mounted) {
+        setState(() => _isProcessingPayment = false);
+        debugPrint('✅ Step 4 complete: Processing flag reset to false');
+      }
+      debugPrint('───────────────────────────────────────────');
+
+      // Show message that payment is being initiated
+      debugPrint('📢 Step 5: Showing user notification...');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📱 Opening UPI app...'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        debugPrint('✅ Step 5 complete: Snackbar displayed');
+      }
+      debugPrint('───────────────────────────────────────────');
+
+      // Small delay to ensure UI updates
+      debugPrint('⏳ Step 6: Waiting 300ms for UI updates...');
+      await Future.delayed(const Duration(milliseconds: 300));
+      debugPrint('✅ Step 6 complete: Delay finished');
+      debugPrint('───────────────────────────────────────────');
+
+      // Now initiate payment
+      debugPrint('🚀 Step 7: Launching UPI app...');
+      debugPrint('   • UPI ID: $merchantUpiId');
+      debugPrint('   • Amount: ₹${receipt.total}');
+      if (mounted) {
+        await _upiService.initiatePayment(
+          receiptId: receipt.receiptId,
+          merchantName: receipt.merchantName,
+          merchantUpiId: merchantUpiId,
+          amount: receipt.total,
+        );
+        debugPrint('✅ Step 7 complete: UPI app returned');
+      }
+      debugPrint('───────────────────────────────────────────');
+
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('✅ RECEIPT PAYMENT FLOW COMPLETE');
+      debugPrint('═══════════════════════════════════════════');
+    } catch (e, stackTrace) {
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('❌ RECEIPT PAYMENT ERROR');
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('Error: $e');
+      debugPrint('Error Type: ${e.runtimeType}');
+      debugPrint('Widget mounted: $mounted');
+      debugPrint('Stack trace:');
+      debugPrint('$stackTrace');
+      debugPrint('═══════════════════════════════════════════');
+      if (mounted) {
+        setState(() => _isProcessingPayment = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment error: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showPaymentResult(String? status) {
+    String message;
+    Color backgroundColor;
+    IconData icon;
+
+    switch (status) {
+      case 'SUCCESS':
+        message = 'Payment successful! ✓';
+        backgroundColor = AppColors.success;
+        icon = Icons.check_circle;
+        break;
+      case 'FAILURE':
+        message = 'Payment failed. Please try again.';
+        backgroundColor = AppColors.error;
+        icon = Icons.error;
+        break;
+      case 'SUBMITTED':
+        message = 'Payment submitted. Waiting for confirmation...';
+        backgroundColor = Colors.orange;
+        icon = Icons.access_time;
+        break;
+      default:
+        message = 'Payment cancelled.';
+        backgroundColor = AppColors.lightTextTertiary;
+        icon = Icons.cancel;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: backgroundColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 48, color: backgroundColor),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: backgroundColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       ),
     );
   }

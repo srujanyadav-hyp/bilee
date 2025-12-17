@@ -70,6 +70,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
         businessAddress: null,
         gstNumber: null,
         panNumber: null,
+        upiId: null,
         logoUrl: null,
         businessType: userData.category ?? 'General',
         isActive: true,
@@ -746,6 +747,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   late TextEditingController _addressController;
   late TextEditingController _gstController;
   late TextEditingController _panController;
+  late TextEditingController _upiIdController;
 
   String? _selectedCategory;
   bool _isSaving = false;
@@ -783,6 +785,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _panController = TextEditingController(
       text: widget.profile.panNumber ?? '',
     );
+    _upiIdController = TextEditingController(text: widget.profile.upiId ?? '');
     _selectedCategory =
         widget.userData?.category ?? widget.profile.businessType;
   }
@@ -795,6 +798,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _addressController.dispose();
     _gstController.dispose();
     _panController.dispose();
+    _upiIdController.dispose();
     super.dispose();
   }
 
@@ -917,6 +921,19 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: AppDimensions.spacingMD),
+
+              // UPI ID
+              TextField(
+                controller: _upiIdController,
+                decoration: const InputDecoration(
+                  labelText: 'UPI ID (For receiving payments)',
+                  prefixIcon: Icon(Icons.account_balance_wallet),
+                  border: OutlineInputBorder(),
+                  hintText: 'yourname@upi',
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
               const SizedBox(height: AppDimensions.spacingXL),
 
               // Save Button
@@ -986,6 +1003,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         panNumber: _panController.text.trim().isEmpty
             ? null
             : _panController.text.trim(),
+        upiId: _upiIdController.text.trim().isEmpty
+            ? null
+            : _upiIdController.text.trim(),
         logoUrl: widget.profile.logoUrl,
         businessType: _selectedCategory ?? 'Other',
         isActive: widget.profile.isActive,

@@ -42,6 +42,9 @@ class SessionProvider with ChangeNotifier {
   // Cart items for building a session
   final Map<String, SessionItemEntity> _cartItems = {};
 
+  // Tax calculation flag
+  bool _isTaxEnabled = false;
+
   // Bill parking - Multiple parked carts
   final Map<String, Map<String, SessionItemEntity>> _parkedCarts = {};
   String? _activeCartId;
@@ -61,11 +64,13 @@ class SessionProvider with ChangeNotifier {
     0.0,
     (sum, item) => sum + item.subtotalAfterDiscount,
   );
-  double get cartTax =>
-      _cartItems.values.fold(0.0, (sum, item) => sum + item.tax);
+  double get cartTax => _isTaxEnabled
+      ? _cartItems.values.fold(0.0, (sum, item) => sum + item.tax)
+      : 0.0;
   double get cartTotal => cartSubtotal + cartTax;
   double get cartTotalDiscount =>
       _cartItems.values.fold(0.0, (sum, item) => sum + item.discount);
+  bool get isTaxEnabled => _isTaxEnabled;
 
   // Bill parking getters
   Map<String, Map<String, SessionItemEntity>> get parkedCarts => _parkedCarts;
@@ -127,7 +132,7 @@ class SessionProvider with ChangeNotifier {
       final existing = _cartItems[key]!;
       final newQty = existing.qty + quantity;
       final itemTotal = item.price * newQty;
-      final itemTax = itemTotal * (item.taxRate / 100);
+      final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[key] = SessionItemEntity(
         name: item.name,
@@ -141,7 +146,7 @@ class SessionProvider with ChangeNotifier {
     } else {
       // Add new item
       final itemTotal = item.price * quantity;
-      final itemTax = itemTotal * (item.taxRate / 100);
+      final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[key] = SessionItemEntity(
         name: item.name,
@@ -169,7 +174,7 @@ class SessionProvider with ChangeNotifier {
     } else {
       final item = entry.value;
       final itemTotal = item.price * quantity;
-      final itemTax = itemTotal * (item.taxRate / 100);
+      final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[entry.key] = SessionItemEntity(
         name: item.name,
@@ -179,6 +184,32 @@ class SessionProvider with ChangeNotifier {
         taxRate: item.taxRate,
         tax: itemTax,
         total: itemTotal + itemTax,
+      );
+    }
+
+    notifyListeners();
+  }
+
+  /// Set tax enabled/disabled and recalculate all cart items
+  void setTaxEnabled(bool enabled) {
+    _isTaxEnabled = enabled;
+
+    // Recalculate tax for all items in cart
+    final itemsList = _cartItems.entries.toList();
+    for (final entry in itemsList) {
+      final item = entry.value;
+      final itemTotal = item.price * item.qty;
+      final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
+
+      _cartItems[entry.key] = SessionItemEntity(
+        name: item.name,
+        hsnCode: item.hsnCode,
+        price: item.price,
+        qty: item.qty,
+        taxRate: item.taxRate,
+        tax: itemTax,
+        total: itemTotal + itemTax,
+        discount: item.discount,
       );
     }
 

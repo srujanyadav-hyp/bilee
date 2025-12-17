@@ -79,6 +79,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: 60 + MediaQuery.of(context).padding.bottom + 16,
+              ),
               child: Column(
                 children: [
                   _buildProfileHeader(context, user),
@@ -88,15 +91,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   _buildSettingsSection(context),
                   const SizedBox(height: AppDimensions.spacingLG),
                   _buildAccountSection(context),
-                  const SizedBox(height: 100), // Space for bottom navigation
                 ],
               ),
             ),
-      floatingActionButton: const CustomerFloatingScanButton(),
+      floatingActionButton: CustomerFloatingScanButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: const CustomerBottomNav(
-        currentRoute: '/customer/profile',
-      ),
+      bottomNavigationBar: CustomerBottomNav(currentRoute: '/customer/profile'),
     );
   }
 
@@ -349,8 +349,95 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  void _editProfile(BuildContext context) {
-    _showComingSoon(context);
+  void _editProfile(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final nameController = TextEditingController(text: _displayName ?? '');
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: 'Display Name',
+            hintText: 'Enter your name',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(context, name);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    nameController.dispose();
+
+    if (newName != null && newName != _displayName && context.mounted) {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      try {
+        // Update Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+              'display_name': newName,
+              'updated_at': FieldValue.serverTimestamp(),
+            });
+
+        // Update local state
+        setState(() {
+          _displayName = newName;
+        });
+
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile updated successfully!'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update profile: $e'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _showComingSoon(BuildContext context) {

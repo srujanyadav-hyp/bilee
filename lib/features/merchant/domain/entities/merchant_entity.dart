@@ -7,6 +7,7 @@ class MerchantEntity {
   final String? businessEmail;
   final String? gstNumber;
   final String? panNumber;
+  final String? upiId; // UPI ID for receiving payments (e.g., merchant@upi)
   final String? logoUrl;
   final String businessType; // Restaurant, Retail, etc.
   final bool isActive;
@@ -21,6 +22,7 @@ class MerchantEntity {
     this.businessEmail,
     this.gstNumber,
     this.panNumber,
+    this.upiId,
     this.logoUrl,
     required this.businessType,
     required this.isActive,

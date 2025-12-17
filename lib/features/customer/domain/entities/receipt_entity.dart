@@ -33,6 +33,8 @@ class ReceiptEntity {
   final PaymentMethod paymentMethod;
   final String? transactionId;
   final DateTime paymentTime;
+  final PaymentStatus paymentStatus; // pending, paid, failed
+  final String? upiTransactionRef; // UPI transaction reference number
 
   // Metadata
   final DateTime createdAt;
@@ -65,6 +67,8 @@ class ReceiptEntity {
     required this.paymentMethod,
     this.transactionId,
     required this.paymentTime,
+    this.paymentStatus = PaymentStatus.pending,
+    this.upiTransactionRef,
     required this.createdAt,
     this.isVerified = false,
     this.notes,
@@ -81,6 +85,7 @@ class ReceiptEntity {
     String? merchantAddress,
     String? merchantPhone,
     String? merchantGst,
+    String? businessCategory,
     String? customerId,
     String? customerName,
     String? customerPhone,
@@ -93,6 +98,8 @@ class ReceiptEntity {
     double? paidAmount,
     double? pendingAmount,
     PaymentMethod? paymentMethod,
+    PaymentStatus? paymentStatus,
+    String? upiTransactionRef,
     String? transactionId,
     DateTime? paymentTime,
     DateTime? createdAt,
@@ -110,6 +117,7 @@ class ReceiptEntity {
       merchantAddress: merchantAddress ?? this.merchantAddress,
       merchantPhone: merchantPhone ?? this.merchantPhone,
       merchantGst: merchantGst ?? this.merchantGst,
+      businessCategory: businessCategory ?? this.businessCategory,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
@@ -122,6 +130,8 @@ class ReceiptEntity {
       paidAmount: paidAmount ?? this.paidAmount,
       pendingAmount: pendingAmount ?? this.pendingAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      upiTransactionRef: upiTransactionRef ?? this.upiTransactionRef,
       transactionId: transactionId ?? this.transactionId,
       paymentTime: paymentTime ?? this.paymentTime,
       createdAt: createdAt ?? this.createdAt,
@@ -182,6 +192,9 @@ class ReceiptItemEntity {
 
 /// Payment Method
 enum PaymentMethod { upi, cash, card, netBanking, other }
+
+/// Payment Status
+enum PaymentStatus { pending, paid, failed, cancelled }
 
 /// Helper class for PaymentMethod utilities (Web-compatible)
 class PaymentMethodHelper {

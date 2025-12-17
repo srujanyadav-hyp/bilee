@@ -24,16 +24,46 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         return [];
       }
 
+      debugPrint('👤 ReceiptRepo: Current user UID: $_currentUserId');
       debugPrint(
-        '🔍 ReceiptRepo: Querying all receipts (including walk-in customers)',
+        '👤 ReceiptRepo: Current user email: ${_auth.currentUser?.email}',
+      );
+      debugPrint(
+        '🔍 ReceiptRepo: Querying receipts for customerId: $_currentUserId',
       );
 
-      final querySnapshot = await _firestore
+      // FIRST: Try to get receipts with customerId filter
+      var querySnapshot = await _firestore
           .collection('receipts')
+          .where('customerId', isEqualTo: _currentUserId)
           .orderBy('createdAt', descending: true)
           .get();
 
-      debugPrint('✅ ReceiptRepo: Found ${querySnapshot.docs.length} receipts');
+      debugPrint(
+        '✅ ReceiptRepo: Found ${querySnapshot.docs.length} receipts with customerId',
+      );
+
+      // FALLBACK: If no receipts found, also check for null customerId (legacy receipts)
+      // This helps with backward compatibility for receipts created before customerId was enforced
+      if (querySnapshot.docs.isEmpty) {
+        debugPrint(
+          '⚠️ ReceiptRepo: No receipts with customerId, checking for legacy receipts...',
+        );
+        final allReceipts = await _firestore
+            .collection('receipts')
+            .orderBy('createdAt', descending: true)
+            .limit(50) // Limit for safety
+            .get();
+
+        debugPrint(
+          '📊 ReceiptRepo: Total receipts in collection: ${allReceipts.docs.length}',
+        );
+        for (var doc in allReceipts.docs.take(5)) {
+          debugPrint(
+            '   Receipt ${doc.id}: customerId=${doc.data()['customerId']}',
+          );
+        }
+      }
 
       return querySnapshot.docs
           .map(
@@ -53,6 +83,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
 
       final querySnapshot = await _firestore
           .collection('receipts')
+          .where('customerId', isEqualTo: _currentUserId)
           .orderBy('createdAt', descending: true)
           .limit(limit)
           .get();
@@ -93,6 +124,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
       final querySnapshot = await _firestore
           .collection('receipts')
           .where('sessionId', isEqualTo: sessionId)
+          .where('customerId', isEqualTo: _currentUserId)
           .limit(1)
           .get();
 
@@ -132,6 +164,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
 
       final querySnapshot = await _firestore
           .collection('receipts')
+          .where('customerId', isEqualTo: _currentUserId)
           .orderBy('createdAt', descending: true)
           .get();
 
@@ -166,6 +199,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
 
       final querySnapshot = await _firestore
           .collection('receipts')
+          .where('customerId', isEqualTo: _currentUserId)
           .where(
             'createdAt',
             isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
@@ -191,6 +225,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
 
       final querySnapshot = await _firestore
           .collection('receipts')
+          .where('customerId', isEqualTo: _currentUserId)
           .where('merchantId', isEqualTo: merchantId)
           .orderBy('createdAt', descending: true)
           .get();
@@ -215,6 +250,65 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
           .set(model.toFirestore());
     } catch (e) {
       throw Exception('Failed to save receipt: $e');
+    }
+  }
+
+  @override
+  Future<void> createManualReceipt({
+    required String category,
+    required double amount,
+    required PaymentMethod paymentMethod,
+    String? merchantName,
+    String? merchantUpiId,
+    String? transactionId,
+    bool verified = false,
+  }) async {
+    try {
+      if (_currentUserId == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Generate manual receipt ID
+      final receiptId = 'MR${DateTime.now().millisecondsSinceEpoch}';
+
+      debugPrint('📝 Creating manual receipt: $receiptId');
+      debugPrint('   Category: $category');
+      debugPrint('   Amount: ₹$amount');
+      debugPrint('   Payment: $paymentMethod');
+      debugPrint('   Verified: $verified');
+
+      // Create receipt data
+      final receiptData = {
+        'receiptId': receiptId,
+        'type': 'manual', // Flag to identify manual entries
+        'customerId': _currentUserId,
+        'merchantName': merchantName ?? 'Manual Entry',
+        'merchantUpiId': merchantUpiId,
+        'businessCategory': category,
+        'items': [], // Empty for manual entries
+        'subtotal': amount,
+        'tax': 0.0,
+        'discount': 0.0,
+        'total': amount,
+        'paidAmount': amount,
+        'pendingAmount': 0.0,
+        'paymentMethod': paymentMethod.toString().split('.').last,
+        'transactionId': transactionId,
+        'paymentTime': FieldValue.serverTimestamp(),
+        'paymentStatus': 'paid',
+        'createdAt': FieldValue.serverTimestamp(),
+        'isVerified': verified,
+        'manualEntry': true,
+        'notes': null,
+      };
+
+      // Save to Firestore
+      await _firestore.collection('receipts').doc(receiptId).set(receiptData);
+
+      debugPrint('✅ Manual receipt created successfully');
+    } catch (e) {
+      debugPrint('❌ Error creating manual receipt: $e');
+      throw Exception('Failed to create manual receipt: $e');
     }
   }
 
@@ -264,6 +358,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
 
     return _firestore
         .collection('receipts')
+        .where('customerId', isEqualTo: _currentUserId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(

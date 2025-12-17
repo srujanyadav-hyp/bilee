@@ -29,6 +29,17 @@ abstract class ReceiptRepository {
   /// Save receipt after payment
   Future<void> saveReceipt(ReceiptEntity receipt);
 
+  /// Create manual receipt (customer-entered expense)
+  Future<void> createManualReceipt({
+    required String category,
+    required double amount,
+    required PaymentMethod paymentMethod,
+    String? merchantName,
+    String? merchantUpiId,
+    String? transactionId,
+    bool verified = false,
+  });
+
   /// Update receipt notes
   Future<void> updateReceiptNotes({
     required String receiptId,

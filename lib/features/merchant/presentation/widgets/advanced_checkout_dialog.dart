@@ -33,6 +33,9 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
   // Discount state
   DiscountEntry? _appliedDiscount;
   double _discountAmount = 0;
+  final TextEditingController _customDiscountController =
+      TextEditingController();
+  DiscountType _customDiscountType = DiscountType.percentage;
 
   // Payment state
   final List<PaymentEntry> _payments = [];
@@ -61,6 +64,7 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
     _txnIdController.dispose();
     _customerNameController.dispose();
     _customerPhoneController.dispose();
+    _customDiscountController.dispose();
     super.dispose();
   }
 
@@ -346,13 +350,35 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _customDiscountController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       labelText: 'Amount/Percentage',
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (value) {
-                      // Custom discount logic
+                      // Apply custom discount
+                      final discountValue = double.tryParse(value);
+                      if (discountValue != null && discountValue > 0) {
+                        final customDiscount = DiscountEntry(
+                          id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                          type: _customDiscountType,
+                          value: discountValue,
+                          name: 'Custom Discount',
+                          appliedAt: DateTime.now(),
+                        );
+                        setState(() {
+                          _appliedDiscount = customDiscount;
+                          _discountAmount = customDiscount.calculateDiscount(
+                            widget.billTotal,
+                          );
+                        });
+                      } else {
+                        setState(() {
+                          _appliedDiscount = null;
+                          _discountAmount = 0;
+                        });
+                      }
                     },
                   ),
                 ),
@@ -365,9 +391,30 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
                     ),
                     ButtonSegment(value: DiscountType.fixed, label: Text('₹')),
                   ],
-                  selected: {DiscountType.percentage},
+                  selected: {_customDiscountType},
                   onSelectionChanged: (Set<DiscountType> newSelection) {
-                    // Update discount type
+                    setState(() {
+                      _customDiscountType = newSelection.first;
+                      // Recalculate discount if value exists
+                      final value = double.tryParse(
+                        _customDiscountController.text,
+                      );
+                      if (value != null &&
+                          value > 0 &&
+                          _appliedDiscount != null) {
+                        final customDiscount = DiscountEntry(
+                          id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                          type: _customDiscountType,
+                          value: value,
+                          name: 'Custom Discount',
+                          appliedAt: DateTime.now(),
+                        );
+                        _appliedDiscount = customDiscount;
+                        _discountAmount = customDiscount.calculateDiscount(
+                          widget.billTotal,
+                        );
+                      }
+                    });
                   },
                 ),
               ],
@@ -380,6 +427,7 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
                 onPressed: () => setState(() {
                   _appliedDiscount = null;
                   _discountAmount = 0;
+                  _customDiscountController.clear();
                 }),
               ),
             ],
@@ -451,25 +499,33 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: PaymentMethodType.values.map((method) {
-        final isSelected = _selectedMethod == method;
-        return FilterChip(
-          selected: isSelected,
-          label: Text(method.displayName),
-          avatar: Icon(
-            _getPaymentIcon(method),
-            size: 20,
-            color: isSelected ? Colors.white : Colors.grey,
-          ),
-          onSelected: (selected) {
-            setState(() => _selectedMethod = method);
-          },
-          selectedColor: AppColors.primaryBlue,
-          labelStyle: TextStyle(
-            color: isSelected ? Colors.white : Colors.black87,
-          ),
-        );
-      }).toList(),
+      children: PaymentMethodType.values
+          .where(
+            (method) =>
+                method != PaymentMethodType.netbanking &&
+                method != PaymentMethodType.wallet &&
+                method != PaymentMethodType.credit,
+          )
+          .map((method) {
+            final isSelected = _selectedMethod == method;
+            return FilterChip(
+              selected: isSelected,
+              label: Text(method.displayName),
+              avatar: Icon(
+                _getPaymentIcon(method),
+                size: 20,
+                color: isSelected ? Colors.white : Colors.grey,
+              ),
+              onSelected: (selected) {
+                setState(() => _selectedMethod = method);
+              },
+              selectedColor: AppColors.primaryBlue,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : Colors.black87,
+              ),
+            );
+          })
+          .toList(),
     );
   }
 

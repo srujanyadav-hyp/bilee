@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 
-/// Reusable bottom navigation bar for all customer screens
+/// Bottom navigation bar for customer screens with floating action button
 class CustomerBottomNav extends StatelessWidget {
   final String currentRoute;
 
@@ -12,8 +12,8 @@ class CustomerBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      color: AppColors.lightSurface,
+      notchMargin: 8.0,
+      color: Colors.white,
       elevation: 8,
       child: SizedBox(
         height: 60,
@@ -58,66 +58,46 @@ class CustomerBottomNav extends StatelessWidget {
           onTap: onTap,
           splashColor: AppColors.primaryBlue.withOpacity(0.1),
           highlightColor: AppColors.primaryBlue.withOpacity(0.05),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Animated Icon
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  transitionBuilder: (child, animation) {
-                    return ScaleTransition(scale: animation, child: child);
-                  },
-                  child: ShaderMask(
-                    key: ValueKey(isSelected),
-                    shaderCallback: (bounds) {
-                      if (isSelected) {
-                        return AppColors.primaryGradient.createShader(bounds);
-                      }
-                      return LinearGradient(
-                        colors: [
-                          AppColors.lightTextSecondary,
-                          AppColors.lightTextSecondary,
-                        ],
-                      ).createShader(bounds);
-                    },
-                    child: Icon(
-                      isSelected ? selectedIcon : icon,
-                      size: 24,
-                      color: Colors.white,
-                    ),
-                  ),
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon with gradient effect when selected
+              ShaderMask(
+                shaderCallback: (bounds) {
+                  if (isSelected) {
+                    return AppColors.primaryGradient.createShader(bounds);
+                  }
+                  return LinearGradient(
+                    colors: [
+                      AppColors.lightTextSecondary,
+                      AppColors.lightTextSecondary,
+                    ],
+                  ).createShader(bounds);
+                },
+                child: Icon(
+                  isSelected ? selectedIcon : icon,
+                  size: 24,
+                  color: Colors.white, // Required for ShaderMask
                 ),
-                const SizedBox(height: 2),
-                // Animated Label
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 10,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? AppColors.primaryBlue
-                        : AppColors.lightTextSecondary,
-                  ),
-                  child: Text(label),
+              ),
+              const SizedBox(height: 4),
+              // Label
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected
+                      ? AppColors.primaryBlue
+                      : AppColors.lightTextSecondary,
                 ),
-                const SizedBox(height: 2),
-                // Animated Indicator
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  width: isSelected ? 24 : 0,
-                  height: 2,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
@@ -125,7 +105,7 @@ class CustomerBottomNav extends StatelessWidget {
   }
 }
 
-/// Floating scan button for customer screens
+/// Floating action button with speed dial menu for customer actions
 class CustomerFloatingScanButton extends StatefulWidget {
   const CustomerFloatingScanButton({super.key});
 
@@ -136,75 +116,197 @@ class CustomerFloatingScanButton extends StatefulWidget {
 
 class _CustomerFloatingScanButtonState extends State<CustomerFloatingScanButton>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+  late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _rotateAnimation;
+  bool _isExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
 
-    _rotateAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.1,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _rotateAnimation = Tween<double>(begin: 0.0, end: 0.5).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _animationController.dispose();
     super.dispose();
+  }
+
+  void _toggleMenu() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    });
+  }
+
+  void _closeMenu() {
+    if (_isExpanded) {
+      setState(() {
+        _isExpanded = false;
+        _animationController.reverse();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        context.push('/customer/scan-qr');
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: Transform.rotate(
-              angle: _rotateAnimation.value,
-              child: Container(
-                width: 70,
-                height: 70,
-                margin: const EdgeInsets.only(top: 30),
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryBlue.withOpacity(0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.qr_code_scanner_outlined,
-                  size: 32,
-                  color: Colors.white,
-                ),
+    return SizedBox(
+      width: 70,
+      height: 200,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          // Speed dial menu items
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            bottom: _isExpanded ? 155 : 30,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _isExpanded ? 1.0 : 0.0,
+              child: _buildSpeedDialItem(
+                context: context,
+                icon: Icons.qr_code_scanner,
+                label: 'Scan QR',
+                onTap: () {
+                  _closeMenu();
+                  context.push('/customer/scan-qr');
+                },
               ),
             ),
-          );
-        },
+          ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            bottom: _isExpanded ? 85 : 30,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _isExpanded ? 1.0 : 0.0,
+              child: _buildSpeedDialItem(
+                context: context,
+                icon: Icons.add_shopping_cart,
+                label: 'Add Expense',
+                onTap: () {
+                  _closeMenu();
+                  context.push('/customer/add-expense');
+                },
+              ),
+            ),
+          ),
+          // Main FAB
+          Positioned(
+            bottom: 0,
+            child: GestureDetector(
+              onTap: _toggleMenu,
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Transform.rotate(
+                      angle: _rotateAnimation.value * 3.14159,
+                      child: Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _isExpanded ? Icons.close : Icons.add,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpeedDialItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppColors.lightTextPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Icon button
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryBlue.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+        ],
       ),
     );
   }

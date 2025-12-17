@@ -14,6 +14,7 @@ class OTPScreen extends StatefulWidget {
   final String? verificationId;
   final String? countryCode;
   final bool? isRegistration;
+  final RegistrationData? registrationData;
 
   const OTPScreen({
     super.key,
@@ -21,6 +22,7 @@ class OTPScreen extends StatefulWidget {
     this.verificationId,
     this.countryCode,
     this.isRegistration,
+    this.registrationData,
   });
 
   @override
@@ -60,6 +62,7 @@ class _OTPScreenState extends State<OTPScreen> {
     _verificationId = widget.verificationId;
     _phoneNumber = widget.phoneNumber;
     _isRegistration = widget.isRegistration ?? false;
+    _registrationData = widget.registrationData;
 
     _startCountdown();
 
@@ -103,6 +106,7 @@ class _OTPScreenState extends State<OTPScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -113,9 +117,17 @@ class _OTPScreenState extends State<OTPScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(AppDimensions.paddingLG),
+          padding: EdgeInsets.only(
+            left: AppDimensions.paddingLG,
+            right: AppDimensions.paddingLG,
+            top: AppDimensions.paddingLG,
+            bottom:
+                MediaQuery.of(context).viewInsets.bottom +
+                AppDimensions.paddingLG,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(height: AppDimensions.spacingXL),
               // Icon

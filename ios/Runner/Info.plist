@@ -47,5 +47,13 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to scan product barcodes for billing.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>phonepe</string>
+		<string>tez</string>
+		<string>paytm</string>
+		<string>gpay</string>
+		<string>BHIM</string>
+	</array>
 </dict>
 </plist>

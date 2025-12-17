@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/services/upi_payment_service.dart';
 import '../providers/session_provider.dart';
 import '../providers/merchant_provider.dart';
 
@@ -23,6 +25,8 @@ class LiveSessionPage extends StatefulWidget {
 }
 
 class _LiveSessionPageState extends State<LiveSessionPage> {
+  final CoreUpiPaymentService _upiService = CoreUpiPaymentService();
+
   @override
   void initState() {
     super.initState();
@@ -495,7 +499,42 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                   ),
                 ),
                 const SizedBox(height: AppDimensions.spacingLG),
-                if (!session.isPaid)
+                if (!session.isPaid) ...[
+                  // If payment method is UPI, show confirm UPI payment button
+                  if (session.paymentMethod?.toUpperCase() == 'UPI')
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.all(
+                                AppDimensions.paddingMD,
+                              ),
+                              backgroundColor: AppColors.primaryBlue,
+                            ),
+                            onPressed: () => _confirmUpiPayment(session.id),
+                            icon: const Icon(Icons.account_balance_wallet),
+                            label: const Text(
+                              'Confirm UPI Payment Received',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppDimensions.spacingSM),
+                        const Text(
+                          'Confirm after verifying UPI payment',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.lightTextSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppDimensions.spacingMD),
+                        const Divider(),
+                        const SizedBox(height: AppDimensions.spacingSM),
+                      ],
+                    ),
+                  // Regular mark as paid button for other payment methods
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -510,6 +549,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                       ),
                     ),
                   ),
+                ],
                 if (session.isPaid)
                   SizedBox(
                     width: double.infinity,
@@ -604,6 +644,169 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             child: const Text('Confirm'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _confirmUpiPayment(String sessionId) async {
+    try {
+      // Get the receipt ID from the session
+      final session = context.read<SessionProvider>().currentSession;
+      if (session == null) {
+        _showErrorSnackBar('Session not found');
+        return;
+      }
+
+      // Fetch receipt document to get receiptId
+      // The Cloud Function creates a receipt and stores receiptId in the session
+      final sessionDoc = await FirebaseFirestore.instance
+          .collection('billingSessions')
+          .doc(sessionId)
+          .get();
+
+      if (!sessionDoc.exists) {
+        _showErrorSnackBar('Session document not found');
+        return;
+      }
+
+      final sessionData = sessionDoc.data();
+      final receiptId = sessionData?['receiptId'] as String?;
+
+      if (receiptId == null || receiptId.isEmpty) {
+        _showErrorSnackBar('Receipt not generated yet. Please try again.');
+        return;
+      }
+
+      // Show confirmation dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('Confirm UPI Payment'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Have you received the UPI payment from the customer?',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      size: 20,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please verify the payment in your UPI app before confirming',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.check_circle, size: 20),
+              label: const Text('Yes, Confirm Payment'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) return;
+
+      // Confirm payment via UPI service using the actual receipt ID
+      await _upiService.merchantConfirmPayment(
+        receiptId: receiptId,
+        isConfirmed: true,
+      );
+
+      // Mark session as paid
+      final success = await context.read<SessionProvider>().markAsPaid(
+        sessionId,
+        'UPI',
+        'UPI_CONFIRMED_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('UPI payment confirmed successfully'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } else {
+        _showErrorSnackBar('Failed to confirm payment');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorSnackBar('Error confirming payment: ${e.toString()}');
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: AppColors.error,
       ),
     );
   }

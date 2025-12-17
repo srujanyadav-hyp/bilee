@@ -125,6 +125,37 @@ class ReceiptProvider with ChangeNotifier {
     }
   }
 
+  /// Create manual receipt (customer-entered expense)
+  Future<void> createManualReceipt({
+    required String category,
+    required double amount,
+    required PaymentMethod paymentMethod,
+    String? merchantName,
+    String? merchantUpiId,
+    String? transactionId,
+    bool verified = false,
+  }) async {
+    try {
+      await repository.createManualReceipt(
+        category: category,
+        amount: amount,
+        paymentMethod: paymentMethod,
+        merchantName: merchantName,
+        merchantUpiId: merchantUpiId,
+        transactionId: transactionId,
+        verified: verified,
+      );
+
+      // Reload receipts after creating manual entry
+      await loadAllReceipts();
+      await loadRecentReceipts();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Clear error
   void clearError() {
     _error = null;

@@ -8,6 +8,7 @@ import '../../features/authentication/view/login_screen.dart';
 import '../../features/authentication/view/register_screen.dart';
 import '../../features/authentication/view/otp_screen.dart';
 import '../../features/authentication/view/forgot_password_screen.dart';
+import '../models/auth_models.dart';
 import '../../features/merchant/presentation/pages/merchant_home_page.dart';
 import '../../features/merchant/presentation/pages/merchant_dashboard_page.dart';
 import '../../features/merchant/presentation/pages/start_billing_page.dart';
@@ -24,6 +25,7 @@ import '../../features/customer/presentation/pages/payment_status_screen.dart';
 import '../../features/customer/presentation/pages/receipt_detail_screen.dart';
 import '../../features/customer/presentation/pages/receipt_list_screen.dart';
 import '../../features/customer/presentation/pages/customer_profile_screen.dart';
+import '../../features/customer/presentation/pages/add_manual_expense_screen.dart';
 
 /// App Router Configuration using GoRouter
 class AppRouter {
@@ -76,6 +78,7 @@ class AppRouter {
             verificationId: extra?['verificationId'] as String?,
             countryCode: extra?['countryCode'] as String?,
             isRegistration: extra?['isRegistration'] as bool?,
+            registrationData: extra?['registrationData'] as RegistrationData?,
           );
         },
       ),
@@ -209,6 +212,11 @@ class AppRouter {
             path: 'profile',
             name: 'customer-profile',
             builder: (context, state) => const CustomerProfileScreen(),
+          ),
+          GoRoute(
+            path: 'add-expense',
+            name: 'customer-add-expense',
+            builder: (context, state) => const AddManualExpenseScreen(),
           ),
         ],
       ),

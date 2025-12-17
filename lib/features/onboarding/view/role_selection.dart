@@ -23,107 +23,134 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(AppDimensions.paddingLG),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(flex: 1),
-              // Title
-              Text(
-                'Choose your role',
-                style: AppTypography.h2.copyWith(
-                  color: AppColors.lightTextPrimary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: AppDimensions.spacingLG),
-              // Role Cards
-              Expanded(
-                flex: 4,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isSmallScreen = constraints.maxWidth < 600;
-                    return isSmallScreen
-                        ? Column(
-                            children: [
-                              Expanded(
-                                child: _RoleCard(
-                                  role: 'merchant',
-                                  icon: Icons.store_outlined,
-                                  label: 'Merchant',
-                                  subtext: 'Create bills & manage daily totals',
-                                  isSelected: _selectedRole == 'merchant',
-                                  onTap: () => _selectRole('merchant'),
-                                ),
-                              ),
-                              SizedBox(height: AppDimensions.spacingMD),
-                              Expanded(
-                                child: _RoleCard(
-                                  role: 'customer',
-                                  icon: Icons.person_outline,
-                                  label: 'Customer',
-                                  subtext: 'Scan QR & save receipts',
-                                  isSelected: _selectedRole == 'customer',
-                                  onTap: () => _selectRole('customer'),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: _RoleCard(
-                                  role: 'merchant',
-                                  icon: Icons.store_outlined,
-                                  label: 'Merchant',
-                                  subtext: 'Create bills & manage daily totals',
-                                  isSelected: _selectedRole == 'merchant',
-                                  onTap: () => _selectRole('merchant'),
-                                ),
-                              ),
-                              SizedBox(width: AppDimensions.spacingMD),
-                              Expanded(
-                                child: _RoleCard(
-                                  role: 'customer',
-                                  icon: Icons.person_outline,
-                                  label: 'Customer',
-                                  subtext: 'Scan QR & save receipts',
-                                  isSelected: _selectedRole == 'customer',
-                                  onTap: () => _selectRole('customer'),
-                                ),
-                              ),
-                            ],
-                          );
-                  },
-                ),
-              ),
-              const Spacer(flex: 1),
-              // Continue Button
-              SizedBox(
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _selectedRole != null ? _continue : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBlue,
-                    disabledBackgroundColor: AppColors.lightTextTertiary
-                        .withOpacity(0.3),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.radiusMD,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Padding(
+                  padding: EdgeInsets.all(AppDimensions.paddingLG),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.05,
                       ),
-                    ),
-                    elevation: _selectedRole != null ? 2 : 0,
-                  ),
-                  child: Text(
-                    'Continue',
-                    style: AppTypography.button.copyWith(color: Colors.white),
+                      // Title
+                      Text(
+                        'Choose your role',
+                        style: AppTypography.h2.copyWith(
+                          color: AppColors.lightTextPrimary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: AppDimensions.spacingLG),
+                      // Role Cards
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: MediaQuery.of(context).size.height * 0.4,
+                          maxHeight: MediaQuery.of(context).size.height * 0.6,
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isSmallScreen = constraints.maxWidth < 600;
+                            return isSmallScreen
+                                ? Column(
+                                    children: [
+                                      Flexible(
+                                        flex: 1,
+                                        child: _RoleCard(
+                                          role: 'merchant',
+                                          icon: Icons.store_outlined,
+                                          label: 'Merchant',
+                                          subtext:
+                                              'Create bills & manage daily totals',
+                                          isSelected:
+                                              _selectedRole == 'merchant',
+                                          onTap: () => _selectRole('merchant'),
+                                        ),
+                                      ),
+                                      SizedBox(height: AppDimensions.spacingMD),
+                                      Flexible(
+                                        flex: 1,
+                                        child: _RoleCard(
+                                          role: 'customer',
+                                          icon: Icons.person_outline,
+                                          label: 'Customer',
+                                          subtext: 'Scan QR & save receipts',
+                                          isSelected:
+                                              _selectedRole == 'customer',
+                                          onTap: () => _selectRole('customer'),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Row(
+                                    children: [
+                                      Expanded(
+                                        child: _RoleCard(
+                                          role: 'merchant',
+                                          icon: Icons.store_outlined,
+                                          label: 'Merchant',
+                                          subtext:
+                                              'Create bills & manage daily totals',
+                                          isSelected:
+                                              _selectedRole == 'merchant',
+                                          onTap: () => _selectRole('merchant'),
+                                        ),
+                                      ),
+                                      SizedBox(width: AppDimensions.spacingMD),
+                                      Expanded(
+                                        child: _RoleCard(
+                                          role: 'customer',
+                                          icon: Icons.person_outline,
+                                          label: 'Customer',
+                                          subtext: 'Scan QR & save receipts',
+                                          isSelected:
+                                              _selectedRole == 'customer',
+                                          onTap: () => _selectRole('customer'),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.05,
+                      ),
+                      // Continue Button
+                      SizedBox(
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _selectedRole != null ? _continue : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryBlue,
+                            disabledBackgroundColor: AppColors.lightTextTertiary
+                                .withOpacity(0.3),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppDimensions.radiusMD,
+                              ),
+                            ),
+                            elevation: _selectedRole != null ? 2 : 0,
+                          ),
+                          child: Text(
+                            'Continue',
+                            style: AppTypography.button.copyWith(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: AppDimensions.spacingMD),
+                    ],
                   ),
                 ),
               ),
-              SizedBox(height: AppDimensions.spacingMD),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -218,23 +245,31 @@ class _RoleCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Icon
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: isSelected ? AppColors.primaryGradient : null,
-                      color: isSelected
-                          ? null
-                          : AppColors.lightTextTertiary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 40,
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.lightTextSecondary,
-                    ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final parentHeight = MediaQuery.of(context).size.height;
+                      final iconSize = (parentHeight * 0.1).clamp(60.0, 100.0);
+                      return Container(
+                        width: iconSize,
+                        height: iconSize,
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? AppColors.primaryGradient
+                              : null,
+                          color: isSelected
+                              ? null
+                              : AppColors.lightTextTertiary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          icon,
+                          size: iconSize * 0.5,
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.lightTextSecondary,
+                        ),
+                      );
+                    },
                   ),
                   SizedBox(height: AppDimensions.spacingMD),
                   // Label

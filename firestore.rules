@@ -221,11 +221,19 @@ service cloud.firestore {
                        resource.data.customerId == null
                      );
       
-      // Only cloud functions can create receipts
-      allow create: if isAdmin();
+      // Cloud functions can create receipts (from merchant billing sessions)
+      // Customers can create manual receipts for themselves
+      allow create: if isAdmin() ||
+                       (isSignedIn() && 
+                        request.resource.data.customerId == request.auth.uid &&
+                        request.resource.data.manualEntry == true);
       
-      // Receipts are immutable once created
-      allow update, delete: if false;
+      // Receipts are immutable once created (except for notes field)
+      allow update: if isSignedIn() && 
+                       request.auth.uid == resource.data.customerId &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes', 'updatedAt']);
+      
+      allow delete: if false;
     }
     
     // ==================== MERCHANT PROFILES (FUTURE) ====================

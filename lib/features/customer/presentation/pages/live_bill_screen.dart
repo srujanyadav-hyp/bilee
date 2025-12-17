@@ -772,19 +772,29 @@ class _LiveBillScreenState extends State<LiveBillScreen> {
     }
 
     try {
-      // Launch UPI intent
+      // Launch UPI intent using external application mode
+      // This bypasses the ₹2,000 gallery QR limit by launching UPI app directly
       final uri = Uri.parse(bill.upiPaymentString!);
       if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
 
-        // Show payment status screen
-        if (!mounted) return;
-        context.pushReplacement('/customer/payment-status/${widget.sessionId}');
+        if (launched) {
+          // Show payment status screen
+          if (!mounted) return;
+          context.pushReplacement(
+            '/customer/payment-status/${widget.sessionId}',
+          );
+        } else {
+          _showError('Failed to launch UPI app');
+        }
       } else {
         _showError('No UPI app found');
       }
     } catch (e) {
-      _showError('Failed to open UPI app');
+      _showError('Failed to open UPI app: ${e.toString()}');
     }
   }
 
