@@ -144,15 +144,8 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
           '   • Strategy: ${qrHasAmount ? "Use original QR" : "Build URI with amount"}',
         );
 
-        final result = await upiService.initiatePayment(
-          upiId: upiId,
-          amount: amount,
-          merchantName: _scannedMerchantName ?? 'Merchant',
-          transactionNote: 'Payment via Bilee - $_selectedCategory',
-          qrData: qrHasAmount
-              ? _originalQrData
-              : null, // Only use QR if it has amount
-        );
+        // Commented out payment initiation, now just open UPI app home
+        final result = await upiService.openUpiAppHome();
 
         debugPrint('✅ Step 5 complete: UPI response received');
         debugPrint('   • Success: ${result['success']}');

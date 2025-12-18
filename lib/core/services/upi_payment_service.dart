@@ -5,6 +5,33 @@ import 'package:flutter/foundation.dart';
 /// UPI Payment Service (Core/Legacy)
 /// Handles UPI payment transactions with url_launcher
 class CoreUpiPaymentService {
+  /// Launch only the UPI app home screen (no payment params)
+  Future<void> openUpiAppHome() async {
+    try {
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('🔵 OPEN UPI APP HOME (no params)');
+      debugPrint('🎯 SERVICE: CORE/LEGACY UPI SERVICE (open app only)');
+      debugPrint('═══════════════════════════════════════════');
+      final uri = Uri.parse('upi://pay');
+      final canLaunch = await canLaunchUrl(uri);
+      if (canLaunch) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        debugPrint('✅ UPI app home opened');
+      } else {
+        throw Exception('No UPI app found to open');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('❌ UPI APP OPEN ERROR');
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('Error: $e');
+      debugPrint('Type: ${e.runtimeType}');
+      debugPrint('Stack: $stackTrace');
+      debugPrint('═══════════════════════════════════════════');
+      rethrow;
+    }
+  }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// Initiate UPI payment

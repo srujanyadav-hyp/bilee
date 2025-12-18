@@ -4,6 +4,58 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Service for handling UPI payments using url_launcher
 class UpiPaymentService {
+  /// Launch only the UPI app home screen (no payment params)
+  Future<Map<String, dynamic>> openUpiAppHome() async {
+    try {
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('🔵 OPEN UPI APP HOME (no params)');
+      debugPrint('🎯 SERVICE: CUSTOMER UPI SERVICE (open app only)');
+      debugPrint('═══════════════════════════════════════════');
+      final uri = Uri.parse('upi://pay');
+      try {
+        await _platform.invokeMethod('launchUpiChooser', {
+          'upiUri': uri.toString(),
+        });
+        debugPrint('✅ UPI app chooser displayed via platform channel');
+      } on PlatformException {
+        debugPrint('⚠️  Platform channel error: e.message}');
+        debugPrint('   Falling back to url_launcher...');
+        final canLaunch = await canLaunchUrl(uri);
+        if (canLaunch) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          debugPrint('✅ UPI app launched (default, no chooser)');
+        } else {
+          throw Exception('No UPI app found to open');
+        }
+      } on MissingPluginException {
+        debugPrint('⚠️  Platform channel not available');
+        debugPrint('   Falling back to url_launcher...');
+        final canLaunch = await canLaunchUrl(uri);
+        if (canLaunch) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          debugPrint('✅ UPI app launched (default, no chooser)');
+        } else {
+          throw Exception('No UPI app found to open');
+        }
+      }
+      debugPrint('═══════════════════════════════════════════');
+      return {
+        'success': true,
+        'status': 'LAUNCHED',
+        'message': 'UPI app home opened successfully',
+      };
+    } catch (e, stackTrace) {
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('❌ UPI APP OPEN ERROR');
+      debugPrint('═══════════════════════════════════════════');
+      debugPrint('Error: $e');
+      debugPrint('Type: ${e.runtimeType}');
+      debugPrint('Stack: $stackTrace');
+      debugPrint('═══════════════════════════════════════════');
+      return {'success': false, 'status': 'ERROR', 'error': e.toString()};
+    }
+  }
+
   static const _platform = MethodChannel('com.example.bilee/upi_chooser');
 
   /// Initiate UPI payment with QR data preservation
@@ -55,10 +107,9 @@ class UpiPaymentService {
         // Simple transaction note for better compatibility
         final simpleNote = 'Payment from Bilee';
 
-        // Build minimal URI without currency parameter (better compatibility)
-        // Some UPI apps reject transactions with cu= parameter or complex encoding
+        // Build UPI URI with all required parameters for maximum compatibility
         finalUri =
-            'upi://pay?pa=$upiId&pn=$cleanMerchant&am=${amount.toStringAsFixed(2)}&tn=$simpleNote';
+            'upi://pay?pa=$upiId&pn=$cleanMerchant&am=${amount.toStringAsFixed(2)}&cu=INR&tn=$simpleNote';
 
         debugPrint('📤 UPI URI (manual): $finalUri');
       }

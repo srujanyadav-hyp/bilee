@@ -821,13 +821,9 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
       debugPrint('   • UPI ID: $merchantUpiId');
       debugPrint('   • Amount: ₹${receipt.total}');
       if (mounted) {
-        await _upiService.initiatePayment(
-          receiptId: receipt.receiptId,
-          merchantName: receipt.merchantName,
-          merchantUpiId: merchantUpiId,
-          amount: receipt.total,
-        );
-        debugPrint('✅ Step 7 complete: UPI app returned');
+        // Commented out payment initiation, now just open UPI app home
+        await _upiService.openUpiAppHome();
+        debugPrint('✅ Step 7 complete: UPI app home opened');
       }
       debugPrint('───────────────────────────────────────────');
 
