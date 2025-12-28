@@ -7,7 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../domain/entities/receipt_entity.dart';
 import '../providers/receipt_provider.dart';
-import '../../data/services/upi_payment_service.dart';
+import '../../../../core/services/custom_upi_launcher.dart';
 
 /// Screen for adding manual expense entry
 class AddManualExpenseScreen extends StatefulWidget {
@@ -69,6 +69,8 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
 
       final amount = double.parse(_amountController.text);
       final upiId = _upiIdController.text.trim();
+      final merchantName = _scannedMerchantName ?? 'Merchant';
+      final transactionId = 'BL${DateTime.now().millisecondsSinceEpoch}';
 
       debugPrint('📋 Input data:');
       debugPrint('   • Amount: ₹$amount');
@@ -79,10 +81,6 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
 
       // Save receipt BEFORE launching UPI app
       debugPrint('💾 Step 1: Saving receipt before UPI launch...');
-      final transactionId = 'BL${DateTime.now().millisecondsSinceEpoch}';
-      final merchantName = _scannedMerchantName ?? 'Merchant';
-      debugPrint('   • Transaction ID: $transactionId');
-      debugPrint('   • Merchant Name: $merchantName');
       await _saveManualReceipt(
         merchantName: merchantName,
         transactionId: transactionId,
@@ -123,78 +121,32 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
       debugPrint('✅ Step 4 complete: Delay finished');
       debugPrint('───────────────────────────────────────────');
 
-      // Now launch UPI app
-      debugPrint('🚀 Step 5: Launching UPI app...');
-      debugPrint('   • Merchant: ${_scannedMerchantName ?? "Not from QR"}');
-      debugPrint('   • Has QR Data: ${_originalQrData != null}');
-      debugPrint('   • Widget mounted before launch: $mounted');
-
-      if (mounted) {
-        final upiService = UpiPaymentService();
-
-        // 🔧 FIX: Don't pass static merchant QR to payment
-        // Static QRs (no amount) cause DISMISS error when amount is added
-        // Instead, build complete URI with amount manually
-        final bool qrHasAmount = _originalQrData?.contains('&am=') ?? false;
-
-        debugPrint('🔍 QR Analysis:');
-        debugPrint('   • Has QR Data: ${_originalQrData != null}');
-        debugPrint('   • QR Contains Amount: $qrHasAmount');
-        debugPrint(
-          '   • Strategy: ${qrHasAmount ? "Use original QR" : "Build URI with amount"}',
-        );
-
-        // Commented out payment initiation, now just open UPI app home
-        final result = await upiService.openUpiAppHome();
-
-        debugPrint('✅ Step 5 complete: UPI response received');
-        debugPrint('   • Success: ${result['success']}');
-        debugPrint('   • Status: ${result['status']}');
-
-        // Handle response
-        if (result['success'] == true) {
-          debugPrint('✅ Payment successful!');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Payment Successful!'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
-              ),
-            );
-            // Close screen after successful payment
-            await Future.delayed(const Duration(seconds: 1));
-            if (mounted) {
-              context.pop();
-            }
-          }
-        } else if (result['cancelled'] == true) {
-          debugPrint('⚠️  Payment cancelled by user');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Payment cancelled'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-            setState(() => _isProcessing = false);
-          }
-        } else {
-          debugPrint('❌ Payment failed: ${result['error']}');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Payment failed: ${result['error']}'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            setState(() => _isProcessing = false);
-          }
+      // Custom UPI app chooser and launcher
+      debugPrint('🚀 Step 5: Showing custom UPI app chooser...');
+      final selectedApp = await CustomUpiLauncher.showAppChooser(context);
+      if (selectedApp == null) {
+        debugPrint('⚠️  No UPI app selected by user');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No UPI app selected'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
-      } else {
-        debugPrint('❌ Widget not mounted - cancelling UPI launch');
+        return;
       }
-      debugPrint('───────────────────────────────────────────');
+
+      debugPrint('✅ UPI app selected: ${selectedApp.name}');
+      await CustomUpiLauncher.launchUpiApp(
+        app: selectedApp,
+        upiId: upiId,
+        amount: amount,
+        merchantName: merchantName,
+        transactionNote: 'Payment via Bilee',
+        openOnly: true, // Open the UPI app only so user can scan QR manually
+      );
+      debugPrint('✅ UPI app launch intent sent');
       debugPrint('═══════════════════════════════════════════');
       debugPrint('✅ MANUAL EXPENSE UPI PAYMENT FLOW COMPLETE');
       debugPrint('═══════════════════════════════════════════');

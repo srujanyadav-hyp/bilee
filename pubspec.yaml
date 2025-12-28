@@ -65,6 +65,9 @@ dependencies:
   fl_chart: ^0.69.0
   # quantupi: ^0.0.6
 
+  # For launching specific UPI apps
+  external_app_launcher: ^4.0.3
+
 
 dev_dependencies:
   flutter_test:

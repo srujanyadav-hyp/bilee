@@ -736,7 +736,7 @@ class _StartBillingPageState extends State<StartBillingPage>
     );
   }
 
-  // ==================== ITEM CARD ====================
+  // ==================== ITEM CARD ==================== //
   Widget _buildItemCard(
     ItemEntity item,
     int quantity,
@@ -797,13 +797,13 @@ class _StartBillingPageState extends State<StartBillingPage>
               ),
             ),
             // Item Header
-            Expanded(
+            Flexible(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppDimensions.paddingMD,
                   0,
                   AppDimensions.paddingMD,
-                  AppDimensions.paddingSM,
+                  AppDimensions.paddingXS, // Reduce bottom padding
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
