@@ -130,17 +130,17 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/icon_app_primary.png"
+  image_path: "assets/icon/perfect_app_icon.png"
   min_sdk_android: 21
   web:
     generate: true
-    image_path: "assets/icon/icon_app_primary.png"
+    image_path: "assets/icon/perfect_app_icon.png"
   windows:
     generate: true
-    image_path: "assets/icon/icon_app_primary.png"
+    image_path: "assets/icon/perfect_app_icon.png"
   macos:
     generate: true
-    image_path: "assets/icon/icon_app_primary.png"
+    image_path: "assets/icon/perfect_app_icon.png"
   linux:
     generate: true
-    image_path: "assets/icon/icon_app_primary.png"
+    image_path: "assets/icon/perfect_app_icon.png"
