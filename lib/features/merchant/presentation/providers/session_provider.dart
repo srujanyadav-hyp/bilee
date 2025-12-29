@@ -367,6 +367,16 @@ class SessionProvider with ChangeNotifier {
       print('🟢 [PROVIDER] Session created successfully with ID: $sessionId');
 
       _currentSession = session.copyWith(id: sessionId);
+
+      // ✅ FIX: Remove parked cart if current cart was loaded from a parked cart
+      if (_activeCartId != null) {
+        debugPrint(
+          '🗑️ [PROVIDER] Removing parked cart $_activeCartId after checkout',
+        );
+        _parkedCarts.remove(_activeCartId);
+        _activeCartId = null;
+      }
+
       _cartItems.clear();
       _isLoading = false;
       notifyListeners();
