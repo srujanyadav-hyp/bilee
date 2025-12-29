@@ -221,17 +221,30 @@ service cloud.firestore {
                        resource.data.customerId == null
                      );
       
-      // Cloud functions can create receipts (from merchant billing sessions)
+      // Merchants can create receipts for their own sessions
+      // Cloud functions can create receipts (backward compatibility)
       // Customers can create manual receipts for themselves
       allow create: if isAdmin() ||
+                       (isSignedIn() && 
+                        isMerchant(request.resource.data.merchantId)) ||
                        (isSignedIn() && 
                         request.resource.data.customerId == request.auth.uid &&
                         request.resource.data.manualEntry == true);
       
-      // Receipts are immutable once created (except for notes field)
-      allow update: if isSignedIn() && 
-                       request.auth.uid == resource.data.customerId &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes', 'updatedAt']);
+      // Receipts can be updated in two scenarios:
+      // 1. Customer claiming a walk-in receipt (null customerId → their ID)
+      // 2. Customer who owns receipt updating notes field
+      allow update: if isSignedIn() && (
+                       // Scenario 1: Customer claiming receipt
+                       (resource.data.customerId == null &&
+                        request.resource.data.customerId == request.auth.uid &&
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['customerId', 'customerEmail', 'customerName', 'updatedAt'])) ||
+                       // Scenario 2: Customer updating notes on their own receipt  
+                       (request.auth.uid == resource.data.customerId &&
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['notes', 'updatedAt']))
+                     );
       
       allow delete: if false;
     }

@@ -21,12 +21,67 @@ class LiveBillRepositoryImpl implements LiveBillRepository {
         throw Exception('User not authenticated');
       }
 
+      print('🔗 [LiveBillRepo] Customer connecting to session: $sessionId');
+      print('   Customer UID: $currentUserId');
+
       // Add customer to connectedCustomers array
       await _firestore.collection('billingSessions').doc(sessionId).update({
         'connectedCustomers': FieldValue.arrayUnion([currentUserId]),
         'customerConnected': true,
         'lastConnectedAt': FieldValue.serverTimestamp(),
       });
+
+      print('✅ [LiveBillRepo] Customer added to connectedCustomers array');
+
+      // ⭐ CRITICAL: Update existing receipt with customer info (if one exists)
+      // This handles the case where merchant completed payment BEFORE customer scanned QR
+      try {
+        print('🔍 [LiveBillRepo] Checking for existing receipt for session...');
+
+        final existingReceipts = await _firestore
+            .collection('receipts')
+            .where('sessionId', isEqualTo: sessionId)
+            .limit(1)
+            .get();
+
+        if (existingReceipts.docs.isNotEmpty) {
+          final receiptDoc = existingReceipts.docs.first;
+          final receiptData = receiptDoc.data();
+          final currentCustomerId = receiptData['customerId'];
+
+          // Only update if receipt currently has no customer ID
+          if (currentCustomerId == null) {
+            print(
+              '📝 [LiveBillRepo] Found receipt with null customerId, updating...',
+            );
+            print('   Receipt ID: ${receiptData['receiptId']}');
+
+            // Get user email and name for receipt
+            final userEmail = _auth.currentUser?.email;
+            final userName = _auth.currentUser?.displayName;
+
+            await _firestore.collection('receipts').doc(receiptDoc.id).update({
+              'customerId': currentUserId,
+              'customerEmail': userEmail,
+              'customerName': userName,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+
+            print('✅ [LiveBillRepo] Receipt updated with customer info');
+            print('   Customer ID: $currentUserId');
+            print('   Customer Email: $userEmail');
+          } else {
+            print(
+              'ℹ️ [LiveBillRepo] Receipt already has customer ID: $currentCustomerId',
+            );
+          }
+        } else {
+          print('ℹ️ [LiveBillRepo] No receipt exists yet for this session');
+        }
+      } catch (receiptError) {
+        print('⚠️ [LiveBillRepo] Error updating receipt: $receiptError');
+        // Don't fail connection if receipt update fails
+      }
 
       final doc = await _firestore
           .collection('billingSessions')
@@ -39,8 +94,11 @@ class LiveBillRepositoryImpl implements LiveBillRepository {
 
       final data = doc.data()!;
       final model = LiveBillModel.fromFirestore(data);
+
+      print('✅ [LiveBillRepo] Successfully connected to session');
       return model.toEntity();
     } catch (e) {
+      print('❌ [LiveBillRepo] Error connecting to session: $e');
       throw Exception('Failed to connect to session: $e');
     }
   }

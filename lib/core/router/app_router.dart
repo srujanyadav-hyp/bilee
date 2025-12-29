@@ -25,6 +25,10 @@ import '../../features/customer/presentation/pages/receipt_list_screen.dart';
 import '../../features/customer/presentation/pages/customer_profile_screen.dart';
 import '../../features/customer/presentation/pages/add_manual_expense_screen.dart';
 
+/// Global RouteObserver for tracking route lifecycle
+/// Used to detect when screens become visible again (e.g., when navigating back)
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 /// App Router Configuration using GoRouter
 class AppRouter {
   static final GoRouter router = GoRouter(

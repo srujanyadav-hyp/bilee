@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/session_entity.dart';
 import '../../domain/entities/item_entity.dart';
-import '../../domain/entities/receipt_entity.dart';
 import '../../domain/entities/payment_entity.dart';
 import '../../domain/usecases/session_usecases.dart';
 import '../../domain/usecases/receipt_usecases.dart';
 import '../../domain/usecases/merchant_usecases.dart';
+import '../../../../core/services/receipt_generator_service.dart';
 
 /// Session Provider - State management for billing sessions
 class SessionProvider with ChangeNotifier {
@@ -14,26 +14,26 @@ class SessionProvider with ChangeNotifier {
   final GetLiveSession _getLiveSession;
   final MarkSessionPaid _markSessionPaid;
   final FinalizeSession _finalizeSession;
-  final CreateReceipt _createReceipt;
   // ignore: unused_field
   final LogReceiptAccess _logReceiptAccess;
   final GetMerchantProfile _getMerchantProfile;
+  final ReceiptGeneratorService _receiptGenerator;
 
   SessionProvider({
     required CreateBillingSession createBillingSession,
     required GetLiveSession getLiveSession,
     required MarkSessionPaid markSessionPaid,
     required FinalizeSession finalizeSession,
-    required CreateReceipt createReceipt,
     required LogReceiptAccess logReceiptAccess,
     required GetMerchantProfile getMerchantProfile,
+    ReceiptGeneratorService? receiptGenerator,
   }) : _createBillingSession = createBillingSession,
        _getLiveSession = getLiveSession,
        _markSessionPaid = markSessionPaid,
        _finalizeSession = finalizeSession,
-       _createReceipt = createReceipt,
        _logReceiptAccess = logReceiptAccess,
-       _getMerchantProfile = getMerchantProfile;
+       _getMerchantProfile = getMerchantProfile,
+       _receiptGenerator = receiptGenerator ?? ReceiptGeneratorService();
 
   SessionEntity? _currentSession;
   bool _isLoading = false;
@@ -370,6 +370,62 @@ class SessionProvider with ChangeNotifier {
       _cartItems.clear();
       _isLoading = false;
       notifyListeners();
+
+      // ⭐ GENERATE RECEIPT FOR PAID SESSIONS (Replaces Cloud Function)
+      // This was previously handled by a Cloud Function watching paymentConfirmed flag
+      // Now we generate receipts client-side immediately after session creation
+      if (paymentDetails.isFullyPaid && _currentSession != null) {
+        debugPrint('========================================');
+        debugPrint('📝 [PROVIDER] Session fully paid, generating receipt...');
+        debugPrint('   Session ID: $sessionId');
+        debugPrint('   Merchant ID: $merchantId');
+        debugPrint('========================================');
+
+        try {
+          // Get merchant profile for business details
+          final merchantProfile = await _getMerchantProfile(merchantId);
+          debugPrint(
+            '👤 [PROVIDER] Merchant profile loaded: ${merchantProfile?.businessName}',
+          );
+
+          // Generate receipt using ReceiptGeneratorService
+          final receiptId = await _receiptGenerator.generateReceiptForSession(
+            session: _currentSession!,
+            merchantName: merchantProfile?.businessName ?? 'MY BUSINESS',
+            merchantLogo: merchantProfile?.logoUrl,
+            merchantAddress: merchantProfile?.businessAddress,
+            merchantPhone: merchantProfile?.businessPhone,
+            merchantGst: merchantProfile?.gstNumber,
+            businessCategory: merchantProfile?.businessType,
+          );
+
+          if (receiptId != null) {
+            debugPrint('========================================');
+            debugPrint('✅ [PROVIDER] RECEIPT GENERATED SUCCESSFULLY');
+            debugPrint('   Receipt ID: $receiptId');
+            debugPrint('   Session ID: $sessionId');
+            debugPrint('========================================');
+          } else {
+            debugPrint('========================================');
+            debugPrint('⚠️ [PROVIDER] Receipt generation returned null');
+            debugPrint('   Session ID: $sessionId');
+            debugPrint('========================================');
+          }
+        } catch (receiptError) {
+          debugPrint('========================================');
+          debugPrint('❌ [PROVIDER] ERROR generating receipt');
+          debugPrint('   Error: $receiptError');
+          debugPrint('   Session ID: $sessionId');
+          debugPrint('========================================');
+          // Don't fail the entire checkout if receipt generation fails
+          // The session was still created successfully
+        }
+      } else if (!paymentDetails.isFullyPaid) {
+        debugPrint(
+          'ℹ️ [PROVIDER] Partial payment - receipt will be generated when fully paid',
+        );
+      }
+
       return sessionId;
     } catch (e) {
       print('🔴 [PROVIDER ERROR] Failed to create session: $e');
@@ -405,6 +461,7 @@ class SessionProvider with ChangeNotifier {
   }
 
   /// Mark session as paid and create permanent receipt
+  /// Uses client-side receipt generation (Phase 3 optimization)
   Future<bool> markAsPaid(
     String sessionId,
     String paymentMethod,
@@ -414,58 +471,99 @@ class SessionProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Mark session as paid
-      await _markSessionPaid(sessionId, paymentMethod, txnId);
+      debugPrint('========================================');
+      debugPrint('💰 [SessionProvider] MARK AS PAID CALLED');
+      debugPrint('   Session ID: $sessionId');
+      debugPrint('   Payment Method: $paymentMethod');
+      debugPrint('   Transaction ID: $txnId');
+      debugPrint('   Current Session: ${_currentSession?.id}');
+      debugPrint('========================================');
 
-      // Create permanent receipt
+      // Mark session as paid in Firestore
+      debugPrint('💳 [SessionProvider] Calling _markSessionPaid use case...');
+      await _markSessionPaid(sessionId, paymentMethod, txnId);
+      debugPrint('✅ [SessionProvider] Session marked as paid in Firestore');
+
+      // ⭐ CRITICAL FIX: Reload session from Firestore to sync local state
+      // This ensures _currentSession.isPaid reflects the updated Firestore value
+      // BEFORE we try to generate the receipt
+      debugPrint(
+        '🔄 [SessionProvider] Reloading session from Firestore to sync local state...',
+      );
+      try {
+        final sessionStream = _getLiveSession(sessionId);
+        _currentSession = await sessionStream.first;
+        notifyListeners();
+        debugPrint('✅ [SessionProvider] Session reloaded successfully');
+        debugPrint('   isPaid: ${_currentSession?.isPaid}');
+        debugPrint(
+          '   Connected Customers: ${_currentSession?.connectedCustomers}',
+        );
+      } catch (reloadError) {
+        debugPrint(
+          '⚠️ [SessionProvider] Failed to reload session: $reloadError',
+        );
+        debugPrint(
+          '   Will attempt receipt generation anyway with current session state',
+        );
+        // Continue with receipt generation even if reload fails
+      }
+
+      // Generate receipt client-side (replaces Cloud Function)
       if (_currentSession != null) {
+        debugPrint(
+          '📝 [SessionProvider] _currentSession is NOT null, proceeding with receipt generation',
+        );
+        debugPrint('   Session isPaid: ${_currentSession!.isPaid}');
+        debugPrint('   Merchant ID: ${_currentSession!.merchantId}');
+
         // Get merchant profile for business details
+        debugPrint('👤 [SessionProvider] Fetching merchant profile...');
         final merchantProfile = await _getMerchantProfile(
           _currentSession!.merchantId,
         );
-
-        final receipt = ReceiptEntity(
-          id: '', // Will be generated
-          sessionId: sessionId,
-          merchantId: _currentSession!.merchantId,
-          customerId: null, // Can be set if customer logs in
-          businessName: merchantProfile?.businessName ?? 'MY BUSINESS',
-          businessPhone: merchantProfile?.businessPhone,
-          businessAddress: merchantProfile?.businessAddress,
-          items: _currentSession!.items
-              .map(
-                (item) => ReceiptItemEntity(
-                  name: item.name,
-                  hsnCode: item.hsnCode,
-                  price: item.price,
-                  qty: item.qty,
-                  taxRate: item.taxRate,
-                  tax: item.tax,
-                  total: item.total,
-                ),
-              )
-              .toList(),
-          subtotal: _currentSession!.subtotal,
-          tax: _currentSession!.tax,
-          total: _currentSession!.total,
-          paymentMethod: paymentMethod,
-          paymentTxnId: txnId,
-          paidAt: DateTime.now(),
-          createdAt: _currentSession!.createdAt,
-          accessLogs: [
-            ReceiptAccessLog(
-              userId: _currentSession!.merchantId,
-              accessType: 'CREATE',
-              accessedAt: DateTime.now(),
-            ),
-          ],
+        debugPrint(
+          '   Merchant: ${merchantProfile?.businessName ?? "Unknown"}',
         );
 
-        await _createReceipt(receipt);
+        // Generate receipt using ReceiptGeneratorService
+        debugPrint('🎯 [SessionProvider] Calling ReceiptGeneratorService...');
+        final receiptId = await _receiptGenerator.generateReceiptForSession(
+          session: _currentSession!,
+          merchantName: merchantProfile?.businessName ?? 'MY BUSINESS',
+          merchantLogo: merchantProfile?.logoUrl,
+          merchantAddress: merchantProfile?.businessAddress,
+          merchantPhone: merchantProfile?.businessPhone,
+          merchantGst: merchantProfile?.gstNumber,
+          businessCategory: merchantProfile?.businessType,
+        );
+
+        if (receiptId != null) {
+          debugPrint('========================================');
+          debugPrint('✅ [SessionProvider] RECEIPT GENERATED SUCCESSFULLY');
+          debugPrint('   Receipt ID: $receiptId');
+          debugPrint('========================================');
+        } else {
+          debugPrint('========================================');
+          debugPrint('⚠️ [SessionProvider] RECEIPT GENERATION RETURNED NULL');
+          debugPrint('   This means generation was skipped or failed');
+          debugPrint('========================================');
+        }
+      } else {
+        debugPrint('========================================');
+        debugPrint('❌ [SessionProvider] _currentSession is NULL!');
+        debugPrint('   Cannot generate receipt without session object');
+        debugPrint('========================================');
       }
 
+      debugPrint('✅ [SessionProvider] Session marked as paid successfully');
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('========================================');
+      debugPrint('❌ [SessionProvider] ERROR IN MARK AS PAID');
+      debugPrint('   Error: $e');
+      debugPrint('   Stack trace: $stackTrace');
+      debugPrint('========================================');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -473,15 +571,73 @@ class SessionProvider with ChangeNotifier {
   }
 
   /// Finalize (complete) session
+  /// Now includes receipt generation for Phase 3
   Future<bool> completeSession(String sessionId) async {
     _error = null;
     notifyListeners();
 
     try {
+      debugPrint('🏁 [SessionProvider] Completing session: $sessionId');
+
+      // STEP 1: Ensure session is marked as PAID and generate receipt
+      if (_currentSession != null && !_currentSession!.isPaid) {
+        debugPrint(
+          '💰 [SessionProvider] Session not paid yet, marking as PAID...',
+        );
+
+        // Mark as paid with default payment method
+        final paymentMethod = _currentSession!.paymentMethod ?? 'cash';
+        final txnId =
+            _currentSession!.paymentTxnId ??
+            'TXN${DateTime.now().millisecondsSinceEpoch}';
+
+        final paid = await markAsPaid(sessionId, paymentMethod, txnId);
+
+        if (!paid) {
+          debugPrint('❌ [SessionProvider] Failed to mark session as paid');
+          throw Exception('Failed to mark session as paid');
+        }
+      } else if (_currentSession != null && _currentSession!.isPaid) {
+        debugPrint(
+          '✅ [SessionProvider] Session already paid, ensuring receipt exists...',
+        );
+
+        // Session is paid, but check if receipt was generated
+        final receiptExists = await _receiptGenerator.receiptExistsForSession(
+          sessionId,
+        );
+
+        if (!receiptExists) {
+          debugPrint('📝 [SessionProvider] Receipt missing, generating now...');
+
+          final merchantProfile = await _getMerchantProfile(
+            _currentSession!.merchantId,
+          );
+
+          await _receiptGenerator.generateReceiptForSession(
+            session: _currentSession!,
+            merchantName: merchantProfile?.businessName ?? 'MY BUSINESS',
+            merchantLogo: merchantProfile?.logoUrl,
+            merchantAddress: merchantProfile?.businessAddress,
+            merchantPhone: merchantProfile?.businessPhone,
+            merchantGst: merchantProfile?.gstNumber,
+            businessCategory: merchantProfile?.businessType,
+          );
+        } else {
+          debugPrint('✅ [SessionProvider] Receipt already exists for session');
+        }
+      }
+
+      // STEP 2: Finalize the session
+      debugPrint('🏁 [SessionProvider] Finalizing session...');
       await _finalizeSession(sessionId);
+
       _currentSession = null;
+
+      debugPrint('✅ [SessionProvider] Session completed successfully');
       return true;
     } catch (e) {
+      debugPrint('❌ [SessionProvider] Error completing session: $e');
       _error = e.toString();
       notifyListeners();
       return false;

@@ -84,7 +84,6 @@ void setupDependencyInjection() {
       getLiveSession: getIt(),
       markSessionPaid: getIt(),
       finalizeSession: getIt(),
-      createReceipt: getIt(),
       logReceiptAccess: getIt(),
       getMerchantProfile: getIt(),
     ),

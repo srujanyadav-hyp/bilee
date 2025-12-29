@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/router/app_router.dart'; // For routeObserver
 import '../../domain/entities/receipt_entity.dart';
 import '../providers/receipt_provider.dart';
 import '../widgets/customer_bottom_nav.dart';
@@ -16,26 +17,78 @@ class ReceiptListScreen extends StatefulWidget {
   State<ReceiptListScreen> createState() => _ReceiptListScreenState();
 }
 
-class _ReceiptListScreenState extends State<ReceiptListScreen> {
+class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      debugPrint('🧾 ReceiptList: Loading all receipts...');
+    _loadReceipts();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Register this route with RouteObserver
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      // Will be notified when this screen becomes visible/invisible
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    // Called when a screen is popped and THIS screen becomes visible again
+    // This is when user navigates BACK to this screen
+    debugPrint(
+      '🔄 [ReceiptList] Screen became visible again - reloading receipts',
+    );
+    _loadReceipts();
+  }
+
+  Future<void> _loadReceipts() async {
+    debugPrint('=========================================');
+    debugPrint('🧾 ReceiptList: Starting to load receipts...');
+    debugPrint('=========================================');
+
+    try {
       await context.read<ReceiptProvider>().loadAllReceipts();
       final provider = context.read<ReceiptProvider>();
-      debugPrint('🧾 ReceiptList: Loaded ${provider.receipts.length} receipts');
+
+      debugPrint('📊 ReceiptList: Load complete!');
+      debugPrint('   Total receipts: ${provider.receipts.length}');
+      debugPrint('   Has error: ${provider.hasError}');
+
       if (provider.hasError) {
         debugPrint('❌ ReceiptList: Error: ${provider.error}');
       }
-    });
+
+      if (provider.receipts.isNotEmpty) {
+        debugPrint('✅ ReceiptList: Found receipts:');
+        for (var i = 0; i < provider.receipts.length && i < 5; i++) {
+          final receipt = provider.receipts[i];
+          debugPrint(
+            '   [$i] ${receipt.receiptId} - ${receipt.merchantName} - ₹${receipt.total}',
+          );
+        }
+      } else {
+        debugPrint('⚠️ ReceiptList: No receipts found in list');
+      }
+
+      debugPrint('=========================================');
+    } catch (e, stackTrace) {
+      debugPrint('❌ ReceiptList: Exception loading receipts: $e');
+      debugPrint('   Stack trace: $stackTrace');
+      debugPrint('=========================================');
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    // Unregister from RouteObserver
+    routeObserver.unsubscribe(this);
     super.dispose();
   }
 

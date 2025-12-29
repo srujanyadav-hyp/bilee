@@ -20,12 +20,25 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('🏠 [CustomerHome] initState - loading receipts');
+    // Use post-frame callback to ensure context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ReceiptProvider>().loadRecentReceipts(limit: 3);
-      context
-          .read<ReceiptProvider>()
-          .loadAllReceipts(); // Load all for analytics
+      _loadReceipts();
     });
+  }
+
+  Future<void> _loadReceipts() async {
+    debugPrint('📱 [CustomerHome] Loading receipts...');
+    await context.read<ReceiptProvider>().loadRecentReceipts(limit: 3);
+    await context
+        .read<ReceiptProvider>()
+        .loadAllReceipts(); // Load all for analytics
+    debugPrint('✅ [CustomerHome] Receipts loaded');
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   @override

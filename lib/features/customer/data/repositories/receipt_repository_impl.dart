@@ -24,74 +24,74 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         return [];
       }
 
+      debugPrint('=========================================');
       debugPrint('👤 ReceiptRepo: Current user UID: $_currentUserId');
       debugPrint(
         '👤 ReceiptRepo: Current user email: ${_auth.currentUser?.email}',
       );
-      debugPrint(
-        '🔍 ReceiptRepo: Querying receipts for customerId: $_currentUserId',
-      );
 
-      // Get receipts with matching customerId
-      var querySnapshot = await _firestore
+      // NEW STRATEGY: Get all recent receipts, then filter client-side
+      // Only include receipts WHERE customerId matches current user
+      // DO NOT include walk-in receipts (null customerId) - those are private to merchants
+      debugPrint('🔍 ReceiptRepo: Fetching all recent receipts...');
+
+      final allRecentReceipts = await _firestore
           .collection('receipts')
-          .where('customerId', isEqualTo: _currentUserId)
           .orderBy('createdAt', descending: true)
+          .limit(100) // Adjust based on expected volume
           .get();
 
       debugPrint(
-        '✅ ReceiptRepo: Found ${querySnapshot.docs.length} receipts with customerId',
+        '📊 ReceiptRepo: Found ${allRecentReceipts.docs.length} total recent receipts in Firestore',
       );
 
-      final receiptsWithCustomerId = querySnapshot.docs
+      // Filter: ONLY include receipts where customerId matches current user
+      // Walk-in receipts (null customerId) are NOT included for privacy
+      final filteredDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+      int matchingCount = 0;
+      int walkInSkipped = 0;
+      int otherCount = 0;
+
+      for (var doc in allRecentReceipts.docs) {
+        final data = doc.data();
+        final customerId = data['customerId'];
+
+        if (customerId == _currentUserId) {
+          // ✅ This receipt belongs to the current user
+          filteredDocs.add(doc);
+          matchingCount++;
+          debugPrint('   ✅ Match: ${data['receiptId']} - customerId matches');
+        } else if (customerId == null) {
+          // ⏭️ Walk-in receipt - skip for customer privacy
+          walkInSkipped++;
+          debugPrint(
+            '   ⏭️ Skipped walk-in: ${data['receiptId']} - null customerId (privacy)',
+          );
+        } else {
+          // ⏭️ Receipt belongs to another customer - skip
+          otherCount++;
+        }
+      }
+
+      debugPrint('📊 ReceiptRepo: Filtering results:');
+      debugPrint('   ✅ Matching customerId: $matchingCount');
+      debugPrint('   ⏭️ Walk-in receipts skipped: $walkInSkipped (privacy)');
+      debugPrint('   ⏭️ Other customers skipped: $otherCount');
+      debugPrint('   📦 Total included: ${filteredDocs.length}');
+
+      final receipts = filteredDocs
           .map(
             (doc) => ReceiptModel.fromFirestore(doc.data(), doc.id).toEntity(),
           )
           .toList();
 
-      // ALSO: Get receipts where customerId is null (walk-in customers)
-      // Only do this if we found no receipts with customerId
-      // This helps show receipts that were generated before customer logged in
-      List<ReceiptEntity> receiptsWithNullCustomerId = [];
+      debugPrint('✅ ReceiptRepo: Returning ${receipts.length} receipts to UI');
+      debugPrint('=========================================');
 
-      if (receiptsWithCustomerId.isEmpty) {
-        debugPrint(
-          '⚠️ ReceiptRepo: No receipts with customerId, checking for receipts with null customerId...',
-        );
-
-        final nullCustomerQuery = await _firestore
-            .collection('receipts')
-            .where('customerId', isNull: true)
-            .orderBy('createdAt', descending: true)
-            .limit(20) // Limit for safety
-            .get();
-
-        debugPrint(
-          '📊 ReceiptRepo: Found ${nullCustomerQuery.docs.length} receipts with null customerId',
-        );
-
-        receiptsWithNullCustomerId = nullCustomerQuery.docs
-            .map(
-              (doc) =>
-                  ReceiptModel.fromFirestore(doc.data(), doc.id).toEntity(),
-            )
-            .toList();
-      }
-
-      // Combine both lists and sort by date
-      final allReceipts = [
-        ...receiptsWithCustomerId,
-        ...receiptsWithNullCustomerId,
-      ];
-      allReceipts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      debugPrint(
-        '✅ ReceiptRepo: Total receipts returned: ${allReceipts.length}',
-      );
-
-      return allReceipts;
-    } catch (e) {
+      return receipts;
+    } catch (e, stackTrace) {
       debugPrint('❌ ReceiptRepo: Error loading receipts: $e');
+      debugPrint('❌ ReceiptRepo: Stack trace: $stackTrace');
       throw Exception('Failed to load receipts: $e');
     }
   }
@@ -178,9 +178,59 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         return null;
       }
 
+      final receiptDoc = querySnapshot.docs.first;
+      final receiptData = receiptDoc.data();
+
+      // ⭐ CRITICAL: Update receipt with customer info if it has null customerId
+      // This handles  the case where customer goes directly to PaymentStatus
+      // without calling connectToSession (different flow)
+      final currentCustomerId = receiptData['customerId'];
+      if (currentCustomerId == null && _currentUserId != null) {
+        debugPrint(
+          '📝 [ReceiptRepo] Found receipt with null customerId, updating...',
+        );
+        debugPrint('   Receipt ID: ${receiptData['receiptId']}');
+
+        try {
+          final userEmail = _auth.currentUser?.email;
+          final userName = _auth.currentUser?.displayName;
+
+          await _firestore.collection('receipts').doc(receiptDoc.id).update({
+            'customerId': _currentUserId,
+            'customerEmail': userEmail,
+            'customerName': userName,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+          debugPrint('✅ [ReceiptRepo] Receipt updated with customer info');
+          debugPrint('   Customer ID: $_currentUserId');
+          debugPrint('   Customer Email: $userEmail');
+
+          // Refetch the updated receipt
+          final updatedDoc = await _firestore
+              .collection('receipts')
+              .doc(receiptDoc.id)
+              .get();
+
+          if (updatedDoc.exists) {
+            return ReceiptModel.fromFirestore(
+              updatedDoc.data()!,
+              updatedDoc.id,
+            ).toEntity();
+          }
+        } catch (updateError) {
+          debugPrint('⚠️ [ReceiptRepo] Error updating receipt: $updateError');
+          // Continue with original receipt if update fails
+        }
+      } else if (currentCustomerId != null) {
+        debugPrint(
+          'ℹ️ [ReceiptRepo] Receipt already has customer ID: $currentCustomerId',
+        );
+      }
+
       final receipt = ReceiptModel.fromFirestore(
-        querySnapshot.docs.first.data(),
-        querySnapshot.docs.first.id,
+        receiptData,
+        receiptDoc.id,
       ).toEntity();
 
       debugPrint(
