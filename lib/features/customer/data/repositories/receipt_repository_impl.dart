@@ -32,7 +32,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         '🔍 ReceiptRepo: Querying receipts for customerId: $_currentUserId',
       );
 
-      // FIRST: Try to get receipts with customerId filter
+      // Get receipts with matching customerId
       var querySnapshot = await _firestore
           .collection('receipts')
           .where('customerId', isEqualTo: _currentUserId)
@@ -43,33 +43,53 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         '✅ ReceiptRepo: Found ${querySnapshot.docs.length} receipts with customerId',
       );
 
-      // FALLBACK: If no receipts found, also check for null customerId (legacy receipts)
-      // This helps with backward compatibility for receipts created before customerId was enforced
-      if (querySnapshot.docs.isEmpty) {
-        debugPrint(
-          '⚠️ ReceiptRepo: No receipts with customerId, checking for legacy receipts...',
-        );
-        final allReceipts = await _firestore
-            .collection('receipts')
-            .orderBy('createdAt', descending: true)
-            .limit(50) // Limit for safety
-            .get();
-
-        debugPrint(
-          '📊 ReceiptRepo: Total receipts in collection: ${allReceipts.docs.length}',
-        );
-        for (var doc in allReceipts.docs.take(5)) {
-          debugPrint(
-            '   Receipt ${doc.id}: customerId=${doc.data()['customerId']}',
-          );
-        }
-      }
-
-      return querySnapshot.docs
+      final receiptsWithCustomerId = querySnapshot.docs
           .map(
             (doc) => ReceiptModel.fromFirestore(doc.data(), doc.id).toEntity(),
           )
           .toList();
+
+      // ALSO: Get receipts where customerId is null (walk-in customers)
+      // Only do this if we found no receipts with customerId
+      // This helps show receipts that were generated before customer logged in
+      List<ReceiptEntity> receiptsWithNullCustomerId = [];
+
+      if (receiptsWithCustomerId.isEmpty) {
+        debugPrint(
+          '⚠️ ReceiptRepo: No receipts with customerId, checking for receipts with null customerId...',
+        );
+
+        final nullCustomerQuery = await _firestore
+            .collection('receipts')
+            .where('customerId', isNull: true)
+            .orderBy('createdAt', descending: true)
+            .limit(20) // Limit for safety
+            .get();
+
+        debugPrint(
+          '📊 ReceiptRepo: Found ${nullCustomerQuery.docs.length} receipts with null customerId',
+        );
+
+        receiptsWithNullCustomerId = nullCustomerQuery.docs
+            .map(
+              (doc) =>
+                  ReceiptModel.fromFirestore(doc.data(), doc.id).toEntity(),
+            )
+            .toList();
+      }
+
+      // Combine both lists and sort by date
+      final allReceipts = [
+        ...receiptsWithCustomerId,
+        ...receiptsWithNullCustomerId,
+      ];
+      allReceipts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      debugPrint(
+        '✅ ReceiptRepo: Total receipts returned: ${allReceipts.length}',
+      );
+
+      return allReceipts;
     } catch (e) {
       debugPrint('❌ ReceiptRepo: Error loading receipts: $e');
       throw Exception('Failed to load receipts: $e');
@@ -121,7 +141,8 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
 
       debugPrint('🔍 ReceiptRepo: Searching receipt by sessionId: $sessionId');
 
-      final querySnapshot = await _firestore
+      // FIRST: Try with customerId filter (most common case)
+      var querySnapshot = await _firestore
           .collection('receipts')
           .where('sessionId', isEqualTo: sessionId)
           .where('customerId', isEqualTo: _currentUserId)
@@ -129,8 +150,26 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
           .get();
 
       debugPrint(
-        '📊 ReceiptRepo: Query returned ${querySnapshot.docs.length} documents',
+        '📊 ReceiptRepo: Query with customerId returned ${querySnapshot.docs.length} documents',
       );
+
+      // FALLBACK: If not found, try without customerId filter
+      // This handles cases where customerId might not match or is null
+      if (querySnapshot.docs.isEmpty) {
+        debugPrint(
+          '⚠️ ReceiptRepo: No receipt with customerId, trying without filter...',
+        );
+
+        querySnapshot = await _firestore
+            .collection('receipts')
+            .where('sessionId', isEqualTo: sessionId)
+            .limit(1)
+            .get();
+
+        debugPrint(
+          '📊 ReceiptRepo: Query without customerId returned ${querySnapshot.docs.length} documents',
+        );
+      }
 
       if (querySnapshot.docs.isEmpty) {
         debugPrint(

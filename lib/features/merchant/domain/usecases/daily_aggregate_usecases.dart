@@ -40,15 +40,15 @@ class GenerateDailyReport {
   GenerateDailyReport(this.repository);
 
   Future<String> call(String merchantId, String date, String format) async {
-    // Business validation
-    if (!['PDF', 'CSV'].contains(format.toUpperCase())) {
-      throw Exception('Invalid export format. Use PDF or CSV');
+    // Business validation - Only PDF is supported
+    if (format.toUpperCase() != 'PDF') {
+      throw Exception('Invalid export format. Only PDF is supported');
     }
 
     return await repository.callGenerateDailyReport(
       merchantId,
       date,
-      format.toUpperCase(),
+      'PDF', // Always use PDF
     );
   }
 }

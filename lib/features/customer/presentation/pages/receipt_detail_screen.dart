@@ -1,8 +1,12 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/upi_payment_service.dart';
 import '../../domain/entities/receipt_entity.dart';
@@ -927,15 +931,451 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
     );
   }
 
-  void _shareReceipt(BuildContext context) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Share feature coming soon')));
+  /// Generate and share receipt as PDF (NO Cloud Function needed!)
+  /// COST OPTIMIZATION: Client-side generation = FREE
+  Future<void> _shareReceipt(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Generating PDF receipt...'),
+            ],
+          ),
+        ),
+      );
+
+      final receipt = context.read<ReceiptProvider>().selectedReceipt;
+      if (receipt == null) return;
+
+      // Generate PDF using pdf package
+      final pdfBytes = await _generateReceiptPDF(receipt);
+
+      if (!mounted) return;
+
+      // Clear loading indicator
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // Share PDF
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: 'receipt_${receipt.receiptId}.pdf',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Receipt PDF ready to share!'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating receipt: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
-  void _downloadReceipt(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Download feature coming soon')),
+  /// Download receipt as PDF
+  Future<void> _downloadReceipt(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Generating PDF receipt...'),
+            ],
+          ),
+        ),
+      );
+
+      final receipt = context.read<ReceiptProvider>().selectedReceipt;
+      if (receipt == null) return;
+
+      // Generate PDF
+      final pdfBytes = await _generateReceiptPDF(receipt);
+
+      if (!mounted) return;
+
+      // Clear loading
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // Share (on mobile/web this triggers download)
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: 'receipt_${receipt.receiptId}.pdf',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.download_done, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Receipt downloaded!'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error downloading receipt: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  /// Generate receipt PDF (local, instant, FREE!)
+  Future<Uint8List> _generateReceiptPDF(ReceiptEntity receipt) async {
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('MMM dd, yyyy • hh:mm a');
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Header with logo placeholder
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      receipt.merchantName,
+                      style: pw.TextStyle(
+                        fontSize: 24,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    if (receipt.merchantAddress != null) ...[
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        receipt.merchantAddress!,
+                        style: const pw.TextStyle(
+                          fontSize: 10,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                    if (receipt.merchantPhone != null) ...[
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        'Phone: ${receipt.merchantPhone}',
+                        style: const pw.TextStyle(
+                          fontSize: 10,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                    if (receipt.merchantGst != null) ...[
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        'GSTIN: ${receipt.merchantGst}',
+                        style: const pw.TextStyle(
+                          fontSize: 10,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                pw.Container(
+                  width: 80,
+                  height: 80,
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.blue50,
+                    borderRadius: const pw.BorderRadius.all(
+                      pw.Radius.circular(40),
+                    ),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      receipt.merchantName.substring(0, 1).toUpperCase(),
+                      style: pw.TextStyle(
+                        fontSize: 36,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blue800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 30),
+            pw.Divider(thickness: 2),
+            pw.SizedBox(height: 20),
+
+            // Receipt Title
+            pw.Center(
+              child: pw.Column(
+                children: [
+                  pw.Text(
+                    'RECEIPT',
+                    style: pw.TextStyle(
+                      fontSize: 28,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    receipt.receiptId,
+                    style: const pw.TextStyle(
+                      fontSize: 12,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Date: ${dateFormat.format(receipt.createdAt)}',
+                    style: const pw.TextStyle(
+                      fontSize: 12,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            pw.SizedBox(height: 30),
+
+            // Items Table
+            pw.Table.fromTextArray(
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.white,
+              ),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.blue800,
+              ),
+              cellStyle: const pw.TextStyle(fontSize: 11),
+              cellAlignment: pw.Alignment.centerLeft,
+              cellPadding: const pw.EdgeInsets.all(8),
+              headers: ['Item', 'Qty', 'Price', 'Amount'],
+              data: receipt.items
+                  .map(
+                    (item) => [
+                      item.name,
+                      item.quantity.toString(),
+                      currencyFormat.format(item.price),
+                      currencyFormat.format(item.total),
+                    ],
+                  )
+                  .toList(),
+            ),
+
+            pw.SizedBox(height: 20),
+            pw.Divider(),
+            pw.SizedBox(height: 10),
+
+            // Summary
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'Subtotal: ${currencyFormat.format(receipt.subtotal)}',
+                      style: const pw.TextStyle(fontSize: 12),
+                    ),
+                    if (receipt.tax > 0) ...[
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Tax: ${currencyFormat.format(receipt.tax)}',
+                        style: const pw.TextStyle(fontSize: 12),
+                      ),
+                    ],
+                    if (receipt.discount > 0) ...[
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Discount: ${currencyFormat.format(receipt.discount)}',
+                        style: const pw.TextStyle(
+                          fontSize: 12,
+                          color: PdfColors.green700,
+                        ),
+                      ),
+                    ],
+                    pw.SizedBox(height: 8),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(8),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.blue50,
+                        borderRadius: const pw.BorderRadius.all(
+                          pw.Radius.circular(4),
+                        ),
+                      ),
+                      child: pw.Text(
+                        'TOTAL: ${currencyFormat.format(receipt.total)}',
+                        style: pw.TextStyle(
+                          fontSize: 18,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 30),
+            pw.Divider(),
+
+            // Payment Info
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Payment Method: ${PaymentMethodHelper.getDisplayName(receipt.paymentMethod)}',
+                  style: const pw.TextStyle(fontSize: 11),
+                ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: pw.BoxDecoration(
+                    color: receipt.paymentStatus == PaymentStatus.paid
+                        ? PdfColors.green50
+                        : PdfColors.orange50,
+                    borderRadius: const pw.BorderRadius.all(
+                      pw.Radius.circular(12),
+                    ),
+                  ),
+                  child: pw.Text(
+                    receipt.paymentStatus == PaymentStatus.paid
+                        ? 'PAID'
+                        : 'PENDING',
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                      color: receipt.paymentStatus == PaymentStatus.paid
+                          ? PdfColors.green900
+                          : PdfColors.orange900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            if (receipt.transactionId != null) ...[
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Transaction ID: ${receipt.transactionId}',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
+              ),
+            ],
+
+            pw.Spacer(),
+
+            // Footer
+            pw.Divider(),
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.Column(
+                children: [
+                  if (receipt.isVerified)
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        pw.Icon(
+                          const pw.IconData(0xe86c),
+                          size: 14,
+                          color: PdfColors.green700,
+                        ),
+                        pw.SizedBox(width: 4),
+                        pw.Text(
+                          'Verified & Authentic',
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.green700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    'Thank you for your business!',
+                    style: pw.TextStyle(
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Powered by BILEE - Paperless Billing System',
+                    style: const pw.TextStyle(
+                      fontSize: 9,
+                      color: PdfColors.grey600,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Generated at ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now())}',
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+
+    return pdf.save();
   }
 }

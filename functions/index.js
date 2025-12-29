@@ -14,10 +14,10 @@ exports.finalizeSession = functions.https.onRequest(async (req, res) => {
   // TODO: Implement authentication verification
   // const idToken = req.headers.authorization?.split('Bearer ')[1];
   // const decodedToken = await admin.auth().verifyIdToken(idToken);
-  
+
   try {
     const { session_id } = req.body;
-    
+
     if (!session_id) {
       return res.status(400).json({ error: 'session_id is required' });
     }
@@ -27,7 +27,7 @@ exports.finalizeSession = functions.https.onRequest(async (req, res) => {
       .collection('sessions')
       .doc(session_id)
       .get();
-    
+
     if (!sessionDoc.exists) {
       return res.status(404).json({ error: 'Session not found' });
     }
@@ -35,7 +35,7 @@ exports.finalizeSession = functions.https.onRequest(async (req, res) => {
     const sessionData = sessionDoc.data();
     const receiptId = `rcpt_${Date.now()}`;
     const merchantId = sessionData.merchant_id;
-    
+
     // Create receipt metadata
     const receiptData = {
       receipt_id: receiptId,
@@ -81,11 +81,11 @@ exports.finalizeSession = functions.https.onRequest(async (req, res) => {
     const year = timestamp.getFullYear();
     const month = String(timestamp.getMonth() + 1).padStart(2, '0');
     const day = String(timestamp.getDate()).padStart(2, '0');
-    
+
     const storagePath = `receipts/${merchantId}/${year}/${month}/${day}/${receiptId}.json.gz`;
     const bucket = admin.storage().bucket();
     const file = bucket.file(storagePath);
-    
+
     await file.save(compressed, {
       metadata: {
         contentType: 'application/gzip',
@@ -122,12 +122,15 @@ exports.finalizeSession = functions.https.onRequest(async (req, res) => {
  * POST /generateDailyReport or called via httpsCallable
  * Body: { merchantId: string, date: string, format: 'pdf'|'csv' }
  */
-const { generateDailyReport: generateReport } = require('./src/reports');
+// MIGRATED TO FLUTTER - Commented out to fix deployment
+// const { generateDailyReport: generateReport } = require('./src/reports');
 
+
+/*
 exports.generateDailyReport = functions.https.onCall(async (data, context) => {
   try {
     const { merchantId, date, format = 'pdf' } = data;
-    
+
     if (!merchantId || !date) {
       throw new functions.https.HttpsError('invalid-argument', 'merchantId and date are required');
     }
@@ -145,6 +148,7 @@ exports.generateDailyReport = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', error.message);
   }
 });
+*/
 
 // ==================== VERIFY UPI WEBHOOK ====================
 /**
@@ -156,7 +160,7 @@ exports.verifyUpiWebhook = functions.https.onRequest(async (req, res) => {
   try {
     // TODO: Implement PSP-specific signature verification
     const { transaction_id, session_id, amount, status, signature } = req.body;
-    
+
     if (!session_id || !transaction_id) {
       return res.status(400).json({ error: 'Invalid webhook data' });
     }
@@ -176,13 +180,13 @@ exports.verifyUpiWebhook = functions.https.onRequest(async (req, res) => {
       .collection('sessions')
       .doc(session_id)
       .get();
-    
+
     if (!sessionDoc.exists) {
       return res.status(404).json({ error: 'Session not found' });
     }
 
     const sessionData = sessionDoc.data();
-    
+
     // Verify amount matches
     if (Math.abs(sessionData.total - amount) > 0.01) {
       return res.status(400).json({ error: 'Amount mismatch' });
@@ -214,7 +218,7 @@ exports.verifyUpiWebhook = functions.https.onRequest(async (req, res) => {
 exports.simulatePayment = functions.https.onRequest(async (req, res) => {
   try {
     const { session_id, payment_method, txn_id } = req.body;
-    
+
     await admin.firestore()
       .collection('sessions')
       .doc(session_id)
@@ -237,52 +241,52 @@ exports.simulatePayment = functions.https.onRequest(async (req, res) => {
  * Runs every hour to delete sessions older than 24 hours
  */
 exports.cleanupExpiredSessions = functions.pubsub
-  .schedule('every 1 hours')
+  .schedule('every 24 hours')  // COST OPTIMIZATION: Changed from 'every 1 hours' - Reduces invocations from 720/month to 30/month
   .onRun(async (context) => {
     const now = admin.firestore.Timestamp.now();
     const twentyFourHoursAgo = new Date(now.toMillis() - (24 * 60 * 60 * 1000));
-    
+
     console.log('Starting cleanup of expired sessions...');
-    
+
     try {
       // Find sessions older than 24 hours
       const expiredSessionsSnapshot = await admin.firestore()
         .collection('billingSessions')
         .where('createdAt', '<', admin.firestore.Timestamp.fromDate(twentyFourHoursAgo))
         .get();
-      
+
       console.log(`Found ${expiredSessionsSnapshot.size} expired sessions`);
-      
+
       // Delete sessions in batches
       const batch = admin.firestore().batch();
       let deleteCount = 0;
-      
+
       expiredSessionsSnapshot.forEach((doc) => {
         const sessionData = doc.data();
-        
+
         // Only delete if:
         // 1. Session is expired OR
         // 2. Session is completed OR
         // 3. Session has a receipt (payment recorded)
         const hasReceipt = sessionData.paymentStatus === 'PAID' && sessionData.receiptGenerated;
         const isCompleted = sessionData.status === 'COMPLETED';
-        const isExpired = sessionData.status === 'EXPIRED' || 
-                         (sessionData.expiresAt && sessionData.expiresAt.toMillis() < now.toMillis());
-        
+        const isExpired = sessionData.status === 'EXPIRED' ||
+          (sessionData.expiresAt && sessionData.expiresAt.toMillis() < now.toMillis());
+
         if (hasReceipt || isCompleted || isExpired) {
           batch.delete(doc.ref);
           deleteCount++;
           console.log(`Marking session ${doc.id} for deletion`);
         }
       });
-      
+
       if (deleteCount > 0) {
         await batch.commit();
         console.log(`Successfully deleted ${deleteCount} expired sessions`);
       } else {
         console.log('No sessions to delete');
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error cleaning up expired sessions:', error);
@@ -301,32 +305,32 @@ exports.cleanupSessions = functions.https.onRequest(async (req, res) => {
     const now = admin.firestore.Timestamp.now();
     const hoursAgo = req.body.hours || 24;
     const cutoffTime = new Date(now.toMillis() - (hoursAgo * 60 * 60 * 1000));
-    
+
     const expiredSessionsSnapshot = await admin.firestore()
       .collection('sessions')
       .where('created_at', '<', admin.firestore.Timestamp.fromDate(cutoffTime))
       .get();
-    
+
     const batch = admin.firestore().batch();
     let deleteCount = 0;
-    
+
     expiredSessionsSnapshot.forEach((doc) => {
       const sessionData = doc.data();
       const hasReceipt = sessionData.payment_status === 'PAID';
       const isCompleted = sessionData.status === 'COMPLETED';
-      const isExpired = sessionData.status === 'EXPIRED' || 
-                       (sessionData.expires_at && sessionData.expires_at.toMillis() < now.toMillis());
-      
+      const isExpired = sessionData.status === 'EXPIRED' ||
+        (sessionData.expires_at && sessionData.expires_at.toMillis() < now.toMillis());
+
       if (hasReceipt || isCompleted || isExpired) {
         batch.delete(doc.ref);
         deleteCount++;
       }
     });
-    
+
     if (deleteCount > 0) {
       await batch.commit();
     }
-    
+
     res.json({
       success: true,
       message: `Deleted ${deleteCount} expired sessions`,
@@ -383,7 +387,7 @@ async function generateReceiptForSession(sessionId, sessionData) {
 
     const userData = userDoc.exists ? userDoc.data() : null;
     let businessCategory = userData?.category || merchantData?.businessType || 'Other';
-    
+
     // Normalize category names to match Flutter app categories
     const categoryMap = {
       'restaurant': 'Restaurant',
@@ -400,11 +404,11 @@ async function generateReceiptForSession(sessionId, sessionData) {
       'other': 'Other',
       'general': 'Other',
     };
-    
+
     // Normalize the category
     const normalizedKey = businessCategory.toLowerCase();
     businessCategory = categoryMap[normalizedKey] || businessCategory;
-    
+
     console.log('📝 [RECEIPT] Business category:', businessCategory);
 
     // Get customer ID from connectedCustomers array (first customer who scanned)
@@ -488,7 +492,7 @@ exports.onSessionCreated = functions.firestore
     console.log('========================================');
     console.log('🚨 TRIGGER FIRED: onSessionCreated - VERSION 2');
     console.log('========================================');
-    
+
     const sessionId = context.params.sessionId;
     const sessionData = snapshot.data();
 
@@ -517,7 +521,7 @@ exports.onPaymentConfirmed = functions.firestore
     console.log('========================================');
     console.log('🚨 TRIGGER FIRED: onPaymentConfirmed - VERSION 2');
     console.log('========================================');
-    
+
     const sessionId = context.params.sessionId;
     const before = change.before.data();
     const after = change.after.data();
@@ -525,12 +529,12 @@ exports.onPaymentConfirmed = functions.firestore
     console.log('🔄 [UPDATE] Session updated:', sessionId);
     console.log('🔄 [UPDATE] Before - Payment status:', before.paymentStatus);
     console.log('🔄 [UPDATE] After - Payment status:', after.paymentStatus);
-    
+
     // Check if payment was just confirmed
-    const paymentJustConfirmed = 
+    const paymentJustConfirmed =
       !before.paymentConfirmed && after.paymentConfirmed;
-    
-    const paymentStatusChanged = 
+
+    const paymentStatusChanged =
       before.paymentStatus !== 'PAID' && after.paymentStatus === 'PAID';
 
     if (!paymentJustConfirmed && !paymentStatusChanged) {

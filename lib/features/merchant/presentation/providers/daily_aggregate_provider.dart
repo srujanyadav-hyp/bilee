@@ -109,7 +109,7 @@ class DailyAggregateProvider with ChangeNotifier {
     }
   }
 
-  /// Generate daily report (PDF or CSV)
+  /// Generate daily report (PDF only)
   Future<String?> generateReport(
     String merchantId,
     DateTime date,

@@ -26,12 +26,15 @@ class LiveSessionPage extends StatefulWidget {
 
 class _LiveSessionPageState extends State<LiveSessionPage> {
   final CoreUpiPaymentService _upiService = CoreUpiPaymentService();
+  SessionProvider? _sessionProvider; // Cache provider reference
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SessionProvider>().watchSession(widget.sessionId);
+      // Cache provider reference for use in dispose
+      _sessionProvider = context.read<SessionProvider>();
+      _sessionProvider!.watchSession(widget.sessionId);
       context.read<MerchantProvider>().loadProfile(widget.merchantId);
     });
   }
@@ -39,7 +42,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   @override
   void dispose() {
     // Stop watching session when page is disposed
-    context.read<SessionProvider>().stopWatchingSession();
+    _sessionProvider?.stopWatchingSession();
     super.dispose();
   }
 

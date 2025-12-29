@@ -219,7 +219,11 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
               const SizedBox(height: AppDimensions.spacingSM),
               TextField(
                 controller: hsnController,
-                decoration: const InputDecoration(labelText: 'HSN Code'),
+                decoration: const InputDecoration(
+                  labelText: 'HSN Code (Optional)',
+                  hintText: 'Leave empty if not required',
+                  helperText: 'Optional - Only needed for GST filing',
+                ),
               ),
               const SizedBox(height: AppDimensions.spacingSM),
               TextField(
@@ -294,7 +298,11 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
               const SizedBox(height: AppDimensions.spacingSM),
               TextField(
                 controller: hsnController,
-                decoration: const InputDecoration(labelText: 'HSN Code'),
+                decoration: const InputDecoration(
+                  labelText: 'HSN Code (Optional)',
+                  hintText: 'Leave empty if not required',
+                  helperText: 'Optional - Only needed for GST filing',
+                ),
               ),
               const SizedBox(height: AppDimensions.spacingSM),
               TextField(

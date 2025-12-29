@@ -356,7 +356,7 @@ class SessionProvider with ChangeNotifier {
         paymentTxnId: txnId,
         connectedCustomers: [],
         createdAt: DateTime.now(),
-        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+        expiresAt: DateTime.now().add(const Duration(minutes: 5)),
         completedAt: paymentDetails.isFullyPaid ? DateTime.now() : null,
       );
 

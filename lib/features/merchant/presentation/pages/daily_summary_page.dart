@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/services/pdf_report_service.dart';
 import '../providers/daily_aggregate_provider.dart';
+import '../providers/merchant_provider.dart';
 
 /// Daily Summary Page - View daily sales analytics
 class DailySummaryPage extends StatefulWidget {
@@ -170,25 +171,18 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: AppDimensions.spacingLG),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.picture_as_pdf),
-                        label: const Text('Export PDF'),
-                        onPressed: () => _handleExportReport('pdf'),
-                      ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.all(AppDimensions.paddingMD),
+                      backgroundColor: AppColors.primaryBlue,
                     ),
-                    const SizedBox(width: AppDimensions.spacingMD),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.table_chart),
-                        label: const Text('Export CSV'),
-                        onPressed: () => _handleExportReport('csv'),
-                      ),
-                    ),
-                  ],
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Generate PDF Report'),
+                    onPressed: () =>
+                        _handleGeneratePDF(context, provider, aggregate),
+                  ),
                 ),
               ],
             ),
@@ -198,16 +192,19 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
     );
   }
 
-  /// Handle report export with URL download
-  Future<void> _handleExportReport(String format) async {
-    final provider = context.read<DailyAggregateProvider>();
-
+  /// Generate PDF report using Flutter (NO Cloud Function!)
+  /// COST OPTIMIZATION: Saves $50-200/month by avoiding Puppeteer server costs
+  Future<void> _handleGeneratePDF(
+    BuildContext context,
+    DailyAggregateProvider provider,
+    dynamic aggregate,
+  ) async {
     // Show loading indicator
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
@@ -215,19 +212,30 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
-            const SizedBox(width: 12),
-            Text('Generating ${format.toUpperCase()} report...'),
+            SizedBox(width: 12),
+            Text('Generating PDF report...'),
           ],
         ),
-        duration: const Duration(seconds: 30),
+        duration: Duration(seconds: 5),
       ),
     );
 
     try {
-      final url = await provider.generateReport(
-        widget.merchantId,
-        selectedDate,
-        format,
+      // Get merchant profile for business details
+      final merchantProvider = context.read<MerchantProvider>();
+      final merchantProfile = merchantProvider.profile;
+
+      // Create PDF service
+      final pdfService = PDFReportService();
+
+      // Generate PDF locally (no server call!)
+      final pdfBytes = await pdfService.generateDailyReport(
+        aggregate: aggregate,
+        merchantName: merchantProfile?.businessName ?? 'MY BUSINESS',
+        merchantAddress: merchantProfile?.businessAddress,
+        merchantPhone: merchantProfile?.businessPhone,
+        merchantGst: merchantProfile?.gstNumber,
+        logoUrl: merchantProfile?.logoUrl,
       );
 
       if (!mounted) return;
@@ -235,67 +243,27 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
       // Clear loading snackbar
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      if (url != null && url.isNotEmpty) {
-        // Try to launch URL
-        final uri = Uri.parse(url);
-        final canLaunch = await canLaunchUrl(uri);
+      // Generate filename
+      final filename = 'bilee_report_${aggregate.date}.pdf';
 
-        if (canLaunch) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      // Share PDF (opens share dialog on mobile, downloads on web)
+      await pdfService.sharePDF(pdfBytes: pdfBytes, filename: filename);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.white),
-                    const SizedBox(width: 12),
-                    Text('${format.toUpperCase()} report opened!'),
-                  ],
-                ),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
-        } else {
-          // Show URL in snackbar with copy option
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Report URL: $url'),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 10),
-                action: SnackBarAction(
-                  label: 'Copy',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    // Copy to clipboard would require clipboard package
-                    // For now, just show the URL
-                  },
-                ),
-              ),
-            );
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.error_outline, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Failed to generate report'),
-                ],
-              ),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('PDF report generated successfully!'),
+              ],
             ),
-          );
-        }
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -303,7 +271,7 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text('Error generating PDF: ${e.toString()}'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 5),
@@ -321,7 +289,14 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
           value,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-        Text(label, style: TextStyle(color: AppColors.lightTextSecondary)),
+        const SizedBox(height: AppDimensions.spacingXS),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.lightTextSecondary,
+            fontSize: 14,
+          ),
+        ),
       ],
     );
   }

@@ -134,17 +134,6 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
       children: [
         _buildActionCard(
           context,
-          title: 'Dashboard',
-          subtitle: 'View daily performance & insights',
-          icon: Icons.dashboard,
-          color: Colors.purple,
-          onTap: () {
-            context.go('/merchant/${widget.merchantId}/dashboard');
-          },
-        ),
-        const SizedBox(height: AppDimensions.spacingMD),
-        _buildActionCard(
-          context,
           title: 'Start Billing',
           subtitle: 'Create a new billing session',
           icon: Icons.point_of_sale,

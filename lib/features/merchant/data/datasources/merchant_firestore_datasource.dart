@@ -235,7 +235,7 @@ class MerchantFirestoreDataSource {
     String format,
   ) async {
     try {
-      // Call Firebase Cloud Function to generate PDF/CSV
+      // Call Firebase Cloud Function to generate PDF report
       final callable = _functions.httpsCallable('generateDailyReport');
       final result = await callable.call({
         'merchantId': merchantId,
