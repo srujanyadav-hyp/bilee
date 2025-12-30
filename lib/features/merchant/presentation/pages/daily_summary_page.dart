@@ -228,10 +228,16 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
       // Create PDF service
       final pdfService = PDFReportService();
 
+      // Get merchant name with better fallback
+      String merchantName = 'Merchant Store'; // Final fallback
+      if (merchantProfile != null) {
+        merchantName = merchantProfile.businessName;
+      }
+
       // Generate PDF locally (no server call!)
       final pdfBytes = await pdfService.generateDailyReport(
         aggregate: aggregate,
-        merchantName: merchantProfile?.businessName ?? 'MY BUSINESS',
+        merchantName: merchantName,
         merchantAddress: merchantProfile?.businessAddress,
         merchantPhone: merchantProfile?.businessPhone,
         merchantGst: merchantProfile?.gstNumber,

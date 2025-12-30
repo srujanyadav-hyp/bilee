@@ -195,44 +195,40 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
   void _showAddItemDialog(BuildContext context) {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
-    final hsnController = TextEditingController();
-    final taxController = TextEditingController(text: '18');
 
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Add Item'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Item Name *'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Item Name *',
+                hintText: 'e.g., Rice, Dal, Oil',
               ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(labelText: 'Price (₹) *'),
-                keyboardType: TextInputType.number,
+              autofocus: true,
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(
+                labelText: 'Price (₹) *',
+                hintText: 'Enter selling price',
+                prefixText: '₹ ',
               ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              TextField(
-                controller: hsnController,
-                decoration: const InputDecoration(
-                  labelText: 'HSN Code (Optional)',
-                  hintText: 'Leave empty if not required',
-                  helperText: 'Optional - Only needed for GST filing',
-                ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: AppDimensions.spacingSM),
+            Text(
+              'Tax: 18% (GST) - Auto-applied',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.lightTextSecondary,
               ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              TextField(
-                controller: taxController,
-                decoration: const InputDecoration(labelText: 'Tax Rate (%) *'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -241,13 +237,27 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (nameController.text.isEmpty) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Please enter item name')),
+                );
+                return;
+              }
+
+              if (priceController.text.isEmpty) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Please enter price')),
+                );
+                return;
+              }
+
               final item = ItemEntity(
                 id: '',
                 merchantId: widget.merchantId,
                 name: nameController.text,
-                hsnCode: hsnController.text.isEmpty ? null : hsnController.text,
+                hsnCode: null, // Auto-set to null
                 price: double.tryParse(priceController.text) ?? 0,
-                taxRate: double.tryParse(taxController.text) ?? 18,
+                taxRate: 18.0, // Auto-set to 18%
                 createdAt: DateTime.now(),
                 updatedAt: DateTime.now(),
               );
@@ -274,44 +284,36 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
   void _showEditItemDialog(BuildContext context, ItemEntity item) {
     final nameController = TextEditingController(text: item.name);
     final priceController = TextEditingController(text: item.price.toString());
-    final hsnController = TextEditingController(text: item.hsnCode ?? '');
-    final taxController = TextEditingController(text: item.taxRate.toString());
 
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Item'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Item Name *'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Item Name *'),
+              autofocus: true,
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(
+                labelText: 'Price (₹) *',
+                prefixText: '₹ ',
               ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(labelText: 'Price (₹) *'),
-                keyboardType: TextInputType.number,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: AppDimensions.spacingSM),
+            Text(
+              'Tax: ${item.taxRate}% (GST)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.lightTextSecondary,
               ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              TextField(
-                controller: hsnController,
-                decoration: const InputDecoration(
-                  labelText: 'HSN Code (Optional)',
-                  hintText: 'Leave empty if not required',
-                  helperText: 'Optional - Only needed for GST filing',
-                ),
-              ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              TextField(
-                controller: taxController,
-                decoration: const InputDecoration(labelText: 'Tax Rate (%) *'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -320,11 +322,23 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (nameController.text.isEmpty) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Please enter item name')),
+                );
+                return;
+              }
+
+              if (priceController.text.isEmpty) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Please enter price')),
+                );
+                return;
+              }
+
               final updatedItem = item.copyWith(
                 name: nameController.text,
-                hsnCode: hsnController.text.isEmpty ? null : hsnController.text,
                 price: double.tryParse(priceController.text) ?? item.price,
-                taxRate: double.tryParse(taxController.text) ?? item.taxRate,
                 updatedAt: DateTime.now(),
               );
 

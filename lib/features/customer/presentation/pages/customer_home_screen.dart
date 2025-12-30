@@ -378,89 +378,140 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // Legend - Explain what percentages mean
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: topCategories.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final category = entry.value.key;
+                      final color = _getCategoryColor(category, index);
+
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            category,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // Category Cards Grid
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.4,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: topCategories.length,
-              itemBuilder: (context, index) {
-                final entry = topCategories[index];
-                final category = entry.key;
-                final amount = entry.value;
-                final icon = ReceiptProvider.getCategoryIcon(category);
-                final color = _getCategoryColor(category, index);
+            // Category Cards Grid - Responsive
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Calculate optimal cross axis count based on screen width
+                final screenWidth = constraints.maxWidth;
+                final crossAxisCount = screenWidth > 400
+                    ? 2
+                    : 2; // Always 2 for phones
+                final cardWidth =
+                    (screenWidth - 12) / crossAxisCount; // Subtract spacing
+                final cardHeight = cardWidth * 0.7; // Height is 70% of width
+                final aspectRatio = cardWidth / cardHeight;
 
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.lightSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: color.withOpacity(0.3),
-                      width: 1.5,
-                    ),
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: aspectRatio,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Text(
-                                icon,
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                          ),
-                        ],
+                  itemCount: topCategories.length,
+                  itemBuilder: (context, index) {
+                    final entry = topCategories[index];
+                    final category = entry.key;
+                    final amount = entry.value;
+                    final icon = ReceiptProvider.getCategoryIcon(category);
+                    final color = _getCategoryColor(category, index);
+
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.lightSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: color.withOpacity(0.3),
+                          width: 1.5,
+                        ),
                       ),
-                      Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            category,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.lightTextSecondary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    icon,
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '₹${amount.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.lightTextPrimary,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                category,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.lightTextSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '₹${amount.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.lightTextPrimary,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             ),

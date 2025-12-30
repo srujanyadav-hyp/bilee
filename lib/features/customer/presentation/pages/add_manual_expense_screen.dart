@@ -20,15 +20,12 @@ class AddManualExpenseScreen extends StatefulWidget {
 class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  final _upiIdController = TextEditingController();
+  final _merchantNameController =
+      TextEditingController(); // NEW: Optional merchant name
 
   String? _selectedCategory;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   bool _isProcessing = false;
-  String? _scannedMerchantName; // Store merchant name from QR code
-  String? _scannedMerchantCode; // Store merchant category code from QR
-  String? _scannedMode; // Store transaction mode from QR
-  String? _originalQrData; // Store complete original QR URI
 
   final List<String> _categories = [
     'Grocery',
@@ -45,7 +42,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
   @override
   void dispose() {
     _amountController.dispose();
-    _upiIdController.dispose();
+    _merchantNameController.dispose();
     super.dispose();
   }
 
@@ -68,19 +65,19 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
       debugPrint('═══════════════════════════════════════════');
 
       final amount = double.parse(_amountController.text);
-      final upiId = _upiIdController.text.trim();
-      final merchantName = _scannedMerchantName ?? 'Merchant';
+      final merchantName = _merchantNameController.text.trim().isNotEmpty
+          ? _merchantNameController.text.trim()
+          : 'Merchant';
       final transactionId = 'BL${DateTime.now().millisecondsSinceEpoch}';
 
       debugPrint('📋 Input data:');
       debugPrint('   • Amount: ₹$amount');
-      debugPrint('   • UPI ID: $upiId');
+      debugPrint('   • Merchant Name: $merchantName');
       debugPrint('   • Category: $_selectedCategory');
-      debugPrint('   • Widget mounted: $mounted');
       debugPrint('───────────────────────────────────────────');
 
       // Save receipt BEFORE launching UPI app
-      debugPrint('💾 Step 1: Saving receipt before UPI launch...');
+      debugPrint('💾 Step 1: Saving receipt...');
       await _saveManualReceipt(
         merchantName: merchantName,
         transactionId: transactionId,
@@ -89,18 +86,12 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
       debugPrint('✅ Step 1 complete: Receipt saved');
       debugPrint('───────────────────────────────────────────');
 
-      // Reset processing state BEFORE launching UPI app
-      debugPrint('🔄 Step 2: Resetting UI state...');
+      // Reset processing state
       if (mounted) {
         setState(() => _isProcessing = false);
-        debugPrint('✅ Step 2 complete: Processing flag reset');
-      } else {
-        debugPrint('⚠️  Widget not mounted - skipping state reset');
       }
-      debugPrint('───────────────────────────────────────────');
 
-      // Show message before opening UPI app
-      debugPrint('📱 Step 3: Showing user notification...');
+      // Show message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -109,55 +100,33 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
             duration: Duration(seconds: 2),
           ),
         );
-        debugPrint('✅ Step 3 complete: Snackbar displayed');
-      } else {
-        debugPrint('⚠️  Widget not mounted - skipping notification');
       }
-      debugPrint('───────────────────────────────────────────');
 
-      // Small delay for UI updates
-      debugPrint('⏳ Step 4: Waiting 300ms for UI updates...');
+      // Small delay
       await Future.delayed(const Duration(milliseconds: 300));
-      debugPrint('✅ Step 4 complete: Delay finished');
-      debugPrint('───────────────────────────────────────────');
 
-      // Custom UPI app chooser and launcher
-      debugPrint('🚀 Step 5: Showing custom UPI app chooser...');
+      // Show UPI app chooser (bottom sheet with installed apps only)
+      debugPrint('🚀 Showing UPI app chooser...');
       final selectedApp = await CustomUpiLauncher.showAppChooser(context);
       if (selectedApp == null) {
-        debugPrint('⚠️  No UPI app selected by user');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No UPI app selected'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
+        debugPrint('⚠️  No UPI app selected');
         return;
       }
 
       debugPrint('✅ UPI app selected: ${selectedApp.name}');
+      // Open app in openOnly mode - user scans QR manually in their UPI app
       await CustomUpiLauncher.launchUpiApp(
         app: selectedApp,
-        upiId: upiId,
+        upiId: '', // Not needed in openOnly mode
         amount: amount,
         merchantName: merchantName,
         transactionNote: 'Payment via Bilee',
-        openOnly: true, // Open the UPI app only so user can scan QR manually
+        openOnly: true,
       );
-      debugPrint('✅ UPI app launch intent sent');
-      debugPrint('═══════════════════════════════════════════');
-      debugPrint('✅ MANUAL EXPENSE UPI PAYMENT FLOW COMPLETE');
+      debugPrint('✅ UPI app opened successfully');
       debugPrint('═══════════════════════════════════════════');
     } catch (e) {
-      debugPrint('═══════════════════════════════════════════');
-      debugPrint('❌ MANUAL EXPENSE UPI PAYMENT ERROR');
-      debugPrint('═══════════════════════════════════════════');
-      debugPrint('Error: $e');
-      debugPrint('Error Type: ${e.runtimeType}');
-      debugPrint('Widget mounted: $mounted');
-      debugPrint('═══════════════════════════════════════════');
+      debugPrint('❌ Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -187,9 +156,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
         amount: amount,
         paymentMethod: _paymentMethod,
         merchantName: merchantName,
-        merchantUpiId: _upiIdController.text.trim().isNotEmpty
-            ? _upiIdController.text.trim()
-            : null,
+        merchantUpiId: null, // Not capturing UPI ID anymore
         transactionId: transactionId,
         verified: verified,
       );
@@ -219,92 +186,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
     }
   }
 
-  Future<void> _scanUpiQr() async {
-    final result = await showDialog<Map<String, String?>>(
-      context: context,
-      builder: (context) => const _UpiQrScannerDialog(),
-    );
-
-    if (result != null &&
-        result['upiId'] != null &&
-        result['upiId']!.isNotEmpty) {
-      final upiId = result['upiId']!;
-      final merchantName = result['merchantName'];
-      final merchantCode = result['merchantCode'];
-      final mode = result['mode'];
-      final qrData = result['qrData']; // ADDED: Get original QR
-
-      debugPrint(
-        '🔍 Before setting: UPI ID field value = ${_upiIdController.text}',
-      );
-
-      // Store merchant info from QR
-      _scannedMerchantName = merchantName;
-      _scannedMerchantCode = merchantCode;
-      _scannedMode = mode;
-      _originalQrData = qrData; // ADDED: Store original QR
-      debugPrint('📝 Stored merchant name: $_scannedMerchantName');
-      debugPrint('📝 Stored merchant code: $_scannedMerchantCode');
-      debugPrint('📝 Stored mode: $_scannedMode');
-      debugPrint('📝 Stored original QR data: $_originalQrData');
-
-      // Parse and display UPI ID details
-      final parts = upiId.split('@');
-      if (parts.length == 2) {
-        final phone = parts[0];
-        final handle = parts[1];
-
-        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        debugPrint('📋 SCANNED UPI ID DETAILS:');
-        debugPrint('   • Full UPI ID: $result');
-        debugPrint('   • Phone/ID: $phone');
-        debugPrint('   • Bank Handle: @$handle');
-
-        // Identify bank
-        String bankName = 'Unknown Bank';
-        if (handle == 'ybl') {
-          bankName = 'Yes Bank (PhonePe)';
-        } else if (handle == 'ibl')
-          bankName = 'IDBI Bank';
-        else if (handle == 'paytm')
-          bankName = 'Paytm Payments Bank';
-        else if (handle == 'okicici' ||
-            handle == 'okhdfcbank' ||
-            handle == 'okaxis') {
-          bankName = 'Google Pay ($handle)';
-        }
-
-        debugPrint('   • Identified as: $bankName');
-        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-        // Show confirmation dialog with option to edit
-        if (mounted) {
-          final correctedUpiId = await showDialog<String>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => _UpiIdConfirmationDialog(
-              scannedUpiId: upiId,
-              phone: phone,
-              handle: handle,
-              bankName: bankName,
-            ),
-          );
-
-          if (correctedUpiId != null && correctedUpiId.isNotEmpty) {
-            setState(() {
-              _upiIdController.text = correctedUpiId;
-            });
-            debugPrint('✅ Final UPI ID set: $correctedUpiId');
-          }
-        }
-      }
-
-      debugPrint(
-        '✅ After setting: UPI ID field value = ${_upiIdController.text}',
-      );
-      debugPrint('✅ QR Scanned: Result received = $upiId');
-    }
-  }
+  // QR scanner removed - users now enter merchant name directly or leave blank
 
   @override
   Widget build(BuildContext context) {
@@ -338,10 +220,10 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
             _buildPaymentMethodSelector(),
             const SizedBox(height: 24),
 
-            // UPI ID Input (shown only for UPI payment)
+            // Merchant Name Input (shown only for UPI payment)
             if (_paymentMethod == PaymentMethod.upi) ...[
-              _buildUpiIdInput(),
-              const SizedBox(height: 32),
+              _buildMerchantNameInput(),
+              const SizedBox(height: 24),
             ],
 
             // Submit Button
@@ -504,12 +386,12 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
     );
   }
 
-  Widget _buildUpiIdInput() {
+  Widget _buildMerchantNameInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Merchant UPI ID',
+          'Merchant Name (Optional)',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -518,22 +400,11 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
         ),
         const SizedBox(height: 8),
         TextFormField(
-          controller: _upiIdController,
+          controller: _merchantNameController,
           keyboardType: TextInputType.text,
           decoration: InputDecoration(
-            hintText: '9876543210@paytm',
-            prefixIcon: const Icon(
-              Icons.account_balance_wallet,
-              color: AppColors.primaryBlue,
-            ),
-            suffixIcon: IconButton(
-              icon: const Icon(
-                Icons.qr_code_scanner,
-                color: AppColors.primaryBlue,
-              ),
-              onPressed: _scanUpiQr,
-              tooltip: 'Scan UPI QR',
-            ),
+            hintText: 'e.g., Ram Store, Domino\'s, etc.',
+            prefixIcon: const Icon(Icons.store, color: AppColors.primaryBlue),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
             ),
@@ -545,80 +416,19 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
               ),
             ),
           ),
-          validator: (value) {
-            if (_paymentMethod == PaymentMethod.upi) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter merchant UPI ID';
-              }
-              if (!value.contains('@')) {
-                return 'Invalid UPI ID format';
-              }
-            }
-            return null;
-          },
         ),
-        // Show detected bank info if UPI ID is present
-        if (_upiIdController.text.isNotEmpty &&
-            _upiIdController.text.contains('@'))
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: _buildUpiIdInfo(_upiIdController.text),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildUpiIdInfo(String upiId) {
-    final parts = upiId.split('@');
-    if (parts.length != 2) return const SizedBox.shrink();
-
-    final handle = parts[1].toLowerCase();
-    String bankInfo = '';
-    Color color = Colors.grey;
-    IconData icon = Icons.info_outline;
-
-    if (handle == 'ybl') {
-      bankInfo = 'Yes Bank (PhonePe)';
-      color = Colors.purple;
-      icon = Icons.phone_android;
-    } else if (handle == 'ibl') {
-      bankInfo = 'IDBI Bank';
-      color = Colors.orange;
-      icon = Icons.account_balance;
-    } else if (handle == 'paytm') {
-      bankInfo = 'Paytm Payments Bank';
-      color = Colors.blue;
-      icon = Icons.account_balance_wallet;
-    } else if (handle.startsWith('ok')) {
-      bankInfo = 'Google Pay';
-      color = Colors.green;
-      icon = Icons.phone_android;
-    } else {
-      bankInfo = 'Bank: @$handle';
-      color = Colors.grey;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Text(
-            bankInfo,
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text(
+            'Optional - helps you remember where you spent',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: color,
+              color: AppColors.lightTextSecondary,
+              fontStyle: FontStyle.italic,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

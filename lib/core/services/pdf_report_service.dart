@@ -25,6 +25,16 @@ class PDFReportService {
   }) async {
     final pdf = pw.Document();
     final dateFormat = DateFormat('MMMM dd, yyyy');
+
+    // Load a font that supports rupee symbol
+    // Using Google Fonts which has built-in support for special characters
+    final font = await PdfGoogleFonts.notoSansRegular();
+    final fontBold = await PdfGoogleFonts.notoSansBold();
+
+    // Create custom theme with the loaded font
+    final theme = pw.ThemeData.withFont(base: font, bold: fontBold);
+
+    // Currency format with rupee symbol - will now render correctly
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
 
     // Load logo if available
@@ -42,6 +52,7 @@ class PDFReportService {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
+        theme: theme, // Apply custom theme with font
         build: (context) => [
           // Header with logo and business info
           _buildHeader(

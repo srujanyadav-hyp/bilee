@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/constants/app_dimensions.dart';
 import '../providers/item_provider.dart';
 import '../providers/session_provider.dart';
 import '../../domain/entities/item_entity.dart';
@@ -30,6 +31,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
   bool _showQuickAdd = false;
   int _selectedCategory = 0; // 0=All, 1=Favorites, 2=Recent
   bool _isTaxEnabled = false;
+  bool _showCartDetails = false; // For expandable cart items view
 
   final Set<String> _favoriteItems = {};
   final Map<String, DateTime> _recentItems = {};
@@ -71,120 +73,150 @@ class _StartBillingPageState extends State<StartBillingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDarkMode
+        ? Colors.white
+        : Colors.black; // Black in light mode, white in dark mode
+
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildCompactHeader(),
-            _buildUnifiedSearchBar(),
-            _buildQuickSettingsBar(),
-            Expanded(
-              child: Stack(
-                children: [
-                  _buildItemsGrid(),
-                  if (_showQuickAdd) _buildQuickAddOverlay(),
-                ],
-              ),
+      body: Column(
+        children: [
+          _buildCompactHeader(titleColor),
+          _buildUnifiedSearchBar(),
+          _buildQuickSettingsBar(),
+          Expanded(
+            child: Stack(
+              children: [
+                _buildItemsGrid(),
+                if (_showQuickAdd) _buildQuickAddOverlay(),
+              ],
             ),
-            _buildCompactCartSummary(),
-          ],
-        ),
+          ),
+          _buildCompactCartSummary(),
+        ],
       ),
     );
   }
 
-  // ==================== COMPACT HEADER (60px) ====================
-  Widget _buildCompactHeader() {
+  // ==================== COMPACT HEADER (extends into status bar) ====================
+  Widget _buildCompactHeader(Color titleColor) {
     return Container(
-      height: 60,
+      // Add status bar height to total height
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        left: AppDimensions.paddingSM,
+        right: AppDimensions.paddingSM,
+      ),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
         boxShadow: [
+          // Primary shadow with gradient glow
           BoxShadow(
-            color: AppColors.shadowMedium,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: AppColors.primaryBlue.withOpacity(0.3),
+            blurRadius: AppDimensions.elevationLG,
+            offset: const Offset(0, 4),
+          ),
+          // Subtle top highlight
+          BoxShadow(
+            color: Colors.white.withOpacity(0.1),
+            blurRadius: 1,
+            offset: const Offset(0, -1),
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          // Back button
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => context.pop(),
-          ),
-          const SizedBox(width: 8),
-          // Title & Summary
-          Expanded(
-            child: Consumer<SessionProvider>(
+      child: SizedBox(
+        height: 60,
+        child: Row(
+          children: [
+            // Back button
+            IconButton(
+              icon: Icon(Icons.arrow_back, color: titleColor),
+              onPressed: () => context.pop(),
+            ),
+            SizedBox(width: AppDimensions.spacingXS),
+            // Title & Summary
+            Expanded(
+              child: Consumer<SessionProvider>(
+                builder: (context, provider, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'New Billing',
+                        style: AppTypography.h5.copyWith(
+                          color: titleColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '${provider.cartItems.length} items • ₹${provider.cartTotal.toStringAsFixed(2)}',
+                        style: AppTypography.caption.copyWith(
+                          color: titleColor.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            // Menu (Parked carts + options)
+            Consumer<SessionProvider>(
               builder: (context, provider, _) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                final parkedCount = provider.parkedCarts.length;
+                return Stack(
                   children: [
-                    Text(
-                      'New Billing',
-                      style: AppTypography.h5.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    IconButton(
+                      icon: Icon(Icons.menu, color: titleColor),
+                      onPressed: () {
+                        _showOptionsMenu();
+                      },
                     ),
-                    Text(
-                      '${provider.cartItems.length} items • ₹${provider.cartTotal.toStringAsFixed(2)}',
-                      style: AppTypography.caption.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                    if (parkedCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: AnimatedScale(
+                          scale: 1.0,
+                          duration: Duration(
+                            milliseconds: AppDimensions.animationNormal,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppColors.error,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.error.withOpacity(0.4),
+                                  blurRadius: AppDimensions.elevationSM,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '$parkedCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
                   ],
                 );
               },
             ),
-          ),
-          // Menu (Parked carts + options)
-          Consumer<SessionProvider>(
-            builder: (context, provider, _) {
-              final parkedCount = provider.parkedCarts.length;
-              return Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.menu, color: Colors.white),
-                    onPressed: () {
-                      _showOptionsMenu();
-                    },
-                  ),
-                  if (parkedCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          '$parkedCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -193,26 +225,36 @@ class _StartBillingPageState extends State<StartBillingPage> {
   Widget _buildUnifiedSearchBar() {
     return Container(
       height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppDimensions.paddingSM,
+        vertical: AppDimensions.spacing2XS,
+      ),
       color: AppColors.lightSurface,
       child: Row(
         children: [
-          // Search field
+          // Search field with elevation
           Expanded(
             child: Container(
               height: 42,
               decoration: BoxDecoration(
-                color: AppColors.lightBackground,
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
                 border: Border.all(color: AppColors.lightBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.shadowLight,
+                    blurRadius: AppDimensions.elevationSM,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: TextField(
                 controller: _searchController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: '🔍 Search items...',
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
+                    horizontal: AppDimensions.paddingSM,
                     vertical: 10,
                   ),
                   isDense: true,
@@ -221,14 +263,18 @@ class _StartBillingPageState extends State<StartBillingPage> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: AppDimensions.spacingXS),
           // Category filters (icon only)
           _buildCategoryIcon(Icons.grid_view, 'All', 0),
           _buildCategoryIcon(Icons.star, 'Favorites', 1),
           _buildCategoryIcon(Icons.history, 'Recent', 2),
           // Quick Add
           IconButton(
-            icon: const Icon(Icons.add_circle, color: AppColors.success),
+            icon: Icon(
+              Icons.add_circle,
+              color: AppColors.success,
+              size: AppDimensions.iconMD,
+            ),
             onPressed: () => setState(() => _showQuickAdd = true),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -243,24 +289,30 @@ class _StartBillingPageState extends State<StartBillingPage> {
     return Container(
       width: 36,
       height: 36,
-      margin: const EdgeInsets.only(right: 4),
+      margin: EdgeInsets.only(right: AppDimensions.spacing2XS),
       decoration: BoxDecoration(
-        color: isSelected
-            ? AppColors.primaryBlue.withOpacity(0.1)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        gradient: isSelected ? AppColors.primaryGradient : null,
+        color: isSelected ? null : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
         border: Border.all(
-          color: isSelected ? AppColors.primaryBlue : Colors.transparent,
-          width: 2,
+          color: isSelected ? Colors.transparent : AppColors.lightBorder,
+          width: AppDimensions.borderThin,
         ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: AppColors.primaryBlue.withOpacity(0.3),
+                  blurRadius: AppDimensions.elevationSM,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
       ),
       child: IconButton(
         icon: Icon(
           icon,
-          size: 20,
-          color: isSelected
-              ? AppColors.primaryBlue
-              : AppColors.lightTextSecondary,
+          size: AppDimensions.iconSM,
+          color: isSelected ? Colors.white : AppColors.lightTextSecondary,
         ),
         onPressed: () => setState(() => _selectedCategory = index),
         padding: EdgeInsets.zero,
@@ -277,27 +329,6 @@ class _StartBillingPageState extends State<StartBillingPage> {
       color: AppColors.lightBackground.withOpacity(0.5),
       child: Row(
         children: [
-          // Tax toggle
-          Text(
-            'Apply Tax',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.lightTextSecondary,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Switch(
-            value: _isTaxEnabled,
-            onChanged: (value) {
-              setState(() => _isTaxEnabled = value);
-              // Update session provider tax state
-              context.read<SessionProvider>().setTaxEnabled(value);
-            },
-            activeColor: AppColors.primaryBlue,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          const SizedBox(width: 16),
-          Container(width: 1, height: 24, color: AppColors.lightBorder),
-          const SizedBox(width: 16),
           // Park indicator
           Consumer<SessionProvider>(
             builder: (context, provider, _) {
@@ -393,38 +424,55 @@ class _StartBillingPageState extends State<StartBillingPage> {
     bool isInCart,
     SessionProvider provider,
   ) {
-    return Container(
+    return AnimatedContainer(
+      duration: Duration(milliseconds: AppDimensions.animationFast),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
         border: Border.all(
-          color: isInCart
-              ? AppColors.primaryBlue.withOpacity(0.3)
-              : AppColors.lightBorder,
-          width: isInCart ? 2 : 1,
+          color: isInCart ? AppColors.primaryBlue : AppColors.lightBorder,
+          width: isInCart
+              ? AppDimensions.borderThick
+              : AppDimensions.borderThin,
         ),
         boxShadow: isInCart
             ? [
+                // Primary glow shadow
                 BoxShadow(
-                  color: AppColors.primaryBlue.withOpacity(0.1),
-                  blurRadius: 8,
+                  color: AppColors.primaryBlue.withOpacity(0.2),
+                  blurRadius: AppDimensions.elevationMD,
+                  offset: const Offset(0, 4),
+                ),
+                // Secondary subtle shadow
+                BoxShadow(
+                  color: AppColors.shadowLight,
+                  blurRadius: AppDimensions.elevationSM,
                   offset: const Offset(0, 2),
                 ),
               ]
-            : null,
+            : [
+                // Default card shadow
+                BoxShadow(
+                  color: AppColors.shadowLight,
+                  blurRadius: AppDimensions.elevationSM,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
             if (!isInCart) {
+              HapticFeedback.lightImpact();
               provider.addToCart(item);
               _markAsRecent(item.name);
             }
           },
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(AppDimensions.paddingSM),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -442,18 +490,27 @@ class _StartBillingPageState extends State<StartBillingPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    // Favorite star
+                    SizedBox(width: AppDimensions.spacing2XS),
+                    // Favorite star with animation
                     GestureDetector(
-                      onTap: () => _toggleFavorite(item.name),
-                      child: Icon(
-                        _favoriteItems.contains(item.name)
-                            ? Icons.star
-                            : Icons.star_border,
-                        size: 18,
-                        color: _favoriteItems.contains(item.name)
-                            ? Colors.amber
-                            : AppColors.lightTextTertiary,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        _toggleFavorite(item.name);
+                      },
+                      child: AnimatedSwitcher(
+                        duration: Duration(
+                          milliseconds: AppDimensions.animationFast,
+                        ),
+                        child: Icon(
+                          _favoriteItems.contains(item.name)
+                              ? Icons.star
+                              : Icons.star_border,
+                          key: ValueKey(_favoriteItems.contains(item.name)),
+                          size: AppDimensions.iconXS,
+                          color: _favoriteItems.contains(item.name)
+                              ? Colors.amber
+                              : AppColors.lightTextTertiary,
+                        ),
                       ),
                     ),
                     if (isInCart) ...[
@@ -582,20 +639,130 @@ class _StartBillingPageState extends State<StartBillingPage> {
           decoration: BoxDecoration(
             color: AppColors.lightSurface,
             boxShadow: [
+              // Dramatic upward shadow for floating effect
               BoxShadow(
-                color: AppColors.shadowMedium,
-                blurRadius: 12,
-                offset: const Offset(0, -4),
+                color: AppColors.shadowDark,
+                blurRadius: AppDimensions.elevationXL,
+                offset: const Offset(0, -6),
+              ),
+              // Subtle top highlight
+              BoxShadow(
+                color: Colors.white.withOpacity(0.5),
+                blurRadius: 1,
+                offset: const Offset(0, -1),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(AppDimensions.paddingSM),
           child: SafeArea(
             top: false,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Summary row (single line)
+                // Expandable cart items list
+                GestureDetector(
+                  onTap: () =>
+                      setState(() => _showCartDetails = !_showCartDetails),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Left: Cart items count
+                      Row(
+                        children: [
+                          Icon(
+                            _showCartDetails
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            color: AppColors.lightTextSecondary,
+                          ),
+                          SizedBox(width: AppDimensions.spacing2XS),
+                          Text(
+                            '${provider.cartItems.length} items in cart',
+                            style: AppTypography.body2.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.lightTextPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Right: Tap to expand hint
+                      Text(
+                        _showCartDetails ? 'Hide' : 'View',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.primaryBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Cart items detail (expandable)
+                if (_showCartDetails) ...[
+                  SizedBox(height: AppDimensions.spacingXS),
+                  Container(
+                    constraints: BoxConstraints(maxHeight: 200),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightBackground,
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusSM,
+                      ),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.all(AppDimensions.spacingXS),
+                      itemCount: provider.cartItems.length,
+                      separatorBuilder: (_, __) => Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = provider.cartItems[index];
+                        return Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppDimensions.spacing2XS,
+                            horizontal: AppDimensions.spacingXS,
+                          ),
+                          child: Row(
+                            children: [
+                              // Item name
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  item.name,
+                                  style: AppTypography.body3,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // Quantity
+                              Expanded(
+                                child: Text(
+                                  'x${item.qty}',
+                                  style: AppTypography.body3.copyWith(
+                                    color: AppColors.lightTextSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              // Price
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  '₹${(item.price * item.qty).toStringAsFixed(2)}',
+                                  style: AppTypography.body3.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+
+                SizedBox(height: AppDimensions.spacingSM),
+
+                // Summary row (total)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -636,16 +803,17 @@ class _StartBillingPageState extends State<StartBillingPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: AppDimensions.paddingSM),
                 // Action buttons row
                 Row(
                   children: [
                     // Park button
                     Expanded(
                       child: SizedBox(
-                        height: 44,
+                        height: AppDimensions.buttonHeightMD,
                         child: OutlinedButton.icon(
                           onPressed: () {
+                            HapticFeedback.mediumImpact();
                             provider.parkCurrentCart();
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -655,35 +823,63 @@ class _StartBillingPageState extends State<StartBillingPage> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.local_parking, size: 20),
+                          icon: Icon(
+                            Icons.local_parking,
+                            size: AppDimensions.iconSM,
+                          ),
                           label: const Text('Park'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.primaryBlue,
-                            side: const BorderSide(
+                            side: BorderSide(
                               color: AppColors.primaryBlue,
+                              width: AppDimensions.borderThin,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(
+                                AppDimensions.buttonRadius,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // Complete Billing button
+                    SizedBox(width: AppDimensions.paddingSM),
+                    // Complete Billing button with gradient
                     Expanded(
                       flex: 2,
-                      child: SizedBox(
-                        height: 44,
+                      child: Container(
+                        height: AppDimensions.buttonHeightMD,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.buttonRadius,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withOpacity(0.3),
+                              blurRadius: AppDimensions.elevationMD,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
                         child: ElevatedButton.icon(
-                          onPressed: () => _handleCheckout(provider),
-                          icon: const Icon(Icons.check_circle_outline),
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            _handleCheckout(provider);
+                          },
+                          icon: Icon(
+                            Icons.check_circle_outline,
+                            size: AppDimensions.iconSM,
+                          ),
                           label: const Text('Complete Billing'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryBlue,
+                            backgroundColor: Colors.transparent,
                             foregroundColor: Colors.white,
+                            shadowColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(
+                                AppDimensions.buttonRadius,
+                              ),
                             ),
                           ),
                         ),

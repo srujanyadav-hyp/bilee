@@ -496,36 +496,58 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
   }
 
   Widget _buildPaymentMethodSelector() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: PaymentMethodType.values
-          .where(
-            (method) =>
-                method != PaymentMethodType.netbanking &&
-                method != PaymentMethodType.wallet &&
-                method != PaymentMethodType.credit,
-          )
-          .map((method) {
-            final isSelected = _selectedMethod == method;
-            return FilterChip(
-              selected: isSelected,
-              label: Text(method.displayName),
-              avatar: Icon(
-                _getPaymentIcon(method),
-                size: 20,
-                color: isSelected ? Colors.white : Colors.grey,
-              ),
-              onSelected: (selected) {
-                setState(() => _selectedMethod = method);
-              },
-              selectedColor: AppColors.primaryBlue,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.black87,
-              ),
-            );
-          })
-          .toList(),
+    return Row(
+      children: [
+        // Cash button
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () =>
+                setState(() => _selectedMethod = PaymentMethodType.cash),
+            icon: Icon(
+              Icons.payments,
+              color: _selectedMethod == PaymentMethodType.cash
+                  ? Colors.white
+                  : AppColors.primaryBlue,
+            ),
+            label: Text('Cash'),
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.all(AppDimensions.paddingMD),
+              backgroundColor: _selectedMethod == PaymentMethodType.cash
+                  ? AppColors.primaryBlue
+                  : Colors.transparent,
+              foregroundColor: _selectedMethod == PaymentMethodType.cash
+                  ? Colors.white
+                  : AppColors.primaryBlue,
+              side: BorderSide(color: AppColors.primaryBlue, width: 2),
+            ),
+          ),
+        ),
+        SizedBox(width: AppDimensions.spacingSM),
+        // UPI button
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () =>
+                setState(() => _selectedMethod = PaymentMethodType.upi),
+            icon: Icon(
+              Icons.qr_code_2,
+              color: _selectedMethod == PaymentMethodType.upi
+                  ? Colors.white
+                  : AppColors.primaryBlue,
+            ),
+            label: Text('UPI'),
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.all(AppDimensions.paddingMD),
+              backgroundColor: _selectedMethod == PaymentMethodType.upi
+                  ? AppColors.primaryBlue
+                  : Colors.transparent,
+              foregroundColor: _selectedMethod == PaymentMethodType.upi
+                  ? Colors.white
+                  : AppColors.primaryBlue,
+              side: BorderSide(color: AppColors.primaryBlue, width: 2),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
