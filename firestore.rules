@@ -83,6 +83,9 @@ service cloud.firestore {
       
       // Allow creation during registration
       allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Users can delete their own profile (for account deletion)
+      allow delete: if isOwner(userId);
     }
     
     // ==================== ITEMS COLLECTION ====================
@@ -179,8 +182,9 @@ service cloud.firestore {
                         request.resource.data.keys().hasAny(['paymentConfirmed', 'paymentMethod', 'paymentAmount']))
                      );
       
-      // Sessions should never be deleted (keep for records)
-      allow delete: if false;
+      // Merchants can delete their own billing sessions (for account deletion)
+      // Sessions owned by merchant can be deleted during account cleanup
+      allow delete: if isSignedIn() && isMerchant(resource.data.merchantId);
     }
     
     // ==================== DAILY AGGREGATES COLLECTION ====================
@@ -203,8 +207,8 @@ service cloud.firestore {
                         isValidAggregate()) ||
                        isAdmin();
       
-      // Aggregates should never be deleted (keep for records)
-      allow delete: if false;
+      // Merchants can delete their own aggregates (for account deletion)
+      allow delete: if isSignedIn() && isMerchant(resource.data.merchantId);
     }
     
     // ==================== RECEIPTS COLLECTION (FUTURE) ====================
@@ -231,9 +235,11 @@ service cloud.firestore {
                         request.resource.data.customerId == request.auth.uid &&
                         request.resource.data.manualEntry == true);
       
-      // Receipts can be updated in two scenarios:
+      // Receipts can be updated in multiple scenarios:
       // 1. Customer claiming a walk-in receipt (null customerId → their ID)
       // 2. Customer who owns receipt updating notes field
+      // 3. Merchant anonymizing their data during account deletion
+      // 4. Customer anonymizing their data during account deletion
       allow update: if isSignedIn() && (
                        // Scenario 1: Customer claiming receipt
                        (resource.data.customerId == null &&
@@ -243,10 +249,24 @@ service cloud.firestore {
                        // Scenario 2: Customer updating notes on their own receipt  
                        (request.auth.uid == resource.data.customerId &&
                         request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['notes', 'updatedAt']))
+                          .hasOnly(['notes', 'updatedAt'])) ||
+                       // Scenario 3: Merchant anonymizing receipt during account deletion
+                       (isMerchant(resource.data.merchantId) &&
+                        request.resource.data.merchantId == 'DELETED_MERCHANT' &&
+                        request.resource.data.merchantName == '[Deleted Merchant]') ||
+                       // Scenario 4: Customer anonymizing receipt during account deletion
+                       (request.auth.uid == resource.data.customerId &&
+                        request.resource.data.customerId == null &&
+                        request.resource.data.customerName == '[Deleted Customer]')
                      );
       
-      allow delete: if false;
+      // Users can delete receipts in two scenarios:
+      // 1. Customer deleting their own receipts (customerId matches)
+      // 2. Merchant deleting receipts they created (merchantId matches)
+      allow delete: if isSignedIn() && (
+                       request.auth.uid == resource.data.customerId ||
+                       isMerchant(resource.data.merchantId)
+                     );
     }
     
     // ==================== MERCHANT PROFILES (FUTURE) ====================
@@ -259,8 +279,23 @@ service cloud.firestore {
       allow create, update: if isSignedIn() && 
                                isMerchant(merchantId);
       
-      // Merchants cannot delete their profile (use disable flag instead)
-      allow delete: if false;
+      // Merchants can delete their own profile (for account deletion)
+      allow delete: if isSignedIn() && isMerchant(merchantId);
+      
+      // Sub-collection: Items under merchant
+      match /items/{itemId} {
+        // Merchants can read their own items
+        allow read: if isSignedIn() && isMerchant(merchantId);
+        
+        // Merchants can create items for themselves
+        allow create: if isSignedIn() && isMerchant(merchantId);
+        
+        // Merchants can update their own items  
+        allow update: if isSignedIn() && isMerchant(merchantId);
+        
+        // Merchants can delete their own items (including during account deletion)
+        allow delete: if isSignedIn() && isMerchant(merchantId);
+      }
     }
     
     // ==================== CUSTOMER PROFILES (FUTURE) ====================
@@ -284,6 +319,32 @@ service cloud.firestore {
       // Merchants can read/write their own preferences
       allow read, write: if isSignedIn() && 
                             isMerchant(merchantId);
+    }
+    
+    // ==================== BUDGETS COLLECTION ====================
+    
+    match /budgets/{budgetId} {
+      // Users can read their own budgets
+      allow read: if isSignedIn() && 
+                     request.auth.uid == resource.data.userId;
+      
+      // Users can create budgets for themselves
+      allow create: if isSignedIn() && 
+                       request.auth.uid == request.resource.data.userId &&
+                       request.resource.data.category is string &&
+                       request.resource.data.category.size() > 0 &&
+                       request.resource.data.monthlyLimit is number &&
+                       request.resource.data.monthlyLimit >= 0 &&
+                       request.resource.data.createdAt is timestamp;
+      
+      // Users can update their own budgets
+      allow update: if isSignedIn() && 
+                       request.auth.uid == resource.data.userId &&
+                       request.auth.uid == request.resource.data.userId;
+      
+      // Users can delete their own budgets
+      allow delete: if isSignedIn() && 
+                       request.auth.uid == resource.data.userId;
     }
     
     // ==================== DENY ALL OTHER COLLECTIONS ====================

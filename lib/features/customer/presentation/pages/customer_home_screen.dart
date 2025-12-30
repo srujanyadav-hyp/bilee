@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../providers/receipt_provider.dart';
+import '../providers/budget_provider.dart';
 import '../widgets/customer_bottom_nav.dart';
+import '../widgets/budget_progress_card.dart';
 import 'package:intl/intl.dart';
 
 /// Customer Home Screen - Entry point for customers
@@ -34,6 +37,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         .read<ReceiptProvider>()
         .loadAllReceipts(); // Load all for analytics
     debugPrint('✅ [CustomerHome] Receipts loaded');
+
+    // Load budgets for the current user
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      debugPrint('💰 [CustomerHome] Loading budgets for user: $userId');
+      await context.read<BudgetProvider>().loadBudgets(userId);
+      debugPrint('✅ [CustomerHome] Budgets loaded');
+    }
   }
 
   @override
@@ -59,7 +70,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(
-              Icons.account_circle_outlined,
+              Icons.account_balance_wallet_outlined,
+              color: Colors.white,
+              size: 24,
+            ),
+            onPressed: () => context.push('/customer/budget-settings'),
+            tooltip: 'Budget Settings',
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.account_circle,
               color: Colors.white,
               size: 28,
             ),
@@ -88,6 +108,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
               // Monthly Spending Analytics
               _buildMonthlySpendingSection(context),
+              const SizedBox(height: 24),
+
+              // Budget Alerts Section
+              _buildBudgetAlertsSection(context),
               const SizedBox(height: 24),
 
               // Recent Receipts Section
@@ -560,5 +584,74 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
     // Return color based on index, cycling through theme colors
     return themeColors[index % themeColors.length];
+  }
+
+  /// Budget Alerts Section - Show budget progress and alerts
+  Widget _buildBudgetAlertsSection(BuildContext context) {
+    return Consumer<BudgetProvider>(
+      builder: (context, budgetProvider, child) {
+        // Don't show section if no budgets or alerts
+        if (budgetProvider.budgets.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        // Show only budgets that need attention (>=80% or exceeded)
+        final budgetsToShow = budgetProvider.budgetsNeedingAlert;
+
+        // If no alerts, don't show section
+        if (budgetsToShow.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.orange,
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Budget Alerts',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.lightTextPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () => context.push('/customer/budget-settings'),
+                  child: const Text(
+                    'Manage',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryBlue,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...budgetsToShow.map(
+              (progress) => BudgetProgressCard(
+                progress: progress,
+                onTap: () => context.push('/customer/budget-settings'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

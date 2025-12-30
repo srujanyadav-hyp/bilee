@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -153,6 +154,10 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                   // Items List
                   _buildItemsList(receipt),
 
+                  // Receipt Photo (if exists) - Shows items for manual entries
+                  if (receipt.receiptPhotoPath != null)
+                    _buildReceiptPhoto(receipt),
+
                   const Divider(height: 1, color: AppColors.receiptBorder),
 
                   // Summary
@@ -217,6 +222,41 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
               letterSpacing: 0.5,
             ),
           ),
+          // Category Badge (for manual entries)
+          if (receipt.businessCategory != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _getCategoryIcon(receipt.businessCategory!),
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    receipt.businessCategory!.toUpperCase(),
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -513,6 +553,107 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildReceiptPhoto(ReceiptEntity receipt) {
+    final photoPath = receipt.receiptPhotoPath;
+    if (photoPath == null) return const SizedBox.shrink();
+
+    final photoFile = File(photoPath);
+    if (!photoFile.existsSync()) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 1, color: AppColors.receiptBorder),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '📸 Receipt Photo',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.lightTextPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () {
+                  // Show fullscreen photo dialog
+                  showDialog(
+                    context: context,
+                    builder: (context) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: InteractiveViewer(
+                              child: Image.file(photoFile, fit: BoxFit.contain),
+                            ),
+                          ),
+                          Positioned(
+                            top: 40,
+                            right: 20,
+                            child: IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primaryBlue, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      photoFile,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Tap to view fullscreen',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: AppColors.lightTextSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1377,5 +1518,32 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
     );
 
     return pdf.save();
+  }
+
+  String _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'grocery':
+      case 'groceries':
+        return '🛒';
+      case 'restaurant':
+      case 'food':
+        return '🍽️';
+      case 'pharmacy':
+      case 'healthcare':
+        return '💊';
+      case 'electronics':
+        return '📱';
+      case 'clothing':
+      case 'fashion':
+        return '👕';
+      case 'transport':
+        return '🚌';
+      case 'entertainment':
+        return '🎬';
+      case 'services':
+        return '🔧';
+      default:
+        return '💰';
+    }
   }
 }

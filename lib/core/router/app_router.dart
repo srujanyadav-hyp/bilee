@@ -24,6 +24,7 @@ import '../../features/customer/presentation/pages/receipt_detail_screen.dart';
 import '../../features/customer/presentation/pages/receipt_list_screen.dart';
 import '../../features/customer/presentation/pages/customer_profile_screen.dart';
 import '../../features/customer/presentation/pages/add_manual_expense_screen.dart';
+import '../../features/customer/presentation/pages/budget_settings_screen.dart';
 
 /// Global RouteObserver for tracking route lifecycle
 /// Used to detect when screens become visible again (e.g., when navigating back)
@@ -203,6 +204,11 @@ class AppRouter {
             path: 'add-expense',
             name: 'customer-add-expense',
             builder: (context, state) => const AddManualExpenseScreen(),
+          ),
+          GoRoute(
+            path: 'budget-settings',
+            name: 'customer-budget-settings',
+            builder: (context, state) => const BudgetSettingsScreen(),
           ),
         ],
       ),

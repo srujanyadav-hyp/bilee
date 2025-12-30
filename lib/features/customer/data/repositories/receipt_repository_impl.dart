@@ -351,6 +351,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
     String? merchantUpiId,
     String? transactionId,
     bool verified = false,
+    String? photoPath,
   }) async {
     try {
       if (_currentUserId == null) {
@@ -389,6 +390,8 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         'isVerified': verified,
         'manualEntry': true,
         'notes': null,
+        'receiptPhotoPath': photoPath,
+        'hasPhoto': photoPath != null,
       };
 
       // Save to Firestore

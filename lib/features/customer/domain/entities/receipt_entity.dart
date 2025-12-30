@@ -10,6 +10,7 @@ class ReceiptEntity {
   final String? merchantAddress;
   final String? merchantPhone;
   final String? merchantGst;
+  final String? merchantStatus; // 'active', 'closed', 'suspended', etc.
   final String? businessCategory; // Restaurant, Retail, Grocery, etc.
 
   // Customer details
@@ -41,6 +42,7 @@ class ReceiptEntity {
   final bool isVerified;
   final String? notes;
   final String? signatureUrl;
+  final String? receiptPhotoPath; // Local photo path
 
   const ReceiptEntity({
     required this.id,
@@ -52,6 +54,7 @@ class ReceiptEntity {
     this.merchantAddress,
     this.merchantPhone,
     this.merchantGst,
+    this.merchantStatus,
     this.businessCategory,
     this.customerId,
     this.customerName,
@@ -73,6 +76,7 @@ class ReceiptEntity {
     this.isVerified = false,
     this.notes,
     this.signatureUrl,
+    this.receiptPhotoPath,
   });
 
   ReceiptEntity copyWith({
@@ -85,6 +89,7 @@ class ReceiptEntity {
     String? merchantAddress,
     String? merchantPhone,
     String? merchantGst,
+    String? merchantStatus,
     String? businessCategory,
     String? customerId,
     String? customerName,
@@ -106,6 +111,7 @@ class ReceiptEntity {
     bool? isVerified,
     String? notes,
     String? signatureUrl,
+    String? receiptPhotoPath,
   }) {
     return ReceiptEntity(
       id: id ?? this.id,
@@ -117,6 +123,7 @@ class ReceiptEntity {
       merchantAddress: merchantAddress ?? this.merchantAddress,
       merchantPhone: merchantPhone ?? this.merchantPhone,
       merchantGst: merchantGst ?? this.merchantGst,
+      merchantStatus: merchantStatus ?? this.merchantStatus,
       businessCategory: businessCategory ?? this.businessCategory,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
@@ -138,6 +145,7 @@ class ReceiptEntity {
       isVerified: isVerified ?? this.isVerified,
       notes: notes ?? this.notes,
       signatureUrl: signatureUrl ?? this.signatureUrl,
+      receiptPhotoPath: receiptPhotoPath ?? this.receiptPhotoPath,
     );
   }
 

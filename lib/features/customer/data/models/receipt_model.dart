@@ -33,6 +33,7 @@ class ReceiptModel {
   final bool isVerified;
   final String? notes;
   final String? signatureUrl;
+  final String? receiptPhotoPath;
 
   ReceiptModel({
     required this.id,
@@ -65,6 +66,7 @@ class ReceiptModel {
     this.isVerified = false,
     this.notes,
     this.signatureUrl,
+    this.receiptPhotoPath,
   });
 
   // From Firestore
@@ -108,6 +110,7 @@ class ReceiptModel {
       isVerified: json['isVerified'] ?? false,
       notes: json['notes'],
       signatureUrl: json['signatureUrl'],
+      receiptPhotoPath: json['receiptPhotoPath'],
     );
   }
 
@@ -179,6 +182,7 @@ class ReceiptModel {
       isVerified: isVerified,
       notes: notes,
       signatureUrl: signatureUrl,
+      receiptPhotoPath: receiptPhotoPath,
     );
   }
 
@@ -217,6 +221,7 @@ class ReceiptModel {
       isVerified: entity.isVerified,
       notes: entity.notes,
       signatureUrl: entity.signatureUrl,
+      receiptPhotoPath: entity.receiptPhotoPath,
     );
   }
 

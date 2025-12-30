@@ -8,6 +8,7 @@ import '../../../../core/router/app_router.dart'; // For routeObserver
 import '../../domain/entities/receipt_entity.dart';
 import '../providers/receipt_provider.dart';
 import '../widgets/customer_bottom_nav.dart';
+import '../widgets/merchant_status_badge.dart';
 
 /// Receipt List Screen - All receipts wallet
 class ReceiptListScreen extends StatefulWidget {
@@ -240,14 +241,25 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            receipt.merchantName,
-                            style: const TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.lightTextPrimary,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  receipt.merchantName,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.lightTextPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              MerchantStatusBadge(
+                                status: receipt.merchantStatus,
+                                isCompact: true,
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(

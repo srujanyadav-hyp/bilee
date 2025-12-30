@@ -38,6 +38,7 @@ abstract class ReceiptRepository {
     String? merchantUpiId,
     String? transactionId,
     bool verified = false,
+    String? photoPath,
   });
 
   /// Update receipt notes

@@ -1,12 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_typography.dart';
-import '../../../../core/services/auth_service.dart';
 import '../../../../core/models/user_model.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/account_deletion_service.dart';
 import '../../domain/entities/merchant_entity.dart';
 import '../providers/merchant_provider.dart';
 
@@ -678,10 +681,159 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
       ),
     );
 
-    if (confirm == true) {
-      // TODO: Implement account deletion
-      _showComingSoon();
+    if (confirm != true) return;
+
+    // Show loading dialog
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Deleting account and cleaning up data...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('No user signed in');
+      }
+
+      // Delete account using service
+      final deletionService = AccountDeletionService();
+      await deletionService.deleteMerchantAccount(user.uid);
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Sign out (account is already deleted, but clean up local state)
+      await _authService.signOut();
+
+      // Navigate to login
+      if (mounted) {
+        context.go('/login');
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account deleted successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Handle re-authentication requirement
+      if (e.code == 'requires-recent-login') {
+        if (mounted) {
+          await _showReauthDialog();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Auth error: ${e.message}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting account: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
+  }
+
+  Future<void> _showReauthDialog() async {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Re-authenticate Required'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'For security, please re-enter your password to delete your account.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final deletionService = AccountDeletionService();
+        await deletionService.reauthenticateWithCredential(
+          emailController.text.trim(),
+          passwordController.text,
+        );
+
+        // Now retry deletion
+        await _deleteAccount();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Re-authentication failed: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+
+    emailController.dispose();
+    passwordController.dispose();
   }
 
   Future<void> _saveProfile(

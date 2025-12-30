@@ -1,5 +1,6 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
+import 'package:get_it/get_it.dart';
 
 // Domain
 import 'domain/usecases/connect_to_session.dart';
@@ -12,18 +13,28 @@ import 'domain/usecases/search_receipts.dart';
 // Data
 import 'data/repositories/live_bill_repository_impl.dart';
 import 'data/repositories/receipt_repository_impl.dart';
+import 'data/repositories/budget_repository.dart';
+
+// Core Services
+import '../../core/services/local_storage_service.dart';
 
 // Presentation
 import 'presentation/providers/live_bill_provider.dart';
 import 'presentation/providers/receipt_provider.dart';
+import 'presentation/providers/budget_provider.dart';
 
 /// Customer Providers Setup
 class CustomerProviders {
   /// Setup all customer providers
   static List<SingleChildWidget> getProviders() {
+    final getIt = GetIt.instance;
+
     // Initialize repositories
     final liveBillRepository = LiveBillRepositoryImpl();
     final receiptRepository = ReceiptRepositoryImpl();
+    final budgetRepository = BudgetRepository(
+      localStorage: getIt<LocalStorageService>(),
+    );
 
     // Initialize use cases
     final connectToSessionUseCase = ConnectToSessionUseCase(liveBillRepository);
@@ -54,6 +65,20 @@ class CustomerProviders {
           searchReceiptsUseCase: searchReceiptsUseCase,
           repository: receiptRepository,
         ),
+      ),
+
+      // Budget Provider (depends on ReceiptProvider)
+      ChangeNotifierProxyProvider<ReceiptProvider, BudgetProvider>(
+        create: (context) => BudgetProvider(
+          repository: budgetRepository,
+          receiptProvider: context.read<ReceiptProvider>(),
+        ),
+        update: (context, receiptProvider, previous) =>
+            previous ??
+            BudgetProvider(
+              repository: budgetRepository,
+              receiptProvider: receiptProvider,
+            ),
       ),
     ];
   }

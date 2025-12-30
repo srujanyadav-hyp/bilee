@@ -134,6 +134,7 @@ class ReceiptProvider with ChangeNotifier {
     String? merchantUpiId,
     String? transactionId,
     bool verified = false,
+    String? photoPath,
   }) async {
     try {
       await repository.createManualReceipt(
@@ -144,6 +145,7 @@ class ReceiptProvider with ChangeNotifier {
         merchantUpiId: merchantUpiId,
         transactionId: transactionId,
         verified: verified,
+        photoPath: photoPath,
       );
 
       // Reload receipts after creating manual entry

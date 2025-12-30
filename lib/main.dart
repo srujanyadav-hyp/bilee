@@ -10,6 +10,7 @@ import 'core/router/app_router.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/services/sync_service.dart';
 import 'core/services/local_database_service.dart';
+import 'core/services/local_storage_service.dart'; // NEW
 import 'features/merchant/presentation/providers/daily_aggregate_provider.dart';
 import 'features/merchant/presentation/providers/item_provider.dart';
 import 'features/merchant/presentation/providers/session_provider.dart';
@@ -24,6 +25,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
@@ -31,13 +33,23 @@ void main() async {
     // Use default Firestore database
     FirebaseFirestore.instance;
 
+    // Initialize local storage (Hive) BEFORE dependency injection
+    debugPrint('🔧 Initializing local storage...');
+    final localStorage = LocalStorageService();
+    await localStorage.initialize();
+    debugPrint('✅ Local storage initialized');
+
+    // Register local storage as singleton
+    getIt.registerSingleton<LocalStorageService>(localStorage);
+
     // Setup dependency injection (must be done before creating providers)
     setupDependencyInjection();
 
-    // Initialize local database for offline mode
+    // Initialize local database for offline mode (existing)
     await LocalDatabaseService().database;
-  } catch (e) {
-    debugPrint('Firebase initialization error: $e');
+  } catch (e, stackTrace) {
+    debugPrint('❌ Initialization error: $e');
+    debugPrint('Stack trace: $stackTrace');
   }
 
   runApp(const MyApp());
@@ -64,7 +76,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => getIt<MerchantProvider>()),
         ChangeNotifierProvider(create: (_) => CustomerLedgerProvider()),
 
-        // Customer providers
+        // Customer providers (includes BudgetProvider)
         ...CustomerProviders.getProviders(),
       ],
       child: Consumer<ThemeProvider>(

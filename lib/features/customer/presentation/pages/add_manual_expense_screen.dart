@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'dart:io';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../domain/entities/receipt_entity.dart';
 import '../providers/receipt_provider.dart';
 import '../../../../core/services/custom_upi_launcher.dart';
+import '../../../../core/services/receipt_photo_service.dart';
 
 /// Screen for adding manual expense entry
 class AddManualExpenseScreen extends StatefulWidget {
@@ -26,6 +28,8 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
   String? _selectedCategory;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   bool _isProcessing = false;
+  File? _selectedPhoto;
+  final _photoService = ReceiptPhotoService();
 
   final List<String> _categories = [
     'Grocery',
@@ -149,16 +153,25 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
     try {
       final amount = double.parse(_amountController.text);
 
-      // Create manual receipt (will be handled by repository)
+      // Save photo first if selected
+      String? photoPath;
+      if (_selectedPhoto != null) {
+        final receiptId = 'MR${DateTime.now().millisecondsSinceEpoch}';
+        photoPath = await _photoService.savePhoto(_selectedPhoto!, receiptId);
+        debugPrint('📸 Photo saved: $photoPath');
+      }
+
+      // Create manual receipt
       final provider = context.read<ReceiptProvider>();
       await provider.createManualReceipt(
         category: _selectedCategory!,
         amount: amount,
         paymentMethod: _paymentMethod,
         merchantName: merchantName,
-        merchantUpiId: null, // Not capturing UPI ID anymore
+        merchantUpiId: null,
         transactionId: transactionId,
         verified: verified,
+        photoPath: photoPath,
       );
 
       if (mounted) {
@@ -225,6 +238,13 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
               _buildMerchantNameInput(),
               const SizedBox(height: 24),
             ],
+
+            // Photo Preview (if photo selected)
+            _buildPhotoPreview(),
+
+            // Photo Attachment Button
+            _buildPhotoButton(),
+            const SizedBox(height: 24),
 
             // Submit Button
             _buildSubmitButton(),
@@ -470,6 +490,113 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
           ),
           elevation: 2,
         ),
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto() async {
+    final photo = await _photoService.pickPhoto(context);
+    if (photo != null) {
+      setState(() => _selectedPhoto = photo);
+    }
+  }
+
+  Widget _buildPhotoButton() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Receipt Photo (Optional)',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.lightTextPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _pickPhoto,
+          icon: Icon(
+            _selectedPhoto == null ? Icons.add_a_photo : Icons.edit,
+            color: AppColors.primaryBlue,
+          ),
+          label: Text(
+            _selectedPhoto == null ? 'Add Photo' : 'Change Photo',
+            style: const TextStyle(color: AppColors.primaryBlue),
+          ),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 50),
+            side: const BorderSide(color: AppColors.primaryBlue, width: 2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text(
+            'Attach bill photo for record keeping',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.lightTextSecondary,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoPreview() {
+    if (_selectedPhoto == null) return const SizedBox.shrink();
+
+    return Container(
+      height: 200,
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        border: Border.all(color: AppColors.primaryBlue, width: 2),
+      ),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+            child: Image.file(
+              _selectedPhoto!,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              onPressed: () => setState(() => _selectedPhoto = null),
+              icon: const Icon(Icons.close, color: Colors.white),
+              style: IconButton.styleFrom(backgroundColor: Colors.red),
+            ),
+          ),
+          Positioned(
+            bottom: 8,
+            left: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                '📸 Receipt Photo',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
