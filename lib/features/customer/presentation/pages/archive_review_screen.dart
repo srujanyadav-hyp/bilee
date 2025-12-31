@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/receipt_entity.dart';
@@ -145,9 +146,23 @@ class _ArchiveReviewScreenState extends State<ArchiveReviewScreen> {
           '${widget.year}-${widget.month.toString().padLeft(2, '0')}';
       final grandTotal = _receipts.fold(0.0, (sum, r) => sum + r.total);
 
+      // Get current user ID with extensive debugging
+      final currentUser = FirebaseAuth.instance.currentUser;
+      debugPrint('🔐 Current User: $currentUser');
+      debugPrint('🔐 User ID: ${currentUser?.uid}');
+      debugPrint('🔐 User Email: ${currentUser?.email}');
+      debugPrint('🔐 Is Anonymous: ${currentUser?.isAnonymous}');
+
+      final userId = currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      debugPrint('✅ Using userId for summary: $userId');
+
       final summary = MonthlySummaryEntity(
         id: 'MS_${widget.year}_${widget.month}',
-        userId: '', // Will be set in repository
+        userId: userId,
         month: monthStr,
         year: widget.year,
         monthNumber: widget.month,
@@ -180,10 +195,13 @@ class _ArchiveReviewScreenState extends State<ArchiveReviewScreen> {
 
       if (!mounted) return;
 
+      // Reload summaries so banner will hide on home screen
+      await archiveProvider.loadSummaries();
+
       // Close loading
       Navigator.pop(context);
 
-      // Navigate back
+      // Navigate back to home
       context.pop();
 
       // Show success
@@ -240,20 +258,31 @@ class _ArchiveReviewScreenState extends State<ArchiveReviewScreen> {
                     child: Row(
                       children: [
                         ChoiceChip(
-                          label: const Text('All'),
+                          label: const Text(
+                            'All',
+                            style: TextStyle(color: AppColors.lightTextPrimary),
+                          ),
                           selected: _filter == 'all',
                           onSelected: (_) => setState(() => _filter = 'all'),
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: Text('Important (${_selectedToKeep.length})'),
+                          label: Text(
+                            'Important (${_selectedToKeep.length})',
+                            style: const TextStyle(
+                              color: AppColors.lightTextPrimary,
+                            ),
+                          ),
                           selected: _filter == 'important',
                           onSelected: (_) =>
                               setState(() => _filter = 'important'),
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('> ₹10k'),
+                          label: const Text(
+                            '> ₹10k',
+                            style: TextStyle(color: AppColors.lightTextPrimary),
+                          ),
                           selected: _filter == 'high_amount',
                           onSelected: (_) =>
                               setState(() => _filter = 'high_amount'),

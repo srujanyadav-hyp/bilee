@@ -1986,7 +1986,10 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                         (tag) => ActionChip(
                           label: Text(
                             '#$tag',
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.lightTextPrimary,
+                            ),
                           ),
                           onPressed: () {
                             controller.text = tag;

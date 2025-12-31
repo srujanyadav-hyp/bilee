@@ -443,6 +443,7 @@ class _LoginScreenState extends State<LoginScreen>
       key: _emailFormKey,
       child: Column(
         children: [
+          const SizedBox(height: 20), // Space for floating label
           // Email Field
           TextFormField(
             controller: _emailController,
@@ -599,6 +600,7 @@ class _LoginScreenState extends State<LoginScreen>
       key: _phoneFormKey,
       child: Column(
         children: [
+          const SizedBox(height: 24), // Space for floating label
           // Phone Field
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

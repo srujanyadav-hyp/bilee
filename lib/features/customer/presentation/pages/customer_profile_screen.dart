@@ -356,19 +356,56 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     if (user == null) return;
 
     final nameController = TextEditingController(text: _displayName ?? '');
+    final phoneController = TextEditingController(text: user.phoneNumber ?? '');
+    final formKey = GlobalKey<FormState>();
 
-    final newName = await showDialog<String>(
+    final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Profile'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Display Name',
-            hintText: 'Enter your name',
-            border: OutlineInputBorder(),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Display Name',
+                  hintText: 'Enter your name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                textCapitalization: TextCapitalization.words,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter your name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  hintText: 'Enter phone number',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    // Basic phone validation (10 digits)
+                    if (!RegExp(r'^\d{10}$').hasMatch(value.trim())) {
+                      return 'Please enter a valid 10-digit phone number';
+                    }
+                  }
+                  return null;
+                },
+              ),
+            ],
           ),
-          textCapitalization: TextCapitalization.words,
         ),
         actions: [
           TextButton(
@@ -377,9 +414,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final name = nameController.text.trim();
-              if (name.isNotEmpty) {
-                Navigator.pop(context, name);
+              if (formKey.currentState!.validate()) {
+                final name = nameController.text.trim();
+                final phone = phoneController.text.trim();
+                Navigator.pop(context, {'name': name, 'phone': phone});
               }
             },
             style: ElevatedButton.styleFrom(
@@ -393,8 +431,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
 
     nameController.dispose();
+    phoneController.dispose();
 
-    if (newName != null && newName != _displayName && context.mounted) {
+    if (result != null && context.mounted) {
+      final newName = result['name']!;
+      final newPhone = result['phone']!;
+
+      // Check if anything changed
+      final nameChanged = newName != _displayName;
+      final phoneChanged = newPhone != (user.phoneNumber ?? '');
+
+      if (!nameChanged && !phoneChanged) return;
+
       // Show loading
       showDialog(
         context: context,
@@ -404,17 +452,26 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
       try {
         // Update Firestore
+        final updates = <String, dynamic>{
+          'updated_at': FieldValue.serverTimestamp(),
+        };
+
+        if (nameChanged) {
+          updates['display_name'] = newName;
+        }
+
+        if (phoneChanged) {
+          updates['phoneNumber'] = newPhone.isNotEmpty ? newPhone : null;
+        }
+
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
-            .update({
-              'display_name': newName,
-              'updated_at': FieldValue.serverTimestamp(),
-            });
+            .update(updates);
 
         // Update local state
         setState(() {
-          _displayName = newName;
+          if (nameChanged) _displayName = newName;
         });
 
         if (context.mounted) {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/custom_upi_launcher.dart';
 import '../../domain/entities/live_bill_entity.dart';
 import '../providers/live_bill_provider.dart';
 
@@ -766,33 +766,48 @@ class _LiveBillScreenState extends State<LiveBillScreen> {
     LiveBillEntity bill,
     LiveBillProvider provider,
   ) async {
-    if (bill.upiPaymentString == null) {
-      _showError('UPI payment not available');
-      return;
-    }
-
     try {
-      // Launch UPI intent using external application mode
-      // This bypasses the ₹2,000 gallery QR limit by launching UPI app directly
-      final uri = Uri.parse(bill.upiPaymentString!);
-      if (await canLaunchUrl(uri)) {
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
+      // Show message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📱 Opening UPI app...'),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 2),
+        ),
+      );
 
-        if (launched) {
-          // Show payment status screen
-          if (!mounted) return;
-          context.pushReplacement(
-            '/customer/payment-status/${widget.sessionId}',
-          );
-        } else {
-          _showError('Failed to launch UPI app');
-        }
-      } else {
-        _showError('No UPI app found');
+      // Small delay for UX
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Show UPI app chooser (custom bottom sheet with app icons)
+      final selectedApp = await CustomUpiLauncher.showAppChooser(context);
+      if (selectedApp == null) {
+        // User cancelled selection
+        return;
       }
+
+      // Launch selected UPI app in openOnly mode
+      // Customer will manually scan merchant's QR code inside their UPI app
+      await CustomUpiLauncher.launchUpiApp(
+        app: selectedApp,
+        upiId: '', // Not needed in openOnly mode
+        amount: bill.total,
+        merchantName: bill.merchantName,
+        transactionNote: 'Payment via Bilee',
+        openOnly: true, // Just open app, customer scans QR manually
+      );
+
+      // Show info message
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${selectedApp.name} opened. Please scan the merchant QR code to complete payment.',
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } catch (e) {
       _showError('Failed to open UPI app: ${e.toString()}');
     }

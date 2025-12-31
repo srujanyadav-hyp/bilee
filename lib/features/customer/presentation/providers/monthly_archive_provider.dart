@@ -77,34 +77,81 @@ class MonthlyArchiveProvider with ChangeNotifier {
   }
 
   /// Check if month is archived
-  Future<bool> isMonthArchived({required int year, required int month}) async {
-    return await summaryRepository.isMonthArchived(year: year, month: month);
+  bool isMonthArchived(int year, int month) {
+    final monthKey = '$year-${month.toString().padLeft(2, '0')}';
+    return _summaries.any((s) => s.month == monthKey);
   }
 
-  /// Get last month that needs archiving
+  /// Get the last unarchived month (most recent month with receipts but no summary)
+  /// Returns null if no unarchived months found or if current month
   Future<Map<String, int>?> getLastUnarchivedMonth() async {
-    final now = DateTime.now();
+    try {
+      // Get all receipts
+      final allReceipts = await receiptRepository.getAllReceipts();
 
-    // Check last month
-    final lastMonth = DateTime(now.year, now.month - 1);
+      if (allReceipts.isEmpty) {
+        debugPrint('No receipts found');
+        return null;
+      }
 
-    final isArchived = await isMonthArchived(
-      year: lastMonth.year,
-      month: lastMonth.month,
-    );
+      // Get current month details
+      final now = DateTime.now();
+      final currentYear = now.year;
+      final currentMonth = now.month;
 
-    if (!isArchived) {
-      // Check if there are receipts for that month
-      final receipts = await receiptRepository.getReceiptsByMonth(
-        year: lastMonth.year,
-        month: lastMonth.month,
+      // Group receipts by year-month
+      final Map<String, Map<String, int>> receiptMonths = {};
+
+      for (final receipt in allReceipts) {
+        final date = receipt.createdAt;
+        final year = date.year;
+        final month = date.month;
+
+        // Skip current month - we only archive completed months
+        if (year == currentYear && month == currentMonth) {
+          continue;
+        }
+
+        // Skip future months (shouldn't happen, but safety check)
+        if (year > currentYear ||
+            (year == currentYear && month > currentMonth)) {
+          continue;
+        }
+
+        final monthKey = '$year-${month.toString().padLeft(2, '0')}';
+        receiptMonths[monthKey] = {'year': year, 'month': month};
+      }
+
+      if (receiptMonths.isEmpty) {
+        debugPrint('No completed months with receipts');
+        return null;
+      }
+
+      // Get all archived months (those with summaries)
+      final archivedMonthKeys = _summaries.map((s) => s.month).toSet();
+
+      // Find unarchived months
+      final unarchivedMonths = receiptMonths.entries
+          .where((entry) => !archivedMonthKeys.contains(entry.key))
+          .toList();
+
+      if (unarchivedMonths.isEmpty) {
+        debugPrint('All months are archived');
+        return null;
+      }
+
+      // Sort by year-month descending to get most recent
+      unarchivedMonths.sort((a, b) => b.key.compareTo(a.key));
+
+      final mostRecent = unarchivedMonths.first.value;
+      debugPrint(
+        'Found unarchived month: ${mostRecent['year']}-${mostRecent['month']}',
       );
 
-      if (receipts.isNotEmpty) {
-        return {'year': lastMonth.year, 'month': lastMonth.month};
-      }
+      return mostRecent;
+    } catch (e) {
+      debugPrint('Error getting last unarchived month: $e');
+      return null;
     }
-
-    return null;
   }
 }

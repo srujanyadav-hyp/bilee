@@ -5,10 +5,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/services/archive_preferences.dart';
 import '../providers/receipt_provider.dart';
 import '../providers/budget_provider.dart';
+import '../providers/monthly_archive_provider.dart';
 import '../widgets/customer_bottom_nav.dart';
 import '../widgets/budget_progress_card.dart';
+import '../widgets/archive_prompt_banner.dart';
 import 'package:intl/intl.dart';
 
 /// Customer Home Screen - Entry point for customers
@@ -20,6 +23,13 @@ class CustomerHomeScreen extends StatefulWidget {
 }
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+  // Archive banner state
+  bool _showArchiveBanner = false; // Start hidden, will show if needed
+  int? _archiveYear;
+  int? _archiveMonth;
+  int _archiveReceiptCount = 0;
+  final _archivePrefs = ArchivePreferencesService();
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +55,111 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       await context.read<BudgetProvider>().loadBudgets(userId);
       debugPrint('✅ [CustomerHome] Budgets loaded');
     }
+
+    // Check for unarchived months
+    await _checkForArchiving();
+  }
+
+  Future<void> _checkForArchiving() async {
+    try {
+      debugPrint('🗂️ [CustomerHome] Checking for unarchived months...');
+
+      // Check if user has globally dismissed archive prompts
+      final globallyDismissed = await _archivePrefs.hasGloballyDismissed();
+      if (globallyDismissed) {
+        debugPrint('   User has globally dismissed archive prompts');
+        return;
+      }
+
+      // Get unarchived month from provider
+      final archiveProvider = context.read<MonthlyArchiveProvider>();
+
+      // Force reload summaries to get latest state from Firestore
+      debugPrint('   Loading summaries from Firestore...');
+      await archiveProvider.loadSummaries();
+      debugPrint('   Summaries loaded: ${archiveProvider.summaries.length}');
+
+      debugPrint('   Checking for unarchived month...');
+      final lastUnarchived = await archiveProvider.getLastUnarchivedMonth();
+
+      if (lastUnarchived == null) {
+        debugPrint('   ❌ No unarchived months found');
+        if (mounted) {
+          setState(() {
+            _showArchiveBanner = false;
+          });
+        }
+        return;
+      }
+
+      final year = lastUnarchived['year']!;
+      final month = lastUnarchived['month']!;
+      debugPrint('   ✅ Found unarchived month: $year-$month');
+
+      // Check if user has dismissed this specific month
+      final monthDismissed = await _archivePrefs.hasUserDismissedMonth(
+        year,
+        month,
+      );
+      if (monthDismissed) {
+        debugPrint('   User has dismissed month $year-$month');
+        return;
+      }
+
+      // Get receipt count for banner display
+      final receiptProvider = context.read<ReceiptProvider>();
+      final count = await receiptProvider.getReceiptCountForMonth(
+        year: year,
+        month: month,
+      );
+
+      if (count > 0 && mounted) {
+        setState(() {
+          _showArchiveBanner = true;
+          _archiveYear = year;
+          _archiveMonth = month;
+          _archiveReceiptCount = count;
+        });
+        debugPrint(
+          '✅ Archive banner will show for $year-$month ($count receipts)',
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking for archiving: $e');
+    }
+  }
+
+  // Archive banner callbacks
+  void _handleArchiveReview() {
+    if (_archiveYear == null || _archiveMonth == null) return;
+
+    // Hide banner immediately
+    setState(() {
+      _showArchiveBanner = false;
+    });
+
+    context.push(
+      '/customer/archive-review?year=$_archiveYear&month=$_archiveMonth',
+    );
+  }
+
+  void _handleArchiveNotNow() {
+    // Just hide banner for this session
+    setState(() {
+      _showArchiveBanner = false;
+    });
+  }
+
+  Future<void> _handleArchiveNever() async {
+    if (_archiveYear == null || _archiveMonth == null) return;
+
+    // Mark this month as permanently dismissed
+    await _archivePrefs.dismissMonth(_archiveYear!, _archiveMonth!);
+
+    // Hide banner
+    setState(() {
+      _showArchiveBanner = false;
+    });
   }
 
   @override
@@ -97,11 +212,25 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             children: [
               const SizedBox(height: 20),
 
+              // Archive Prompt Banner (if applicable)
+              if (_showArchiveBanner &&
+                  _archiveYear != null &&
+                  _archiveMonth != null)
+                ArchivePromptBanner(
+                  year: _archiveYear!,
+                  month: _archiveMonth!,
+                  receiptCount: _archiveReceiptCount,
+                  onReview: _handleArchiveReview,
+                  onNotNow: _handleArchiveNotNow,
+                  onNeverAsk: _handleArchiveNever,
+                ),
+              if (_showArchiveBanner) const SizedBox(height: 16),
+
               // Monthly Spending Analytics
               _buildMonthlySpendingSection(context),
               const SizedBox(height: 24),
 
-              // Budget Alerts Section
+              // Budget Alerts
               _buildBudgetAlertsSection(context),
               const SizedBox(height: 24),
 
@@ -505,8 +634,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w500,
                                   color: AppColors.lightTextSecondary,
+                                  fontWeight: FontWeight.w500,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -640,6 +769,173 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 onTap: () => context.push('/customer/budget-settings'),
               ),
             ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMonthlyReportsSection(BuildContext context) {
+    return Consumer<MonthlyArchiveProvider>(
+      builder: (context, provider, child) {
+        final summaries = provider.summaries;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_month_outlined,
+                      color: AppColors.primaryBlue,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Monthly Reports',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.lightTextPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                if (summaries.isNotEmpty)
+                  TextButton(
+                    onPressed: () =>
+                        context.push('/customer/monthly-summaries'),
+                    child: const Text(
+                      'View All',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            summaries.isEmpty
+                ? Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.lightBorder),
+                    ),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.archive_outlined,
+                            size: 48,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No monthly reports yet',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Archive receipts to create monthly summaries',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: summaries.take(3).map((summary) {
+                        return Container(
+                          width: 200,
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.lightSurface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.lightBorder),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat('MMMM yyyy').format(
+                                  DateTime(summary.year, summary.monthNumber),
+                                ),
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.lightTextPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '₹${summary.grandTotal.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryBlue,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${summary.totalReceipts} receipts',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: () => context.push(
+                                    '/customer/monthly-summary/${summary.id}',
+                                    extra: summary,
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primaryBlue,
+                                    side: const BorderSide(
+                                      color: AppColors.primaryBlue,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'View Details',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
           ],
         );
       },

@@ -545,6 +545,14 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
           final receiptData = receiptDoc.data();
           final photoPath = receiptData?['receiptPhotoPath'] as String?;
 
+          // 🔍 DEBUG: Check receipt ownership
+          debugPrint('   🧾 Receipt $receiptId:');
+          debugPrint('      customerId: ${receiptData?['customerId']}');
+          debugPrint('      auth.uid: ${_auth.currentUser?.uid}');
+          debugPrint(
+            '      Match: ${receiptData?['customerId'] == _auth.currentUser?.uid}',
+          );
+
           // Delete photo if exists
           if (photoPath != null && photoPath.isNotEmpty) {
             try {

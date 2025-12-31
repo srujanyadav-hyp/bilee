@@ -83,11 +83,19 @@ class MonthlySummaryRepositoryImpl implements MonthlySummaryRepository {
       debugPrint('📊 Creating monthly summary for ${summary.month}');
 
       final model = MonthlySummaryModel.fromEntity(summary);
+      final firestoreData = model.toFirestore();
+
+      // Debug: Print exact data being sent
+      debugPrint('🔍 Data to Firestore: $firestoreData');
+      debugPrint('🔍 Data keys: ${firestoreData.keys.toList()}');
+      debugPrint(
+        '🔍 Data types: ${firestoreData.map((k, v) => MapEntry(k, v.runtimeType))}',
+      );
 
       await _firestore
           .collection('monthly_summaries')
           .doc(summary.id)
-          .set(model.toFirestore());
+          .set(firestoreData);
 
       debugPrint('✅ Monthly summary created successfully');
     } catch (e) {

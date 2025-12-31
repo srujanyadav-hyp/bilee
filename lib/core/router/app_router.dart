@@ -26,8 +26,9 @@ import '../../features/customer/presentation/pages/customer_profile_screen.dart'
 import '../../features/customer/presentation/pages/add_manual_expense_screen.dart';
 import '../../features/customer/presentation/pages/budget_settings_screen.dart';
 import '../../features/customer/presentation/pages/archive_review_screen.dart';
-import '../../features/customer/presentation/pages/monthly_summary_detail_screen.dart';
 import '../../features/customer/domain/entities/monthly_summary_entity.dart';
+import '../../features/customer/presentation/pages/monthly_summary_detail_screen.dart';
+import '../../features/customer/presentation/pages/monthly_summaries_list_screen.dart';
 
 /// Global RouteObserver for tracking route lifecycle
 /// Used to detect when screens become visible again (e.g., when navigating back)
@@ -223,6 +224,11 @@ class AppRouter {
               );
               return ArchiveReviewScreen(year: year, month: month);
             },
+          ),
+          GoRoute(
+            path: 'monthly-summaries',
+            name: 'customer-monthly-summaries',
+            builder: (context, state) => const MonthlySummariesListScreen(),
           ),
           GoRoute(
             path: 'monthly-summary/:summaryId',

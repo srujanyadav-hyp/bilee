@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/monthly_summary_entity.dart';
 
 /// Detail screen for monthly summary
+/// Monthly summary detail screen - shows comprehensive breakdown
 class MonthlySummaryDetailScreen extends StatelessWidget {
   final MonthlySummaryEntity summary;
 

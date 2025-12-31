@@ -96,6 +96,23 @@ class ReceiptProvider with ChangeNotifier {
     await loadRecentReceipts();
   }
 
+  /// Get count of receipts for a specific month (for archive banner display)
+  Future<int> getReceiptCountForMonth({
+    required int year,
+    required int month,
+  }) async {
+    try {
+      final receipts = await repository.getReceiptsByMonth(
+        year: year,
+        month: month,
+      );
+      return receipts.length;
+    } catch (e) {
+      debugPrint('Error getting receipt count: $e');
+      return 0;
+    }
+  }
+
   /// Get receipt by session ID (used after payment)
   Future<ReceiptEntity?> getReceiptBySessionId(String sessionId) async {
     try {
@@ -222,8 +239,12 @@ class ReceiptProvider with ChangeNotifier {
         return '🔧';
       case 'entertainment':
         return '🎬';
+      case 'transport':
+      case 'transportation':
+      case 'travel':
+        return '🚕';
       default:
-        return 'Other';
+        return '📦'; // Generic package/other icon
     }
   }
 

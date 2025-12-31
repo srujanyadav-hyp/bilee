@@ -48,7 +48,10 @@ class _BudgetSettingsScreenState extends State<BudgetSettingsScreen> {
   void initState() {
     super.initState();
     _initializeControllers();
-    _loadBudgets();
+    // Defer loading until after build completes to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadBudgets();
+    });
   }
 
   void _initializeControllers() {

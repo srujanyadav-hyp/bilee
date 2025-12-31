@@ -543,62 +543,75 @@ class _StartBillingPageState extends State<StartBillingPage> {
                 // Action buttons
                 if (isInCart)
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisSize: MainAxisSize.max,
                     children: [
-                      // Remove button
+                      // Remove button - Compact
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20),
+                        icon: const Icon(Icons.delete_outline, size: 18),
                         onPressed: () =>
                             provider.updateCartItemQuantity(item.name, 0),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
+                          minWidth: 28,
+                          minHeight: 28,
                         ),
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.red.withOpacity(0.1),
                         ),
                       ),
-                      // Quantity controls
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryBlue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove, size: 16),
-                              onPressed: () => provider.updateCartItemQuantity(
-                                item.name,
-                                quantity - 1,
+                      const SizedBox(width: 4), // Small fixed space
+                      // Quantity controls - Very compact
+                      Expanded(
+                        child: Container(
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryBlue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              InkWell(
+                                onTap: () => provider.updateCartItemQuantity(
+                                  item.name,
+                                  quantity - 1,
+                                ),
+                                child: Container(
+                                  width: 24,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.remove, size: 14),
+                                ),
                               ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 28,
-                                minHeight: 28,
+                              Container(
+                                constraints: const BoxConstraints(minWidth: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  '$quantity',
+                                  style: AppTypography.caption.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
-                            ),
-                            Text(
-                              '$quantity',
-                              style: AppTypography.body2.copyWith(
-                                fontWeight: FontWeight.w600,
+                              InkWell(
+                                onTap: () => provider.updateCartItemQuantity(
+                                  item.name,
+                                  quantity + 1,
+                                ),
+                                child: Container(
+                                  width: 24,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.add, size: 14),
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 16),
-                              onPressed: () => provider.updateCartItemQuantity(
-                                item.name,
-                                quantity + 1,
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 28,
-                                minHeight: 28,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],

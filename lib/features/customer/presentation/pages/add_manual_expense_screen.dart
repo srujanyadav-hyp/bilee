@@ -53,10 +53,16 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Extract merchant name for all payment methods
+    final merchantName = _merchantNameController.text.trim().isNotEmpty
+        ? _merchantNameController.text.trim()
+        : null; // Will default to "Manual Entry" in repository
+
     if (_paymentMethod == PaymentMethod.upi) {
       await _processUpiPayment();
     } else {
-      await _saveManualReceipt();
+      // Pass merchant name for Cash/Card payments too
+      await _saveManualReceipt(merchantName: merchantName);
     }
   }
 

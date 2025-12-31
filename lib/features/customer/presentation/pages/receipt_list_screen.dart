@@ -6,7 +6,9 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/router/app_router.dart'; // For routeObserver
 import '../../domain/entities/receipt_entity.dart';
+import '../../domain/entities/monthly_summary_entity.dart';
 import '../providers/receipt_provider.dart';
+import '../providers/monthly_archive_provider.dart';
 import '../widgets/customer_bottom_nav.dart';
 import '../widgets/merchant_status_badge.dart';
 
@@ -18,8 +20,10 @@ class ReceiptListScreen extends StatefulWidget {
   State<ReceiptListScreen> createState() => _ReceiptListScreenState();
 }
 
-class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
+class _ReceiptListScreenState extends State<ReceiptListScreen>
+    with RouteAware, SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
+  late TabController _tabController;
 
   // Filter state
   String? _selectedCategory;
@@ -32,6 +36,7 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     // Defer loading until after the first frame to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadReceipts();
@@ -98,9 +103,11 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
 
   @override
   void dispose() {
-    _searchController.dispose();
-    // Unregister from RouteObserver
+    // Unregister from RouteObserver FIRST
     routeObserver.unsubscribe(this);
+    // Then dispose controllers
+    _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -113,59 +120,344 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'All Receipts'),
+            Tab(text: 'Archived Months'),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Search Bar
-          _buildSearchBar(),
-
-          // Filter Chips
-          _buildFilterChips(),
-
-          // Receipts List
-          Expanded(
-            child: Consumer<ReceiptProvider>(
-              builder: (context, provider, child) {
-                if (provider.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!provider.hasReceipts) {
-                  return _buildEmptyState();
-                }
-
-                // Apply filters
-                final filteredReceipts = _applyFilters(provider.receipts);
-
-                if (filteredReceipts.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () => provider.refresh(),
-                  child: ListView.builder(
-                    padding: EdgeInsets.only(
-                      left: AppDimensions.paddingMD,
-                      right: AppDimensions.paddingMD,
-                      top: AppDimensions.paddingMD,
-                      bottom: 60 + MediaQuery.of(context).padding.bottom + 16,
-                    ),
-                    itemCount: filteredReceipts.length,
-                    itemBuilder: (context, index) {
-                      final receipt = filteredReceipts[index];
-                      return _buildReceiptCard(context, receipt);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          // Tab 1: All Receipts
+          _buildAllReceiptsTab(),
+          // Tab 2: Archived Months
+          _buildArchivedMonthsTab(),
         ],
       ),
       floatingActionButton: CustomerFloatingScanButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomerBottomNav(
         currentRoute: '/customer/receipts',
+      ),
+    );
+  }
+
+  // Tab 1: All Receipts with search and filters
+  Widget _buildAllReceiptsTab() {
+    return Column(
+      children: [
+        // Search Bar
+        _buildSearchBar(),
+
+        // Filter Chips
+        _buildFilterChips(),
+
+        // Receipts List
+        Expanded(
+          child: Consumer<ReceiptProvider>(
+            builder: (context, provider, child) {
+              if (provider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!provider.hasReceipts) {
+                return _buildEmptyState();
+              }
+
+              // Apply filters
+              final filteredReceipts = _applyFilters(provider.receipts);
+
+              if (filteredReceipts.isEmpty) {
+                return _buildEmptyState();
+              }
+
+              return RefreshIndicator(
+                onRefresh: () => provider.refresh(),
+                child: ListView.builder(
+                  padding: EdgeInsets.only(
+                    left: AppDimensions.paddingMD,
+                    right: AppDimensions.paddingMD,
+                    top: AppDimensions.paddingMD,
+                    bottom: 60 + MediaQuery.of(context).padding.bottom + 16,
+                  ),
+                  itemCount: filteredReceipts.length,
+                  itemBuilder: (context, index) {
+                    final receipt = filteredReceipts[index];
+                    return _buildReceiptCard(context, receipt);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Tab 2: Archived Months list
+  Widget _buildArchivedMonthsTab() {
+    return Consumer<MonthlyArchiveProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (provider.summaries.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.archive_outlined,
+                    size: 80,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'No Archived Months',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Archive receipts from older months to see them here',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: EdgeInsets.only(
+            left: AppDimensions.paddingMD,
+            right: AppDimensions.paddingMD,
+            top: AppDimensions.paddingMD,
+            bottom: 60 + MediaQuery.of(context).padding.bottom + 16,
+          ),
+          itemCount: provider.summaries.length,
+          itemBuilder: (context, index) {
+            final summary = provider.summaries[index];
+            return _buildArchivedMonthCard(summary);
+          },
+        );
+      },
+    );
+  }
+
+  // Build card for archived month
+  Widget _buildArchivedMonthCard(MonthlySummaryEntity summary) {
+    final monthName = DateFormat(
+      'MMMM yyyy',
+    ).format(DateTime(summary.year, summary.monthNumber));
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          context.push(
+            '/customer/monthly-summary/${summary.id}',
+            extra: summary,
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_month,
+                      color: AppColors.primaryBlue,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          monthName,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${summary.totalReceipts} receipts',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.grey),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Total Amount
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.lightBorder),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total Spending',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    Text(
+                      '₹${summary.grandTotal.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Stats Row
+              Row(
+                children: [
+                  _buildStatChip(
+                    Icons.archive_outlined,
+                    '${summary.archivedCount} Archived',
+                    Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildStatChip(
+                    Icons.bookmark_outlined,
+                    '${summary.keptCount} Kept',
+                    Colors.green,
+                  ),
+                ],
+              ),
+
+              // Top Categories Preview
+              if (summary.categories.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'Top Categories',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...summary.categories.take(3).map((cat) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Text(cat.icon, style: const TextStyle(fontSize: 16)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            cat.name,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '₹${cat.total.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -554,45 +846,47 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.lightBorder,
-                borderRadius: BorderRadius.circular(60),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppColors.lightBorder,
+                  borderRadius: BorderRadius.circular(60),
+                ),
+                child: const Icon(
+                  Icons.receipt_long_outlined,
+                  size: 60,
+                  color: AppColors.lightTextTertiary,
+                ),
               ),
-              child: const Icon(
-                Icons.receipt_long_outlined,
-                size: 60,
-                color: AppColors.lightTextTertiary,
+              const SizedBox(height: 24),
+              const Text(
+                'No receipts found',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.lightTextSecondary,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'No receipts found',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.lightTextSecondary,
+              const SizedBox(height: 8),
+              const Text(
+                'Your receipts will appear here',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: AppColors.lightTextTertiary,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Your receipts will appear here',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: AppColors.lightTextTertiary,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

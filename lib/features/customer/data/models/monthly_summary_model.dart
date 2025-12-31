@@ -67,7 +67,7 @@ class MonthlySummaryModel {
 
   // To Firestore
   Map<String, dynamic> toFirestore() {
-    return {
+    final data = {
       'userId': userId,
       'month': month,
       'year': year,
@@ -77,10 +77,18 @@ class MonthlySummaryModel {
       'totalReceipts': totalReceipts,
       'archivedCount': archivedCount,
       'keptCount': keptCount,
-      'budgetLimit': budgetLimit,
-      'budgetDifference': budgetDifference,
       'createdAt': createdAt,
     };
+
+    // Only include budget fields if they're not null
+    if (budgetLimit != null) {
+      data['budgetLimit'] = budgetLimit!;
+    }
+    if (budgetDifference != null) {
+      data['budgetDifference'] = budgetDifference!;
+    }
+
+    return data;
   }
 
   // To Entity
