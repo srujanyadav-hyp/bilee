@@ -69,6 +69,34 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
             ),
             onPressed: () => _downloadReceipt(context),
           ),
+          Consumer<ReceiptProvider>(
+            builder: (context, provider, child) {
+              final receipt = provider.selectedReceipt;
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: AppColors.receiptText),
+                onSelected: (value) {
+                  if (value == 'delete' && receipt != null) {
+                    _showDeleteConfirmation(context, receipt);
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Delete Receipt',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -129,6 +157,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                 border: Border.all(color: AppColors.receiptBorder, width: 2),
                 boxShadow: [
                   BoxShadow(
+                    // ignore: deprecated_member_use
                     color: Colors.black.withOpacity(0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
@@ -172,6 +201,12 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
 
                   // Payment Info
                   _buildPaymentInfo(receipt),
+
+                  // Notes Section
+                  _buildNotesSection(receipt),
+
+                  // Tags Section
+                  _buildTagsSection(receipt),
 
                   // Receipt Footer
                   _buildReceiptFooter(receipt),
@@ -231,6 +266,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
+                  // ignore: deprecated_member_use
                   color: Colors.white.withOpacity(0.3),
                   width: 1,
                 ),
@@ -1198,6 +1234,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error downloading receipt: ${e.toString()}'),
@@ -1544,6 +1581,451 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
         return '🔧';
       default:
         return '💰';
+    }
+  }
+
+  Future<void> _showDeleteConfirmation(
+    BuildContext context,
+    ReceiptEntity receipt,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Delete Receipt?',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildReceiptSummary(receipt),
+            const SizedBox(height: 16),
+            const Text(
+              '⚠️ This action cannot be undone.',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: Colors.red,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Receipt will be permanently deleted from all devices.',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (!context.mounted) return;
+
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      try {
+        // Delete receipt
+        await context.read<ReceiptProvider>().deleteReceipt(receipt.id);
+
+        if (!context.mounted) return;
+
+        // Close loading dialog
+        Navigator.pop(context);
+
+        // Navigate back to list
+        context.pop();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Receipt deleted successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } catch (e) {
+        if (!context.mounted) return;
+
+        // Close loading dialog
+        Navigator.pop(context);
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting receipt: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildReceiptSummary(ReceiptEntity receipt) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Receipt #${receipt.receiptId}',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            receipt.merchantName,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (receipt.businessCategory != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              receipt.businessCategory!,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Amount:',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Text(
+                '₹${receipt.total.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Date:',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Text(
+                DateFormat('MMM dd, yyyy').format(receipt.createdAt),
+                style: const TextStyle(fontFamily: 'Inter', fontSize: 12),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build Notes Section
+  Widget _buildNotesSection(ReceiptEntity receipt) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.lightCardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.lightBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.note_outlined,
+                size: 20,
+                color: AppColors.lightTextPrimary,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Notes',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.lightTextPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: TextEditingController(text: receipt.notes ?? ''),
+            decoration: InputDecoration(
+              hintText: 'Add notes (warranty info, return policy, etc.)',
+              hintStyle: const TextStyle(
+                color: AppColors.lightTextSecondary,
+                fontSize: 13,
+                fontFamily: 'Inter',
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.lightBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.lightBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: AppColors.primaryBlue,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.all(12),
+              filled: true,
+              fillColor: AppColors.lightSurface,
+            ),
+            maxLines: 3,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              color: AppColors.lightTextPrimary,
+            ),
+            onChanged: (value) => _saveNotes(receipt, value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build Tags Section
+  Widget _buildTagsSection(ReceiptEntity receipt) {
+    final tags = receipt.tags ?? [];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.lightCardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.lightBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.local_offer_outlined,
+                size: 20,
+                color: AppColors.lightTextPrimary,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Tags',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.lightTextPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ...tags.map(
+                (tag) => Chip(
+                  label: Text(
+                    tag,
+                    style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
+                  ),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  onDeleted: () => _removeTag(receipt, tag),
+                  backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                  labelStyle: const TextStyle(color: AppColors.primaryBlue),
+                  deleteIconColor: AppColors.primaryBlue,
+                ),
+              ),
+              ActionChip(
+                label: const Text(
+                  '+ Add Tag',
+                  style: TextStyle(fontSize: 12, fontFamily: 'Inter'),
+                ),
+                onPressed: () => _showAddTagDialog(receipt),
+                backgroundColor: AppColors.lightDivider,
+                labelStyle: const TextStyle(color: AppColors.lightTextPrimary),
+              ),
+            ],
+          ),
+          if (tags.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'No tags yet. Add tags like #warranty, #business, #tax',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: AppColors.lightTextSecondary,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Save notes
+  void _saveNotes(ReceiptEntity receipt, String notes) {
+    final provider = context.read<ReceiptProvider>();
+    final updatedReceipt = receipt.copyWith(
+      notes: notes.isEmpty ? null : notes,
+    );
+    provider.updateReceipt(updatedReceipt);
+  }
+
+  /// Remove tag
+  void _removeTag(ReceiptEntity receipt, String tag) {
+    final provider = context.read<ReceiptProvider>();
+    final newTags = List<String>.from(receipt.tags ?? [])..remove(tag);
+    final updatedReceipt = receipt.copyWith(
+      tags: newTags.isEmpty ? null : newTags,
+    );
+    provider.updateReceipt(updatedReceipt);
+  }
+
+  /// Show add tag dialog
+  void _showAddTagDialog(ReceiptEntity receipt) {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Tag'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: '#warranty',
+                prefixText: '#',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Suggestions:',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children:
+                  ['warranty', 'business', 'personal', 'tax', 'reimbursable']
+                      .map(
+                        (tag) => ActionChip(
+                          label: Text(
+                            '#$tag',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          onPressed: () {
+                            controller.text = tag;
+                          },
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              var tag = controller.text.trim();
+              if (tag.startsWith('#')) tag = tag.substring(1);
+              if (tag.isNotEmpty) {
+                _addTag(receipt, '#$tag');
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Add tag
+  void _addTag(ReceiptEntity receipt, String tag) {
+    final provider = context.read<ReceiptProvider>();
+    final newTags = List<String>.from(receipt.tags ?? []);
+    if (!newTags.contains(tag)) {
+      newTags.add(tag);
+      final updatedReceipt = receipt.copyWith(tags: newTags);
+      provider.updateReceipt(updatedReceipt);
     }
   }
 }

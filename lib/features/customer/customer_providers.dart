@@ -14,6 +14,7 @@ import 'domain/usecases/search_receipts.dart';
 import 'data/repositories/live_bill_repository_impl.dart';
 import 'data/repositories/receipt_repository_impl.dart';
 import 'data/repositories/budget_repository.dart';
+import 'data/repositories/monthly_summary_repository_impl.dart';
 
 // Core Services
 import '../../core/services/local_storage_service.dart';
@@ -22,6 +23,7 @@ import '../../core/services/local_storage_service.dart';
 import 'presentation/providers/live_bill_provider.dart';
 import 'presentation/providers/receipt_provider.dart';
 import 'presentation/providers/budget_provider.dart';
+import 'presentation/providers/monthly_archive_provider.dart';
 
 /// Customer Providers Setup
 class CustomerProviders {
@@ -35,6 +37,7 @@ class CustomerProviders {
     final budgetRepository = BudgetRepository(
       localStorage: getIt<LocalStorageService>(),
     );
+    final monthlySummaryRepository = MonthlySummaryRepositoryImpl();
 
     // Initialize use cases
     final connectToSessionUseCase = ConnectToSessionUseCase(liveBillRepository);
@@ -79,6 +82,14 @@ class CustomerProviders {
               repository: budgetRepository,
               receiptProvider: receiptProvider,
             ),
+      ),
+
+      // Monthly Archive Provider
+      ChangeNotifierProvider<MonthlyArchiveProvider>(
+        create: (_) => MonthlyArchiveProvider(
+          summaryRepository: monthlySummaryRepository,
+          receiptRepository: receiptRepository,
+        ),
       ),
     ];
   }

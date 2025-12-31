@@ -50,6 +50,18 @@ abstract class ReceiptRepository {
   /// Delete receipt (local only)
   Future<void> deleteReceipt(String receiptId);
 
+  /// Update receipt (notes, tags, etc.)
+  Future<void> updateReceipt(ReceiptEntity receipt);
+
+  /// Get receipts for a specific month
+  Future<List<ReceiptEntity>> getReceiptsByMonth({
+    required int year,
+    required int month,
+  });
+
+  /// Archive multiple receipts (batch delete)
+  Future<void> archiveReceipts(List<String> receiptIds);
+
   /// Download receipt as PDF
   Future<String?> downloadReceiptPdf(String receiptId);
 

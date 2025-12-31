@@ -94,11 +94,10 @@ class _BudgetSettingsScreenState extends State<BudgetSettingsScreen> {
       appBar: AppBar(
         title: const Text(
           'Budget Settings',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),

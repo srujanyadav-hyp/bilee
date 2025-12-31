@@ -60,12 +60,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Profile',
-          style: AppTypography.h2.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         elevation: 0,
@@ -74,7 +71,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit, color: Colors.white),
+            icon: const Icon(Icons.edit),
             onPressed: () => _editProfile(context),
           ),
         ],
@@ -143,6 +140,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             Text(
               user!.email!,
               style: AppTypography.body2.copyWith(
+                // ignore: deprecated_member_use
                 color: Colors.white.withOpacity(0.9),
               ),
             ),
@@ -151,6 +149,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
+              // ignore: deprecated_member_use
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),

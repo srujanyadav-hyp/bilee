@@ -32,6 +32,7 @@ class ReceiptModel {
   final Timestamp createdAt;
   final bool isVerified;
   final String? notes;
+  final List<String>? tags;
   final String? signatureUrl;
   final String? receiptPhotoPath;
 
@@ -65,6 +66,7 @@ class ReceiptModel {
     required this.createdAt,
     this.isVerified = false,
     this.notes,
+    this.tags,
     this.signatureUrl,
     this.receiptPhotoPath,
   });
@@ -109,6 +111,7 @@ class ReceiptModel {
       createdAt: json['createdAt'] ?? Timestamp.now(),
       isVerified: json['isVerified'] ?? false,
       notes: json['notes'],
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList(),
       signatureUrl: json['signatureUrl'],
       receiptPhotoPath: json['receiptPhotoPath'],
     );
@@ -181,6 +184,7 @@ class ReceiptModel {
       createdAt: createdAt.toDate(),
       isVerified: isVerified,
       notes: notes,
+      tags: tags,
       signatureUrl: signatureUrl,
       receiptPhotoPath: receiptPhotoPath,
     );
@@ -220,6 +224,7 @@ class ReceiptModel {
       createdAt: Timestamp.fromDate(entity.createdAt),
       isVerified: entity.isVerified,
       notes: entity.notes,
+      tags: entity.tags,
       signatureUrl: entity.signatureUrl,
       receiptPhotoPath: entity.receiptPhotoPath,
     );

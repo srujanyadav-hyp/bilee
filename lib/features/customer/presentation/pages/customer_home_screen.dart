@@ -59,30 +59,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       appBar: AppBar(
         title: const Text(
           'Home',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         actions: [
           IconButton(
-            icon: const Icon(
-              Icons.account_balance_wallet_outlined,
-              color: Colors.white,
-              size: 24,
-            ),
+            icon: const Icon(Icons.account_balance_wallet_outlined, size: 24),
             onPressed: () => context.push('/customer/budget-settings'),
             tooltip: 'Budget Settings',
           ),
           IconButton(
-            icon: const Icon(
-              Icons.account_circle,
-              color: Colors.white,
-              size: 28,
-            ),
+            icon: const Icon(Icons.person, size: 28),
             onPressed: () => context.push('/customer/profile'),
             tooltip: 'Profile',
           ),

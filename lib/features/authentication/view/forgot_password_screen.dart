@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -34,7 +35,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.go('/login'),
         ),
       ),
       body: SafeArea(
@@ -94,6 +95,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 style: AppTypography.body1,
                 decoration: InputDecoration(
                   labelText: 'Email',
@@ -174,7 +176,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Center(
                 child: TextButton.icon(
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    context.go('/login');
                   },
                   icon: Icon(
                     Icons.arrow_back,
@@ -272,7 +274,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ],
               ),
               SizedBox(height: AppDimensions.spacingSM),
-              _buildInstructionItem('1. Check your email inbox'),
+              _buildInstructionItem('1. Check your inbox and spam/junk folder'),
               SizedBox(height: AppDimensions.spacingSM),
               _buildInstructionItem('2. Click the reset link'),
               SizedBox(height: AppDimensions.spacingSM),
@@ -316,7 +318,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           height: 56,
           child: OutlinedButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              context.go('/login');
             },
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: AppColors.primaryBlue, width: 1.5),

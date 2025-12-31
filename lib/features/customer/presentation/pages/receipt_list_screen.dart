@@ -21,10 +21,21 @@ class ReceiptListScreen extends StatefulWidget {
 class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
   final TextEditingController _searchController = TextEditingController();
 
+  // Filter state
+  String? _selectedCategory;
+  DateTimeRange? _dateRange;
+  double? _minAmount;
+  double? _maxAmount;
+  PaymentMethod? _selectedPaymentMethod;
+  String _sortBy = 'date'; // 'date', 'amount_high', 'amount_low'
+
   @override
   void initState() {
     super.initState();
-    _loadReceipts();
+    // Defer loading until after the first frame to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadReceipts();
+    });
   }
 
   @override
@@ -108,6 +119,9 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
           // Search Bar
           _buildSearchBar(),
 
+          // Filter Chips
+          _buildFilterChips(),
+
           // Receipts List
           Expanded(
             child: Consumer<ReceiptProvider>(
@@ -120,6 +134,13 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
                   return _buildEmptyState();
                 }
 
+                // Apply filters
+                final filteredReceipts = _applyFilters(provider.receipts);
+
+                if (filteredReceipts.isEmpty) {
+                  return _buildEmptyState();
+                }
+
                 return RefreshIndicator(
                   onRefresh: () => provider.refresh(),
                   child: ListView.builder(
@@ -129,9 +150,9 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
                       top: AppDimensions.paddingMD,
                       bottom: 60 + MediaQuery.of(context).padding.bottom + 16,
                     ),
-                    itemCount: provider.receipts.length,
+                    itemCount: filteredReceipts.length,
                     itemBuilder: (context, index) {
-                      final receipt = provider.receipts[index];
+                      final receipt = filteredReceipts[index];
                       return _buildReceiptCard(context, receipt);
                     },
                   ),
@@ -187,6 +208,162 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.all(16),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return Container(
+      height: 56,
+      margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingMD),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          // Category filter
+          FilterChip(
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_selectedCategory != null)
+                  Text(ReceiptProvider.getCategoryIcon(_selectedCategory!)),
+                if (_selectedCategory != null) const SizedBox(width: 4),
+                Text(_selectedCategory ?? 'Category'),
+              ],
+            ),
+            selected: _selectedCategory != null,
+            onSelected: (_) => _showCategoryPicker(),
+            selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+            backgroundColor: AppColors.lightCardBackground,
+            checkmarkColor: AppColors.primaryBlue,
+            labelStyle: TextStyle(
+              color: _selectedCategory != null
+                  ? AppColors.primaryBlue
+                  : AppColors.lightTextPrimary,
+              fontWeight: _selectedCategory != null
+                  ? FontWeight.w600
+                  : FontWeight.normal,
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Date filter
+          FilterChip(
+            label: Text(
+              _dateRange != null
+                  ? '${DateFormat.MMMd().format(_dateRange!.start)}-${DateFormat.MMMd().format(_dateRange!.end)}'
+                  : 'Date',
+            ),
+            selected: _dateRange != null,
+            onSelected: (_) => _showDateRangePicker(),
+            selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+            backgroundColor: AppColors.lightCardBackground,
+            checkmarkColor: AppColors.primaryBlue,
+            labelStyle: TextStyle(
+              color: _dateRange != null
+                  ? AppColors.primaryBlue
+                  : AppColors.lightTextPrimary,
+              fontWeight: _dateRange != null
+                  ? FontWeight.w600
+                  : FontWeight.normal,
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Amount filter
+          FilterChip(
+            label: Text(_getAmountLabel()),
+            selected: _minAmount != null || _maxAmount != null,
+            onSelected: (_) => _showAmountPicker(),
+            selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+            backgroundColor: AppColors.lightCardBackground,
+            checkmarkColor: AppColors.primaryBlue,
+            labelStyle: TextStyle(
+              color: _minAmount != null || _maxAmount != null
+                  ? AppColors.primaryBlue
+                  : AppColors.lightTextPrimary,
+              fontWeight: _minAmount != null || _maxAmount != null
+                  ? FontWeight.w600
+                  : FontWeight.normal,
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Payment method
+          FilterChip(
+            label: Text(
+              _selectedPaymentMethod != null
+                  ? _selectedPaymentMethod!.name.toUpperCase()
+                  : 'Payment',
+            ),
+            selected: _selectedPaymentMethod != null,
+            onSelected: (_) => _showPaymentMethodPicker(),
+            selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+            backgroundColor: AppColors.lightCardBackground,
+            checkmarkColor: AppColors.primaryBlue,
+            labelStyle: TextStyle(
+              color: _selectedPaymentMethod != null
+                  ? AppColors.primaryBlue
+                  : AppColors.lightTextPrimary,
+              fontWeight: _selectedPaymentMethod != null
+                  ? FontWeight.w600
+                  : FontWeight.normal,
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Sort
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() => _sortBy = value);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'date', child: Text('Latest First')),
+              const PopupMenuItem(
+                value: 'amount_high',
+                child: Text('Highest Amount'),
+              ),
+              const PopupMenuItem(
+                value: 'amount_low',
+                child: Text('Lowest Amount'),
+              ),
+            ],
+            child: Chip(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _sortBy == 'date'
+                        ? 'Latest'
+                        : _sortBy == 'amount_high'
+                        ? 'High'
+                        : 'Low',
+                  ),
+                  const Icon(Icons.arrow_drop_down, size: 18),
+                ],
+              ),
+              backgroundColor: AppColors.lightCardBackground,
+              labelStyle: const TextStyle(
+                color: AppColors.lightTextPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+
+          // Clear filters
+          if (_hasActiveFilters()) ...[
+            const SizedBox(width: 8),
+            ActionChip(
+              label: const Text('Clear'),
+              avatar: const Icon(Icons.close, size: 18),
+              onPressed: _clearFilters,
+              backgroundColor: AppColors.lightCardBackground,
+              labelStyle: const TextStyle(
+                color: AppColors.lightTextPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -419,5 +596,252 @@ class _ReceiptListScreenState extends State<ReceiptListScreen> with RouteAware {
         ),
       ),
     );
+  }
+
+  // Filter pickers
+  void _showCategoryPicker() {
+    final categories = [
+      'Grocery',
+      'Food',
+      'Restaurant',
+      'Transport',
+      'Healthcare',
+      'Pharmacy',
+      'Entertainment',
+      'Shopping',
+      'Electronics',
+      'Clothing',
+      'Services',
+      'Other',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Category',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: categories.map((category) {
+                return ChoiceChip(
+                  label: Text(category),
+                  selected: _selectedCategory == category,
+                  labelStyle: TextStyle(
+                    color: _selectedCategory == category
+                        ? AppColors.primaryBlue
+                        : AppColors.lightTextPrimary,
+                    fontWeight: _selectedCategory == category
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                  selectedColor: AppColors.primaryBlue.withOpacity(0.1),
+                  backgroundColor: AppColors.lightCardBackground,
+                  onSelected: (selected) {
+                    setState(
+                      () => _selectedCategory = selected ? category : null,
+                    );
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDateRangePicker() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _dateRange,
+    );
+    if (picked != null) {
+      setState(() => _dateRange = picked);
+    }
+  }
+
+  void _showAmountPicker() {
+    final minController = TextEditingController(
+      text: _minAmount?.toInt().toString() ?? '',
+    );
+    final maxController = TextEditingController(
+      text: _maxAmount?.toInt().toString() ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filter by Amount'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: minController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Minimum Amount (₹)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: maxController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Maximum Amount (₹)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _minAmount = minController.text.isNotEmpty
+                    ? double.tryParse(minController.text)
+                    : null;
+                _maxAmount = maxController.text.isNotEmpty
+                    ? double.tryParse(maxController.text)
+                    : null;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPaymentMethodPicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Payment Method',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ...PaymentMethod.values.map(
+              (method) => ListTile(
+                title: Text(method.name.toUpperCase()),
+                selected: _selectedPaymentMethod == method,
+                onTap: () {
+                  setState(() => _selectedPaymentMethod = method);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Filter logic
+  List<ReceiptEntity> _applyFilters(List<ReceiptEntity> receipts) {
+    var filtered = receipts;
+
+    // Category filter
+    if (_selectedCategory != null) {
+      filtered = filtered
+          .where(
+            (r) =>
+                r.businessCategory?.toLowerCase() ==
+                _selectedCategory!.toLowerCase(),
+          )
+          .toList();
+    }
+
+    // Date range filter
+    if (_dateRange != null) {
+      filtered = filtered
+          .where(
+            (r) =>
+                r.createdAt.isAfter(_dateRange!.start) &&
+                r.createdAt.isBefore(
+                  _dateRange!.end.add(const Duration(days: 1)),
+                ),
+          )
+          .toList();
+    }
+
+    // Amount filter
+    if (_minAmount != null) {
+      filtered = filtered.where((r) => r.total >= _minAmount!).toList();
+    }
+    if (_maxAmount != null) {
+      filtered = filtered.where((r) => r.total <= _maxAmount!).toList();
+    }
+
+    // Payment method filter
+    if (_selectedPaymentMethod != null) {
+      filtered = filtered
+          .where((r) => r.paymentMethod == _selectedPaymentMethod)
+          .toList();
+    }
+
+    // Sort
+    if (_sortBy == 'date') {
+      filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else if (_sortBy == 'amount_high') {
+      filtered.sort((a, b) => b.total.compareTo(a.total));
+    } else if (_sortBy == 'amount_low') {
+      filtered.sort((a, b) => a.total.compareTo(b.total));
+    }
+
+    return filtered;
+  }
+
+  bool _hasActiveFilters() {
+    return _selectedCategory != null ||
+        _dateRange != null ||
+        _minAmount != null ||
+        _maxAmount != null ||
+        _selectedPaymentMethod != null;
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedCategory = null;
+      _dateRange = null;
+      _minAmount = null;
+      _maxAmount = null;
+      _selectedPaymentMethod = null;
+      _sortBy = 'date';
+    });
+  }
+
+  String _getAmountLabel() {
+    if (_minAmount != null && _maxAmount != null) {
+      return '₹${_minAmount!.toInt()}-₹${_maxAmount!.toInt()}';
+    } else if (_minAmount != null) {
+      return '> ₹${_minAmount!.toInt()}';
+    } else if (_maxAmount != null) {
+      return '< ₹${_maxAmount!.toInt()}';
+    }
+    return 'Amount';
   }
 }

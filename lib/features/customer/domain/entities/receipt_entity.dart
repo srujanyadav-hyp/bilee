@@ -41,6 +41,8 @@ class ReceiptEntity {
   final DateTime createdAt;
   final bool isVerified;
   final String? notes;
+  final List<String>?
+  tags; // Tags for categorization (#warranty, #business, etc.)
   final String? signatureUrl;
   final String? receiptPhotoPath; // Local photo path
 
@@ -75,6 +77,7 @@ class ReceiptEntity {
     required this.createdAt,
     this.isVerified = false,
     this.notes,
+    this.tags,
     this.signatureUrl,
     this.receiptPhotoPath,
   });
@@ -110,6 +113,7 @@ class ReceiptEntity {
     DateTime? createdAt,
     bool? isVerified,
     String? notes,
+    List<String>? tags,
     String? signatureUrl,
     String? receiptPhotoPath,
   }) {
@@ -144,6 +148,7 @@ class ReceiptEntity {
       createdAt: createdAt ?? this.createdAt,
       isVerified: isVerified ?? this.isVerified,
       notes: notes ?? this.notes,
+      tags: tags ?? this.tags,
       signatureUrl: signatureUrl ?? this.signatureUrl,
       receiptPhotoPath: receiptPhotoPath ?? this.receiptPhotoPath,
     );

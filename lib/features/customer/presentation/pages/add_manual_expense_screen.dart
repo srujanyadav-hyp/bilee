@@ -207,11 +207,11 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
       backgroundColor: AppColors.lightBackground,
       appBar: AppBar(
         title: const Text(
-          'Add Expense',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'Add Manual Expense',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: false,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),
@@ -233,11 +233,9 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
             _buildPaymentMethodSelector(),
             const SizedBox(height: 24),
 
-            // Merchant Name Input (shown only for UPI payment)
-            if (_paymentMethod == PaymentMethod.upi) ...[
-              _buildMerchantNameInput(),
-              const SizedBox(height: 24),
-            ],
+            // Merchant Name Input (shown for all payment methods)
+            _buildMerchantNameInput(),
+            const SizedBox(height: 24),
 
             // Photo Preview (if photo selected)
             _buildPhotoPreview(),

@@ -102,76 +102,86 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen>
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Success Animation
-              ScaleTransition(
-                scale: _scaleAnimation,
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryBlue.withOpacity(0.3),
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight:
+                  MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Success Animation
+                  ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryBlue.withOpacity(0.3),
+                            blurRadius: 30,
+                            offset: const Offset(0, 15),
+                          ),
+                        ],
                       ),
-                    ],
+                      child: const Icon(
+                        Icons.check_rounded,
+                        size: 64,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 64,
-                    color: Colors.white,
+
+                  const SizedBox(height: 32),
+
+                  // Success Text
+                  const Text(
+                    'Payment Successful!',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.lightTextPrimary,
+                    ),
                   ),
-                ),
+
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    'Your receipt is ready',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 16,
+                      color: AppColors.lightTextSecondary,
+                    ),
+                  ),
+
+                  const SizedBox(height: 48),
+
+                  // Loading Indicator
+                  const CircularProgressIndicator(),
+
+                  const SizedBox(height: 16),
+
+                  const Text(
+                    'Redirecting to receipt...',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: AppColors.lightTextTertiary,
+                    ),
+                  ),
+                ],
               ),
-
-              const SizedBox(height: 32),
-
-              // Success Text
-              const Text(
-                'Payment Successful!',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.lightTextPrimary,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              const Text(
-                'Your receipt is ready',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  color: AppColors.lightTextSecondary,
-                ),
-              ),
-
-              const SizedBox(height: 48),
-
-              // Loading Indicator
-              const CircularProgressIndicator(),
-
-              const SizedBox(height: 16),
-
-              const Text(
-                'Redirecting to receipt...',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  color: AppColors.lightTextTertiary,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

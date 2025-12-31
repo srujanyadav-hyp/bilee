@@ -25,6 +25,9 @@ import '../../features/customer/presentation/pages/receipt_list_screen.dart';
 import '../../features/customer/presentation/pages/customer_profile_screen.dart';
 import '../../features/customer/presentation/pages/add_manual_expense_screen.dart';
 import '../../features/customer/presentation/pages/budget_settings_screen.dart';
+import '../../features/customer/presentation/pages/archive_review_screen.dart';
+import '../../features/customer/presentation/pages/monthly_summary_detail_screen.dart';
+import '../../features/customer/domain/entities/monthly_summary_entity.dart';
 
 /// Global RouteObserver for tracking route lifecycle
 /// Used to detect when screens become visible again (e.g., when navigating back)
@@ -210,6 +213,25 @@ class AppRouter {
             name: 'customer-budget-settings',
             builder: (context, state) => const BudgetSettingsScreen(),
           ),
+          GoRoute(
+            path: 'archive-review',
+            name: 'customer-archive-review',
+            builder: (context, state) {
+              final year = int.parse(state.uri.queryParameters['year'] ?? '0');
+              final month = int.parse(
+                state.uri.queryParameters['month'] ?? '0',
+              );
+              return ArchiveReviewScreen(year: year, month: month);
+            },
+          ),
+          GoRoute(
+            path: 'monthly-summary/:summaryId',
+            name: 'customer-monthly-summary',
+            builder: (context, state) {
+              final summary = state.extra as MonthlySummaryEntity;
+              return MonthlySummaryDetailScreen(summary: summary);
+            },
+          ),
         ],
       ),
     ],
@@ -230,7 +252,19 @@ class AppRouter {
             Text(state.error.toString()),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => context.go('/'),
+              onPressed: () {
+                // Infer user role from failed route to navigate directly
+                final location = state.matchedLocation;
+
+                if (location.startsWith('/customer')) {
+                  context.go('/customer');
+                } else if (location.startsWith('/merchant')) {
+                  context.go('/merchant');
+                } else {
+                  // Fallback to splash for unknown routes
+                  context.go('/');
+                }
+              },
               child: const Text('Go to Home'),
             ),
           ],

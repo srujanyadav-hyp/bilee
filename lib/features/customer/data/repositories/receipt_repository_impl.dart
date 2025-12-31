@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -422,9 +424,152 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
   @override
   Future<void> deleteReceipt(String receiptId) async {
     try {
+      debugPrint('🗑️ Deleting receipt: $receiptId');
+
+      // Get receipt first to check for photo
+      final receiptDoc = await _firestore
+          .collection('receipts')
+          .doc(receiptId)
+          .get();
+
+      if (!receiptDoc.exists) {
+        debugPrint('⚠️ Receipt not found: $receiptId');
+        return;
+      }
+
+      final receiptData = receiptDoc.data();
+      final photoPath = receiptData?['receiptPhotoPath'] as String?;
+
+      // Delete photo if exists
+      if (photoPath != null && photoPath.isNotEmpty) {
+        try {
+          final photoFile = File(photoPath);
+          if (await photoFile.exists()) {
+            await photoFile.delete();
+            debugPrint('✅ Deleted photo: $photoPath');
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error deleting photo: $e');
+          // Continue with receipt deletion even if photo deletion fails
+        }
+      }
+
+      // Delete from Firestore
       await _firestore.collection('receipts').doc(receiptId).delete();
+
+      debugPrint('✅ Receipt deleted successfully: $receiptId');
     } catch (e) {
+      debugPrint('❌ Error deleting receipt: $e');
       throw Exception('Failed to delete receipt: $e');
+    }
+  }
+
+  @override
+  Future<void> updateReceipt(ReceiptEntity receipt) async {
+    try {
+      debugPrint('📝 Updating receipt: ${receipt.id}');
+
+      final model = ReceiptModel.fromEntity(receipt);
+      await _firestore
+          .collection('receipts')
+          .doc(receipt.id)
+          .update(model.toFirestore());
+
+      debugPrint('✅ Receipt updated successfully: ${receipt.id}');
+    } catch (e) {
+      debugPrint('❌ Error updating receipt: $e');
+      throw Exception('Failed to update receipt: $e');
+    }
+  }
+
+  @override
+  Future<List<ReceiptEntity>> getReceiptsByMonth({
+    required int year,
+    required int month,
+  }) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Calculate start and end of month
+      final startDate = DateTime(year, month, 1);
+      final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
+
+      debugPrint('📅 Getting receipts for $year-$month');
+      debugPrint('   Start: $startDate');
+      debugPrint('   End: $endDate');
+
+      final snapshot = await _firestore
+          .collection('receipts')
+          .where('customerId', isEqualTo: currentUser.uid)
+          .where(
+            'createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+          )
+          .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      final receipts = snapshot.docs
+          .map(
+            (doc) => ReceiptModel.fromFirestore(doc.data(), doc.id).toEntity(),
+          )
+          .toList();
+
+      debugPrint('✅ Found ${receipts.length} receipts for $year-$month');
+      return receipts;
+    } catch (e) {
+      debugPrint('❌ Error getting receipts by month: $e');
+      throw Exception('Failed to get monthly receipts: $e');
+    }
+  }
+
+  @override
+  Future<void> archiveReceipts(List<String> receiptIds) async {
+    try {
+      debugPrint('🗑️ Archiving ${receiptIds.length} receipts');
+
+      // Use batch for efficient deletion
+      final batch = _firestore.batch();
+
+      for (final receiptId in receiptIds) {
+        // Get receipt to check for photo
+        final receiptDoc = await _firestore
+            .collection('receipts')
+            .doc(receiptId)
+            .get();
+
+        if (receiptDoc.exists) {
+          final receiptData = receiptDoc.data();
+          final photoPath = receiptData?['receiptPhotoPath'] as String?;
+
+          // Delete photo if exists
+          if (photoPath != null && photoPath.isNotEmpty) {
+            try {
+              final photoFile = File(photoPath);
+              if (await photoFile.exists()) {
+                await photoFile.delete();
+                debugPrint('  ✅ Deleted photo: $photoPath');
+              }
+            } catch (e) {
+              debugPrint('  ⚠️ Error deleting photo: $e');
+            }
+          }
+
+          // Add delete to batch
+          batch.delete(_firestore.collection('receipts').doc(receiptId));
+        }
+      }
+
+      // Commit batch deletion
+      await batch.commit();
+
+      debugPrint('✅ Archived ${receiptIds.length} receipts successfully');
+    } catch (e) {
+      debugPrint('❌ Error archiving receipts: $e');
+      throw Exception('Failed to archive receipts: $e');
     }
   }
 

@@ -223,7 +223,141 @@ class ReceiptProvider with ChangeNotifier {
       case 'entertainment':
         return '🎬';
       default:
-        return '💰';
+        return 'Other';
     }
+  }
+
+  /// Delete receipt
+  Future<void> deleteReceipt(String receiptId) async {
+    try {
+      // Delete from repository (Firestore + photo)
+      await repository.deleteReceipt(receiptId);
+
+      // Remove from local cache
+      _receipts.removeWhere((r) => r.id == receiptId);
+      _recentReceipts.removeWhere((r) => r.id == receiptId);
+
+      // Clear selected receipt if it was deleted
+      if (_selectedReceipt?.id == receiptId) {
+        _selectedReceipt = null;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Update receipt (notes, tags, etc.)
+  Future<void> updateReceipt(ReceiptEntity receipt) async {
+    try {
+      // Update in Firestore via repository
+      await repository.updateReceipt(receipt);
+
+      // Update local caches
+      final index = _receipts.indexWhere((r) => r.id == receipt.id);
+      if (index != -1) {
+        _receipts[index] = receipt;
+      }
+
+      final recentIndex = _recentReceipts.indexWhere((r) => r.id == receipt.id);
+      if (recentIndex != -1) {
+        _recentReceipts[recentIndex] = receipt;
+      }
+
+      // Update selected receipt if it's the one being updated
+      if (_selectedReceipt?.id == receipt.id) {
+        _selectedReceipt = receipt;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Get receipts for a specific month
+  Future<List<ReceiptEntity>> getReceiptsForMonth({
+    required int year,
+    required int month,
+  }) async {
+    try {
+      return await repository.getReceiptsByMonth(year: year, month: month);
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Calculate category summaries from receipts
+  List<Map<String, dynamic>> calculateCategorySummaries(
+    List<ReceiptEntity> receipts,
+  ) {
+    if (receipts.isEmpty) return [];
+
+    // Group by category
+    final Map<String, List<ReceiptEntity>> grouped = {};
+    for (final receipt in receipts) {
+      final category = receipt.businessCategory ?? 'Other';
+      if (!grouped.containsKey(category)) {
+        grouped[category] = [];
+      }
+      grouped[category]!.add(receipt);
+    }
+
+    // Calculate totals
+    final double grandTotal = receipts.fold(0, (sum, r) => sum + r.total);
+
+    // Create summaries
+    final summaries = grouped.entries.map((entry) {
+      final total = entry.value.fold(0.0, (sum, r) => sum + r.total);
+      final percentage = (total / grandTotal * 100);
+
+      return {
+        'name': entry.key,
+        'icon': getCategoryIcon(entry.key),
+        'total': total,
+        'count': entry.value.length,
+        'percentage': percentage,
+      };
+    }).toList();
+
+    // Sort by total descending
+    summaries.sort(
+      (a, b) => (b['total'] as double).compareTo(a['total'] as double),
+    );
+
+    return summaries;
+  }
+
+  /// Check if receipts should be auto-kept (important)
+  bool isImportantReceipt(ReceiptEntity receipt) {
+    // Keep if has notes
+    if (receipt.notes != null && receipt.notes!.isNotEmpty) {
+      return true;
+    }
+    // Keep if amount > 10000
+    if (receipt.total >= 10000) {
+      return true;
+    }
+    // Keep if manual entry with photo (likely warranty)
+    if (receipt.receiptPhotoPath != null &&
+        receipt.receiptPhotoPath!.isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Get IDs of receipts that should be kept
+  List<String> getImportantReceiptIds(List<ReceiptEntity> receipts) {
+    return receipts
+        .where((r) => isImportantReceipt(r))
+        .map((r) => r.id)
+        .toList();
   }
 }
