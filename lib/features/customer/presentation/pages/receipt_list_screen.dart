@@ -326,6 +326,12 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
                       ],
                     ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    color: Colors.red,
+                    onPressed: () => _showDeleteConfirmation(summary),
+                    tooltip: 'Delete',
+                  ),
                   const Icon(Icons.chevron_right, color: Colors.grey),
                 ],
               ),
@@ -460,6 +466,58 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _showDeleteConfirmation(MonthlySummaryEntity summary) async {
+    final monthName = DateFormat(
+      'MMMM yyyy',
+    ).format(DateTime(summary.year, summary.monthNumber));
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Archive?'),
+        content: Text(
+          'Delete $monthName archive?\n\nKept receipts remain in your list.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      try {
+        await context.read<MonthlyArchiveProvider>().deleteSummary(summary.id);
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Deleted ${DateFormat('MMM yyyy').format(DateTime(summary.year, summary.monthNumber))}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Widget _buildSearchBar() {

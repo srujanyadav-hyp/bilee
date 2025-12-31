@@ -40,6 +40,20 @@ class MonthlyArchiveProvider with ChangeNotifier {
     }
   }
 
+  /// Delete a monthly summary
+  Future<void> deleteSummary(String summaryId) async {
+    try {
+      await summaryRepository.deleteSummary(summaryId);
+      // Remove from local list
+      _summaries.removeWhere((summary) => summary.id == summaryId);
+      notifyListeners();
+      debugPrint('✅ Deleted summary: $summaryId');
+    } catch (e) {
+      debugPrint('❌ Error deleting summary: $e');
+      throw Exception('Failed to delete summary: $e');
+    }
+  }
+
   /// Archive a month
   Future<void> archiveMonth({
     required int year,

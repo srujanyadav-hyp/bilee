@@ -1,3 +1,5 @@
+import 'package:bilee/core/services/role_storage_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/presentation/pages/splash_screen.dart';
@@ -39,6 +41,29 @@ class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: true,
+    redirect: (context, state) async {
+      // Only apply redirect on initial app load (splash screen)
+      if (state.matchedLocation == '/') {
+        // Check if user is currently authenticated
+        final user = FirebaseAuth.instance.currentUser;
+
+        if (user != null) {
+          // User is authenticated - skip splash screen
+          final roleService = RoleStorageService();
+          final role = await roleService.getRole();
+
+          if (role == 'merchant') {
+            return '/merchant/${user.uid}';
+          } else if (role == 'customer') {
+            return '/customer';
+          }
+          // If role not set, continue to splash (will handle role selection)
+        }
+      }
+
+      // No redirect - proceed to requested route
+      return null;
+    },
     routes: [
       // Splash Screen
       GoRoute(
