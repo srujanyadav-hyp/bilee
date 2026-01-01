@@ -14,7 +14,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     
     <application
-        android:label="bilee"
+        android:label="Bilee"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

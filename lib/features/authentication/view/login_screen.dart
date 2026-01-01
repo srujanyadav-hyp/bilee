@@ -296,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen>
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  onTap: () => _tabController.animateTo(1),
+                                  onTap: _showComingSoonDialog, // Coming soon
                                   borderRadius: BorderRadius.circular(12),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -360,7 +360,7 @@ class _LoginScreenState extends State<LoginScreen>
                   SizedBox(
                     height: 56,
                     child: OutlinedButton.icon(
-                      onPressed: _isLoading ? null : _signInWithGoogle,
+                      onPressed: _isLoading ? null : _showComingSoonDialog,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
                           color: AppColors.primaryBlue,
@@ -717,6 +717,31 @@ class _LoginScreenState extends State<LoginScreen>
                       style: AppTypography.button.copyWith(color: Colors.white),
                     ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showComingSoonDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.rocket_launch, color: AppColors.primaryBlue, size: 28),
+            SizedBox(width: 12),
+            Text('Coming Soon!'),
+          ],
+        ),
+        content: Text(
+          'This authentication method will be available in a future update.\n\nFor now, please use Email & Password to sign in.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Got it'),
           ),
         ],
       ),

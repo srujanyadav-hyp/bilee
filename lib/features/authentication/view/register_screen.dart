@@ -298,7 +298,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () => _tabController.animateTo(1),
+                              onTap: _showComingSoonDialog, // Coming soon
                               borderRadius: BorderRadius.circular(12),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -933,6 +933,31 @@ class _RegisterScreenState extends State<RegisterScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showComingSoonDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.rocket_launch, color: AppColors.primaryBlue, size: 28),
+            SizedBox(width: 12),
+            Text('Coming Soon!'),
+          ],
+        ),
+        content: Text(
+          'This authentication method will be available in a future update.\n\nFor now, please use Email & Password to create your account.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Got it'),
+          ),
+        ],
       ),
     );
   }
