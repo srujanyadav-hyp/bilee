@@ -148,15 +148,7 @@ class _MonthlySummariesListScreenState
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    DateFormat('MMM d').format(monthDate) +
-                                        ' - ' +
-                                        DateFormat('MMM d, yyyy').format(
-                                          DateTime(
-                                            summary.year,
-                                            summary.monthNumber + 1,
-                                            0,
-                                          ),
-                                        ),
+                                    '${DateFormat('MMM d').format(monthDate)} - ${DateFormat('MMM d, yyyy').format(DateTime(summary.year, summary.monthNumber + 1, 0))}',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 12,
@@ -278,7 +270,7 @@ class _MonthlySummariesListScreenState
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ],
                     ),

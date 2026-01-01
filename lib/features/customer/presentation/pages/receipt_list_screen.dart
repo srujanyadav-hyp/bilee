@@ -432,7 +432,7 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
                       ],
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ],
           ),
@@ -806,6 +806,39 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
                               color: AppColors.lightTextTertiary,
                             ),
                           ),
+                          if (receipt.businessCategory != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.primaryGradient,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _getCategoryIcon(receipt.businessCategory!),
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    receipt.businessCategory!.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -900,6 +933,33 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
         ),
       ),
     );
+  }
+
+  String _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'grocery':
+      case 'groceries':
+        return '🛒';
+      case 'restaurant':
+      case 'food':
+        return '🍽️';
+      case 'pharmacy':
+      case 'healthcare':
+        return '💊';
+      case 'electronics':
+        return '📱';
+      case 'clothing':
+      case 'fashion':
+        return '👕';
+      case 'transport':
+        return '🚌';
+      case 'entertainment':
+        return '🎬';
+      case 'services':
+        return '🔧';
+      default:
+        return '💰';
+    }
   }
 
   Widget _buildEmptyState() {

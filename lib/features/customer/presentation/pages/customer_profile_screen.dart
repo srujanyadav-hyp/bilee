@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -20,6 +19,7 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   String? _displayName;
+  String? _phoneNumber;
   bool _isLoading = true;
 
   @override
@@ -40,6 +40,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         if (doc.exists) {
           setState(() {
             _displayName = doc.data()?['display_name'] as String?;
+            _phoneNumber = doc.data()?['phoneNumber'] as String?;
             _isLoading = false;
           });
         } else {
@@ -190,7 +191,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             _buildInfoRow(
               icon: Icons.phone_outlined,
               label: 'Phone',
-              value: user?.phoneNumber ?? 'Not provided',
+              value: _phoneNumber ?? 'Not provided',
             ),
             const SizedBox(height: AppDimensions.spacingMD),
             _buildInfoRow(
@@ -355,95 +356,26 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final nameController = TextEditingController(text: _displayName ?? '');
-    final phoneController = TextEditingController(text: user.phoneNumber ?? '');
-    final formKey = GlobalKey<FormState>();
-
     final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Display Name',
-                  hintText: 'Enter your name',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                textCapitalization: TextCapitalization.words,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
-                  hintText: 'Enter phone number',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    // Basic phone validation (10 digits)
-                    if (!RegExp(r'^\d{10}$').hasMatch(value.trim())) {
-                      return 'Please enter a valid 10-digit phone number';
-                    }
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                final name = nameController.text.trim();
-                final phone = phoneController.text.trim();
-                Navigator.pop(context, {'name': name, 'phone': phone});
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (context) => _EditProfileDialog(
+        initialName: _displayName ?? '',
+        initialPhone: _phoneNumber ?? '',
       ),
     );
 
-    nameController.dispose();
-    phoneController.dispose();
-
-    if (result != null && context.mounted) {
+    if (result != null && mounted) {
       final newName = result['name']!;
       final newPhone = result['phone']!;
 
       // Check if anything changed
       final nameChanged = newName != _displayName;
-      final phoneChanged = newPhone != (user.phoneNumber ?? '');
+      final phoneChanged = newPhone != (_phoneNumber ?? '');
 
       if (!nameChanged && !phoneChanged) return;
 
       // Show loading
+      if (!mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -469,32 +401,33 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             .doc(user.uid)
             .update(updates);
 
+        if (!mounted) return;
+
         // Update local state
         setState(() {
           if (nameChanged) _displayName = newName;
+          if (phoneChanged)
+            _phoneNumber = newPhone.isNotEmpty ? newPhone : null;
         });
 
-        if (context.mounted) {
-          Navigator.pop(context); // Close loading dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile updated successfully!'),
-              backgroundColor: AppColors.success,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       } catch (e) {
-        if (context.mounted) {
-          Navigator.pop(context); // Close loading dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to update profile: $e'),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update profile: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -720,5 +653,110 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
     emailController.dispose();
     passwordController.dispose();
+  }
+}
+
+/// Separate dialog widget to properly manage TextEditingController lifecycle
+class _EditProfileDialog extends StatefulWidget {
+  final String initialName;
+  final String initialPhone;
+
+  const _EditProfileDialog({
+    required this.initialName,
+    required this.initialPhone,
+  });
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _phoneController = TextEditingController(text: widget.initialPhone);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Profile'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Display Name',
+                hintText: 'Enter your name',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              textCapitalization: TextCapitalization.words,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter your name';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                hintText: 'Enter phone number',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+              keyboardType: TextInputType.phone,
+              validator: (value) {
+                if (value != null && value.isNotEmpty) {
+                  // Basic phone validation (10 digits)
+                  if (!RegExp(r'^\d{10}$').hasMatch(value.trim())) {
+                    return 'Please enter a valid 10-digit phone number';
+                  }
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              final name = _nameController.text.trim();
+              final phone = _phoneController.text.trim();
+              Navigator.pop(context, {'name': name, 'phone': phone});
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryBlue,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }

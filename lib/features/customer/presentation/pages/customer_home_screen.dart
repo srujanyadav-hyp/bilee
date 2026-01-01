@@ -359,6 +359,39 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           color: AppColors.lightTextSecondary,
                         ),
                       ),
+                      if (receipt.businessCategory != null) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _getCategoryIcon(receipt.businessCategory!),
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                receipt.businessCategory!.toUpperCase(),
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -416,6 +449,33 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         ),
       ),
     );
+  }
+
+  String _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'grocery':
+      case 'groceries':
+        return '🛒';
+      case 'restaurant':
+      case 'food':
+        return '🍽️';
+      case 'pharmacy':
+      case 'healthcare':
+        return '💊';
+      case 'electronics':
+        return '📱';
+      case 'clothing':
+      case 'fashion':
+        return '👕';
+      case 'transport':
+        return '🚌';
+      case 'entertainment':
+        return '🎬';
+      case 'services':
+        return '🔧';
+      default:
+        return '💰';
+    }
   }
 
   Widget _buildEmptyState() {

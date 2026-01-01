@@ -419,7 +419,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: AppColors.primaryBlue,
+            color: AppColors.lightTextPrimary,
           ),
         ),
         const SizedBox(height: 8),

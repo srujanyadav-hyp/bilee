@@ -30,7 +30,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
 
   bool _showQuickAdd = false;
   int _selectedCategory = 0; // 0=All, 1=Favorites, 2=Recent
-  bool _isTaxEnabled = false;
+  final bool _isTaxEnabled = false;
   bool _showCartDetails = false; // For expandable cart items view
 
   final Set<String> _favoriteItems = {};

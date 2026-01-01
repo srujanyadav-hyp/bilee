@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:external_app_launcher/external_app_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -178,7 +177,7 @@ class _UpiAppBottomSheet extends StatefulWidget {
 }
 
 class _UpiAppBottomSheetState extends State<_UpiAppBottomSheet> {
-  static const platform = MethodChannel('com.example.bilee/app_icon');
+  static const platform = MethodChannel('in.bilee.app/app_icon');
   final Map<String, Uint8List?> _appIcons = {};
 
   @override

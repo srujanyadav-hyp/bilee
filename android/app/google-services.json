@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "791996836010",
+    "firebase_url": "https://bilee-b1058-default-rtdb.firebaseio.com",
     "project_id": "bilee-b1058",
     "storage_bucket": "bilee-b1058.firebasestorage.app"
   },
@@ -29,6 +30,49 @@
             {
               "client_id": "791996836010-pdfgh24jv0o1k6br5qubbgdme87j0pdd.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "791996836010-bjidfu6ugsps48ena9io4b8ikrcvftml.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.bilee"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:791996836010:android:85cd90f62b638e5ae408d3",
+        "android_client_info": {
+          "package_name": "in.bilee.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "791996836010-pdfgh24jv0o1k6br5qubbgdme87j0pdd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpvP-z6aX691GSVOCWt45MmxQV1eyGmkA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "791996836010-pdfgh24jv0o1k6br5qubbgdme87j0pdd.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "791996836010-bjidfu6ugsps48ena9io4b8ikrcvftml.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.bilee"
+              }
             }
           ]
         }

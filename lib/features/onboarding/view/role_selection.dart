@@ -69,6 +69,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                                           isSelected:
                                               _selectedRole == 'merchant',
                                           onTap: () => _selectRole('merchant'),
+                                          isDisabled: true,
                                         ),
                                       ),
                                       SizedBox(height: AppDimensions.spacingMD),
@@ -98,6 +99,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                                           isSelected:
                                               _selectedRole == 'merchant',
                                           onTap: () => _selectRole('merchant'),
+                                          isDisabled: true,
                                         ),
                                       ),
                                       SizedBox(width: AppDimensions.spacingMD),
@@ -198,6 +200,7 @@ class _RoleCard extends StatelessWidget {
   final String subtext;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool isDisabled;
 
   const _RoleCard({
     required this.role,
@@ -206,96 +209,134 @@ class _RoleCard extends StatelessWidget {
     required this.subtext,
     required this.isSelected,
     required this.onTap,
+    this.isDisabled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      button: true,
-      label: '$label: $subtext',
+      button: !isDisabled,
+      label: '$label: $subtext${isDisabled ? ' - Coming Soon' : ''}',
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: isDisabled ? null : onTap,
           borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: AppColors.lightCardBackground,
-              borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-              border: Border.all(
-                color: isSelected
-                    ? AppColors.primaryBlue
-                    : AppColors.lightBorder,
-                width: isSelected ? 2 : 1,
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: AppColors.lightCardBackground,
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primaryBlue
+                        : AppColors.lightBorder,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primaryBlue.withOpacity(0.3),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Opacity(
+                  opacity: isDisabled ? 0.5 : 1.0,
+                  child: Padding(
+                    padding: EdgeInsets.all(AppDimensions.paddingLG),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Icon
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final parentHeight = MediaQuery.of(
+                              context,
+                            ).size.height;
+                            final iconSize = (parentHeight * 0.1).clamp(
+                              60.0,
+                              100.0,
+                            );
+                            return Container(
+                              width: iconSize,
+                              height: iconSize,
+                              decoration: BoxDecoration(
+                                gradient: isSelected
+                                    ? AppColors.primaryGradient
+                                    : null,
+                                color: isSelected
+                                    ? null
+                                    : AppColors.lightTextTertiary.withOpacity(
+                                        0.1,
+                                      ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                icon,
+                                size: iconSize * 0.5,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.lightTextSecondary,
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(height: AppDimensions.spacingMD),
+                        // Label
+                        Text(
+                          label,
+                          style: AppTypography.h3.copyWith(
+                            color: isSelected
+                                ? AppColors.primaryBlue
+                                : AppColors.lightTextPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: AppDimensions.spacingSM),
+                        // Subtext
+                        Text(
+                          subtext,
+                          style: AppTypography.body2.copyWith(
+                            color: AppColors.lightTextSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: AppColors.primaryBlue.withOpacity(0.3),
-                        blurRadius: 12,
-                        spreadRadius: 2,
+              // Coming Soon Badge
+              if (isDisabled)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Coming Soon',
+                      style: AppTypography.caption.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ]
-                  : [],
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(AppDimensions.paddingLG),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Icon
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final parentHeight = MediaQuery.of(context).size.height;
-                      final iconSize = (parentHeight * 0.1).clamp(60.0, 100.0);
-                      return Container(
-                        width: iconSize,
-                        height: iconSize,
-                        decoration: BoxDecoration(
-                          gradient: isSelected
-                              ? AppColors.primaryGradient
-                              : null,
-                          color: isSelected
-                              ? null
-                              : AppColors.lightTextTertiary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          icon,
-                          size: iconSize * 0.5,
-                          color: isSelected
-                              ? Colors.white
-                              : AppColors.lightTextSecondary,
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: AppDimensions.spacingMD),
-                  // Label
-                  Text(
-                    label,
-                    style: AppTypography.h3.copyWith(
-                      color: isSelected
-                          ? AppColors.primaryBlue
-                          : AppColors.lightTextPrimary,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: AppDimensions.spacingSM),
-                  // Subtext
-                  Text(
-                    subtext,
-                    style: AppTypography.body2.copyWith(
-                      color: AppColors.lightTextSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
         ),
       ),

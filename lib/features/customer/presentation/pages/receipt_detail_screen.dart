@@ -1248,7 +1248,10 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
   Future<Uint8List> _generateReceiptPDF(ReceiptEntity receipt) async {
     final pdf = pw.Document();
     final dateFormat = DateFormat('MMM dd, yyyy • hh:mm a');
-    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: 'Rs.',
+      decimalDigits: 2,
+    );
 
     pdf.addPage(
       pw.Page(
