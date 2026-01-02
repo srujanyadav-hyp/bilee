@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Centralized error handler for Firebase errors
 /// Converts technical Firebase errors into user-friendly messages

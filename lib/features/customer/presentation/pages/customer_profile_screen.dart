@@ -406,8 +406,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         // Update local state
         setState(() {
           if (nameChanged) _displayName = newName;
-          if (phoneChanged)
+          if (phoneChanged) {
             _phoneNumber = newPhone.isNotEmpty ? newPhone : null;
+          }
         });
 
         Navigator.pop(context); // Close loading dialog
