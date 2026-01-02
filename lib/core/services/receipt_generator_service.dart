@@ -147,6 +147,7 @@ class ReceiptGeneratorService {
         'createdAt': FieldValue.serverTimestamp(),
         'isVerified': true, // Merchant-generated receipts are verified
         'notes': null,
+        'tags': null,
         'signatureUrl': null,
       };
 

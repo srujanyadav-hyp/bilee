@@ -77,7 +77,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
       final amount = double.parse(_amountController.text);
       final merchantName = _merchantNameController.text.trim().isNotEmpty
           ? _merchantNameController.text.trim()
-          : 'Merchant';
+          : 'Manual Entry';
       final transactionId = 'BL${DateTime.now().millisecondsSinceEpoch}';
 
       debugPrint('📋 Input data:');
@@ -108,6 +108,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
             content: Text('📱 Opening UPI app...'),
             backgroundColor: Colors.blue,
             duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -185,6 +186,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
           const SnackBar(
             content: Text('✅ Expense added successfully!'),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
           ),
         );
         context.pop();
@@ -195,6 +197,7 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
           SnackBar(
             content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }

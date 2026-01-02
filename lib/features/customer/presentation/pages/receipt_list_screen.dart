@@ -114,6 +114,7 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.lightBackground,
       appBar: AppBar(
         title: const Text('My Receipts'),
@@ -508,13 +509,18 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
               'Deleted ${DateFormat('MMM yyyy').format(DateTime(summary.year, summary.monthNumber))}',
             ),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       } catch (e) {
         if (!mounted) return;
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }

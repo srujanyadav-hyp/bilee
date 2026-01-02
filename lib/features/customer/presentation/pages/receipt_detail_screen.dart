@@ -26,6 +26,8 @@ class ReceiptDetailScreen extends StatefulWidget {
 class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
   final CoreUpiPaymentService _upiService = CoreUpiPaymentService();
   bool _isProcessingPayment = false;
+  TextEditingController? _notesController;
+  String? _currentReceiptId;
 
   @override
   void initState() {
@@ -33,6 +35,21 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ReceiptProvider>().loadReceiptById(widget.receiptId);
     });
+  }
+
+  @override
+  void dispose() {
+    _notesController?.dispose();
+    super.dispose();
+  }
+
+  void _initializeNotesController(ReceiptEntity receipt) {
+    // Initialize or update controller when receipt changes
+    if (_currentReceiptId != receipt.id) {
+      _notesController?.dispose();
+      _notesController = TextEditingController(text: receipt.notes ?? '');
+      _currentReceiptId = receipt.id;
+    }
   }
 
   @override
@@ -1779,6 +1796,8 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
 
   /// Build Notes Section
   Widget _buildNotesSection(ReceiptEntity receipt) {
+    _initializeNotesController(receipt);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -1811,7 +1830,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
           ),
           const SizedBox(height: 12),
           TextField(
-            controller: TextEditingController(text: receipt.notes ?? ''),
+            controller: _notesController,
             decoration: InputDecoration(
               hintText: 'Add notes (warranty info, return policy, etc.)',
               hintStyle: const TextStyle(

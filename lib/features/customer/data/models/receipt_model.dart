@@ -148,7 +148,9 @@ class ReceiptModel {
       'createdAt': createdAt,
       'isVerified': isVerified,
       'notes': notes,
+      'tags': tags,
       'signatureUrl': signatureUrl,
+      'receiptPhotoPath': receiptPhotoPath,
     };
   }
 

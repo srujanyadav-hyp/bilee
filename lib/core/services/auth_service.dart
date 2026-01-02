@@ -470,25 +470,38 @@ class AuthService {
   String _getAuthErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
       case 'wrong-password':
-        return 'Incorrect password. Try again.';
+        return 'Wrong password. Please try again.';
       case 'user-not-found':
-        return 'No account found. Create one.';
+        return 'No account found with this email.';
       case 'email-already-in-use':
-        return 'Email already in use. Sign in instead.';
+        return 'This email is already registered.';
       case 'weak-password':
-        return 'Password must be 8+ characters.';
+        return 'Password is too weak. Use 8+ characters.';
       case 'invalid-email':
-        return 'Please enter a valid email.';
+        return 'Please enter a valid email address.';
+      case 'invalid-credential':
+        return 'Wrong email or password.';
+      case 'invalid-login-credentials':
+        return 'Wrong email or password.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'operation-not-allowed':
+        return 'Sign in method not enabled. Contact support.';
       case 'network-request-failed':
-        return 'Network error — check connection and try again.';
+        return 'No internet connection. Please check and try again.';
       case 'too-many-requests':
-        return 'Too many attempts. Try again later.';
+        return 'Too many failed attempts. Please try again later.';
       case 'invalid-verification-code':
-        return 'Invalid code. Please try again.';
+        return 'Wrong OTP code. Please try again.';
       case 'invalid-phone-number':
-        return 'Invalid phone number format.';
+        return 'Invalid phone number.';
+      case 'requires-recent-login':
+        return 'Please log out and log in again.';
+      case 'expired-action-code':
+        return 'This link has expired.';
       default:
-        return e.message ?? 'Authentication failed. Try again.';
+        // Catch-all for any other errors
+        return 'Login failed. Please check your email and password.';
     }
   }
 

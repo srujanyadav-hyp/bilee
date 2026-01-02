@@ -9,6 +9,7 @@ import '../mappers/entity_model_mapper.dart';
 import '../models/item_model.dart';
 import '../models/session_model.dart';
 import '../models/daily_aggregate_model.dart';
+import '../../../../core/utils/firebase_error_handler.dart';
 
 /// Repository Implementation - Implements domain interface using data sources
 class MerchantRepositoryImpl implements IMerchantRepository {
@@ -23,7 +24,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
     try {
       return await _dataSource.getMerchantProfile(merchantId);
     } catch (e) {
-      throw Exception('Repository: Failed to get merchant profile - $e');
+      FirebaseErrorHandler.logError('getMerchantProfile', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -32,7 +34,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
     try {
       await _dataSource.saveMerchantProfile(merchant);
     } catch (e) {
-      throw Exception('Repository: Failed to save merchant profile - $e');
+      FirebaseErrorHandler.logError('saveMerchantProfile', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -56,7 +59,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
             return items;
           });
     } catch (e) {
-      throw Exception('Repository: Failed to get items stream - $e');
+      FirebaseErrorHandler.logError('getItemsStream', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -77,7 +81,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
 
       await _dataSource.createItem(model);
     } catch (e) {
-      throw Exception('Repository: Failed to create item - $e');
+      FirebaseErrorHandler.logError('createItem', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -98,7 +103,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
 
       await _dataSource.updateItem(model);
     } catch (e) {
-      throw Exception('Repository: Failed to update item - $e');
+      FirebaseErrorHandler.logError('updateItem', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -107,7 +113,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
     try {
       await _dataSource.deleteItem(itemId);
     } catch (e) {
-      throw Exception('Repository: Failed to delete item - $e');
+      FirebaseErrorHandler.logError('deleteItem', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -125,7 +132,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
             return SessionModel.fromFirestore(doc).toEntity();
           });
     } catch (e) {
-      throw Exception('Repository: Failed to get session stream - $e');
+      FirebaseErrorHandler.logError('getSessionStream', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -165,7 +173,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
       return createdModel.sessionId;
     } catch (e) {
       print('🔴 [REPOSITORY ERROR] Failed to create session: $e');
-      throw Exception('Repository: Failed to create session - $e');
+      FirebaseErrorHandler.logError('createSession', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -178,7 +187,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
     try {
       await _dataSource.markSessionPaid(sessionId, paymentMethod, txnId);
     } catch (e) {
-      throw Exception('Repository: Failed to mark session as paid - $e');
+      FirebaseErrorHandler.logError('markSessionPaid', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -212,7 +222,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         session.items,
       );
     } catch (e) {
-      throw Exception('Repository: Failed to finalize session - $e');
+      FirebaseErrorHandler.logError('finalizeSession', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -237,7 +248,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
             ).toEntity();
           });
     } catch (e) {
-      throw Exception('Repository: Failed to get daily aggregate stream - $e');
+      FirebaseErrorHandler.logError('getDailyAggregateStream', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -333,7 +345,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
 
       await _dataSource.updateDailyAggregate(aggregate.toModel());
     } catch (e) {
-      throw Exception('Repository: Failed to update daily aggregate - $e');
+      FirebaseErrorHandler.logError('updateDailyAggregate', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -345,7 +358,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
       await finalizeSession(sessionId);
       return 'Session finalized successfully';
     } catch (e) {
-      throw Exception('Repository: Failed to call finalize session - $e');
+      FirebaseErrorHandler.logError('callFinalizeSession', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 
@@ -358,7 +372,8 @@ class MerchantRepositoryImpl implements IMerchantRepository {
     try {
       return await _dataSource.generateDailyReport(merchantId, date, format);
     } catch (e) {
-      throw Exception('Repository: Failed to generate daily report - $e');
+      FirebaseErrorHandler.logError('callGenerateDailyReport', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 }

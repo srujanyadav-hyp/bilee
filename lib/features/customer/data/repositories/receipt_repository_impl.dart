@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/receipt_entity.dart';
 import '../../domain/repositories/receipt_repository.dart';
 import '../models/receipt_model.dart';
+import '../../../../core/utils/firebase_error_handler.dart';
 
 /// Implementation of ReceiptRepository
 class ReceiptRepositoryImpl implements ReceiptRepository {
@@ -392,6 +393,7 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         'isVerified': verified,
         'manualEntry': true,
         'notes': null,
+        'tags': null,
         'receiptPhotoPath': photoPath,
         'hasPhoto': photoPath != null,
       };
@@ -469,16 +471,25 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
     try {
       debugPrint('📝 Updating receipt: ${receipt.id}');
 
-      final model = ReceiptModel.fromEntity(receipt);
+      // Only send fields that customers are allowed to update
+      // This matches the Firestore security rules hasOnly() constraint
+      final updateData = <String, dynamic>{
+        'notes': receipt.notes,
+        'tags': receipt.tags,
+        'receiptPhotoPath': receipt.receiptPhotoPath,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
       await _firestore
           .collection('receipts')
           .doc(receipt.id)
-          .update(model.toFirestore());
+          .update(updateData);
 
       debugPrint('✅ Receipt updated successfully: ${receipt.id}');
     } catch (e) {
       debugPrint('❌ Error updating receipt: $e');
-      throw Exception('Failed to update receipt: $e');
+      FirebaseErrorHandler.logError('updateReceipt', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
 

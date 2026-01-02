@@ -246,10 +246,10 @@ service cloud.firestore {
                         request.resource.data.customerId == request.auth.uid &&
                         request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['customerId', 'customerEmail', 'customerName', 'updatedAt'])) ||
-                       // Scenario 2: Customer updating notes on their own receipt  
+                       // Scenario 2: Customer updating notes/tags on their own receipt  
                        (request.auth.uid == resource.data.customerId &&
                         request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['notes', 'updatedAt'])) ||
+                          .hasOnly(['notes', 'tags', 'receiptPhotoPath', 'updatedAt'])) ||
                        // Scenario 3: Merchant anonymizing receipt during account deletion
                        (isMerchant(resource.data.merchantId) &&
                         request.resource.data.merchantId == 'DELETED_MERCHANT' &&
