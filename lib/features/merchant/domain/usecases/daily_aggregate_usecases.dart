@@ -32,23 +32,3 @@ class UpdateDailyAggregate {
     await repository.updateDailyAggregate(merchantId, date, revenue, items);
   }
 }
-
-/// Use Case - Generate daily report
-class GenerateDailyReport {
-  final IMerchantRepository repository;
-
-  GenerateDailyReport(this.repository);
-
-  Future<String> call(String merchantId, String date, String format) async {
-    // Business validation - Only PDF is supported
-    if (format.toUpperCase() != 'PDF') {
-      throw Exception('Invalid export format. Only PDF is supported');
-    }
-
-    return await repository.callGenerateDailyReport(
-      merchantId,
-      date,
-      'PDF', // Always use PDF
-    );
-  }
-}

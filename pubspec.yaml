@@ -75,6 +75,10 @@ dependencies:
   # Local Storage (for offline-first architecture)
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  
+  # Voice Recognition for bulk item addition
+  speech_to_text: ^7.0.0
+  permission_handler: ^11.3.0
 
 
 dev_dependencies:

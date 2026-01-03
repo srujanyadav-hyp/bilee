@@ -40,9 +40,4 @@ abstract class IMerchantRepository {
 
   // Cloud function calls
   Future<String> callFinalizeSession(String sessionId);
-  Future<String> callGenerateDailyReport(
-    String merchantId,
-    String date,
-    String format,
-  );
 }

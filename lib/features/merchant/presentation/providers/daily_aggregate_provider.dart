@@ -7,15 +7,12 @@ import '../../domain/usecases/daily_aggregate_usecases.dart';
 class DailyAggregateProvider with ChangeNotifier {
   final GetDailyAggregate _getDailyAggregate;
   final UpdateDailyAggregate _updateDailyAggregate;
-  final GenerateDailyReport _generateDailyReport;
 
   DailyAggregateProvider({
     required GetDailyAggregate getDailyAggregate,
     required UpdateDailyAggregate updateDailyAggregate,
-    required GenerateDailyReport generateDailyReport,
   }) : _getDailyAggregate = getDailyAggregate,
-       _updateDailyAggregate = updateDailyAggregate,
-       _generateDailyReport = generateDailyReport;
+       _updateDailyAggregate = updateDailyAggregate;
 
   DailyAggregateEntity? _todayAggregate;
   DailyAggregateEntity? _selectedDateAggregate;
@@ -106,34 +103,6 @@ class DailyAggregateProvider with ChangeNotifier {
       _error = e.toString();
       notifyListeners();
       return false;
-    }
-  }
-
-  /// Generate daily report (PDF only)
-  Future<String?> generateReport(
-    String merchantId,
-    DateTime date,
-    String format,
-  ) async {
-    final dateStr =
-        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-    _isLoading = true;
-    _error = null;
-    _reportDownloadUrl = null;
-    notifyListeners();
-
-    try {
-      final url = await _generateDailyReport(merchantId, dateStr, format);
-      _reportDownloadUrl = url;
-      _isLoading = false;
-      notifyListeners();
-      return url;
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
-      return null;
     }
   }
 

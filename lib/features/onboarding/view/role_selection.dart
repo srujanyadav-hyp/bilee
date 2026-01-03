@@ -69,7 +69,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                                           isSelected:
                                               _selectedRole == 'merchant',
                                           onTap: () => _selectRole('merchant'),
-                                          isDisabled: true,
+                                          isDisabled: false,
                                         ),
                                       ),
                                       SizedBox(height: AppDimensions.spacingMD),

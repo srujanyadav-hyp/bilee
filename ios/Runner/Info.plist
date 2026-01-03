@@ -47,6 +47,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to scan product barcodes for billing.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is required to add items using voice input.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition is used to quickly add items to your inventory by voice.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>phonepe</string>

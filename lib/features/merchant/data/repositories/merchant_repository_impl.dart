@@ -362,18 +362,4 @@ class MerchantRepositoryImpl implements IMerchantRepository {
       throw Exception(FirebaseErrorHandler.handleError(e));
     }
   }
-
-  @override
-  Future<String> callGenerateDailyReport(
-    String merchantId,
-    String date,
-    String format,
-  ) async {
-    try {
-      return await _dataSource.generateDailyReport(merchantId, date, format);
-    } catch (e) {
-      FirebaseErrorHandler.logError('callGenerateDailyReport', e);
-      throw Exception(FirebaseErrorHandler.handleError(e));
-    }
-  }
 }

@@ -65,7 +65,6 @@ void setupDependencyInjection() {
   // Daily aggregate use cases
   getIt.registerLazySingleton(() => GetDailyAggregate(getIt()));
   getIt.registerLazySingleton(() => UpdateDailyAggregate(getIt()));
-  getIt.registerLazySingleton(() => GenerateDailyReport(getIt()));
 
   // ==================== PROVIDERS ====================
 
@@ -93,7 +92,6 @@ void setupDependencyInjection() {
     () => DailyAggregateProvider(
       getDailyAggregate: getIt(),
       updateDailyAggregate: getIt(),
-      generateDailyReport: getIt(),
     ),
   );
 

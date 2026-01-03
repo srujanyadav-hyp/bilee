@@ -15,7 +15,6 @@ import 'features/merchant/presentation/providers/daily_aggregate_provider.dart';
 import 'features/merchant/presentation/providers/item_provider.dart';
 import 'features/merchant/presentation/providers/session_provider.dart';
 import 'features/merchant/presentation/providers/merchant_provider.dart';
-import 'features/merchant/presentation/providers/staff_provider.dart';
 import 'features/merchant/presentation/providers/customer_ledger_provider.dart';
 import 'features/customer/customer_providers.dart';
 
@@ -63,7 +62,6 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => StaffProvider()),
         ChangeNotifierProvider(create: (_) => ConnectivityService()),
         ChangeNotifierProxyProvider<ConnectivityService, SyncService>(
           create: (context) => SyncService(context.read<ConnectivityService>()),

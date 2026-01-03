@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../domain/entities/item_entity.dart';
 import '../providers/item_provider.dart';
+import 'voice_item_add_page.dart';
 
 /// Item Library Page - CRUD operations for merchant items
 class ItemLibraryPage extends StatefulWidget {
@@ -48,11 +49,26 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
           Expanded(child: _buildItemList()),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddItemDialog(context),
-        label: const Text('Add Item'),
-        icon: const Icon(Icons.add),
-        backgroundColor: AppColors.primaryBlue,
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Voice Add Button
+          FloatingActionButton(
+            heroTag: 'voice_add',
+            onPressed: () => _openVoiceAddPage(context),
+            backgroundColor: AppColors.success,
+            child: const Icon(Icons.mic),
+          ),
+          const SizedBox(height: AppDimensions.spacingSM),
+          // Manual Add Button
+          FloatingActionButton.extended(
+            heroTag: 'manual_add',
+            onPressed: () => _showAddItemDialog(context),
+            label: const Text('Add Item'),
+            icon: const Icon(Icons.add),
+            backgroundColor: AppColors.primaryBlue,
+          ),
+        ],
       ),
     );
   }
@@ -393,5 +409,26 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _openVoiceAddPage(BuildContext context) async {
+    final result = await Navigator.push<int>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VoiceItemAddPage(merchantId: widget.merchantId),
+      ),
+    );
+
+    if (result != null && result > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Successfully added $result items using voice!'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      // Reload items
+      context.read<ItemProvider>().loadItems(widget.merchantId);
+    }
   }
 }
