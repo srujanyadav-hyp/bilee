@@ -79,6 +79,9 @@ dependencies:
   # Voice Recognition for bulk item addition
   speech_to_text: ^7.0.0
   permission_handler: ^11.3.0
+  
+  # Translation for multilingual voice input (replaces hardcoded dictionaries)
+  translator: ^1.0.0
 
 
 dev_dependencies:

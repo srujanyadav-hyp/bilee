@@ -212,12 +212,17 @@ class _AddManualExpenseScreenState extends State<AddManualExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text(
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
+        title: Text(
           'Add Manual Expense',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black,
+          ),
         ),
         centerTitle: false,
         elevation: 0,

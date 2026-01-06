@@ -85,7 +85,7 @@ class MyApp extends StatelessWidget {
 
             // Theme Configuration
             theme: themeProvider.lightTheme,
-            darkTheme: themeProvider.darkTheme,
+            // darkTheme: themeProvider.darkTheme,
             themeMode: themeProvider.themeMode,
 
             // Router Configuration

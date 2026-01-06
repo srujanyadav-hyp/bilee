@@ -283,6 +283,7 @@ class _BudgetSettingsScreenState extends State<BudgetSettingsScreen> {
               focusNode: _focusNodes[category],
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: TextStyle(color: Colors.black),
               decoration: InputDecoration(
                 labelText: 'Monthly Limit',
                 prefixText: '₹ ',

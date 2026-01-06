@@ -86,9 +86,11 @@ class VoiceRecognitionService extends ChangeNotifier {
   }
 
   /// Start listening for voice input
+  /// Supports continuous mode for merchant billing workflow
   Future<void> startListening({
     required Function(String) onResult,
     Function(String)? onPartialResult,
+    bool continuousMode = false, // NEW: Keep listening after each phrase
   }) async {
     if (!_isInitialized) {
       final success = await initialize();
@@ -107,8 +109,21 @@ class VoiceRecognitionService extends ChangeNotifier {
 
           if (result.finalResult) {
             // Final result - process item
-            onResult(_currentTranscript);
-            _currentTranscript = '';
+            final transcript = _currentTranscript;
+
+            // In continuous mode, keep listening; otherwise stop
+            if (!continuousMode) {
+              _currentTranscript = '';
+              _isListening = false;
+            } else {
+              // Clear transcript but stay listening for next phrase
+              _currentTranscript = '';
+              print(
+                '🔄 Continuous mode: Cleared transcript, still listening...',
+              );
+            }
+
+            onResult(transcript);
           } else if (onPartialResult != null) {
             // Partial result - show live transcription
             onPartialResult(_currentTranscript);
@@ -118,17 +133,33 @@ class VoiceRecognitionService extends ChangeNotifier {
         },
         localeId: _selectedLanguage,
         listenMode: stt.ListenMode.dictation, // Continuous listening
-        pauseFor: const Duration(seconds: 2), // Auto-stop after 2s silence
+        pauseFor: continuousMode
+            ? const Duration(seconds: 3) // Shorter pause in continuous mode
+            : const Duration(seconds: 8), // Longer pause for single-shot
         partialResults: true, // Enable live transcription
         cancelOnError: false,
+        listenFor: continuousMode
+            ? const Duration(minutes: 10) // 10 minutes in continuous mode
+            : const Duration(seconds: 30), // 30 seconds in single-shot
       );
 
       _isListening = true;
       _notifyListeners();
     } catch (e) {
-      _errorMessage = 'Could not start microphone. Please try again';
+      // Provide more specific error messages
+      if (e.toString().contains('network') ||
+          e.toString().contains('connection')) {
+        _errorMessage =
+            'No internet connection. Voice recognition requires internet.';
+      } else if (e.toString().contains('permission')) {
+        _errorMessage =
+            'Microphone permission denied. Please enable it in settings.';
+      } else {
+        _errorMessage = 'Could not start microphone. Please try again';
+      }
       _isListening = false;
       _notifyListeners();
+      print('❌ Voice recognition error: $e');
     }
   }
 

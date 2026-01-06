@@ -172,6 +172,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Widget _buildInfoSection(BuildContext context, User? user) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingMD),
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(AppDimensions.paddingLG),
         child: Column(
@@ -179,7 +180,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             Text(
               'Personal Information',
-              style: AppTypography.h3.copyWith(fontWeight: FontWeight.bold),
+              style: AppTypography.h3.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
             ),
             const Divider(height: AppDimensions.spacingLG),
             _buildInfoRow(
@@ -227,7 +231,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(value, style: AppTypography.body1),
+              Text(
+                value,
+                style: AppTypography.body1.copyWith(color: Colors.black),
+              ),
             ],
           ),
         ),
@@ -238,6 +245,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Widget _buildSettingsSection(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingMD),
+      color: Colors.white,
       child: Column(
         children: [
           _buildSettingTile(
@@ -294,12 +302,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }) {
     return ListTile(
       leading: Icon(icon, color: AppColors.primaryBlue),
-      title: Text(title, style: AppTypography.body1),
+      title: Text(
+        title,
+        style: AppTypography.body1.copyWith(color: Colors.black),
+      ),
       subtitle: Text(
         subtitle,
-        style: AppTypography.caption.copyWith(
-          color: AppColors.lightTextSecondary,
-        ),
+        style: AppTypography.caption.copyWith(color: Colors.black87),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,

@@ -18,6 +18,7 @@ import '../../features/merchant/presentation/pages/daily_summary_page.dart';
 import '../../features/merchant/presentation/pages/merchant_profile_page.dart';
 import '../../features/merchant/presentation/pages/live_session_page.dart';
 import '../../features/merchant/presentation/pages/customer_ledger_page.dart';
+import '../../features/merchant/presentation/pages/voice_item_add_page.dart';
 import '../../features/customer/presentation/pages/customer_home_screen.dart';
 import '../../features/customer/presentation/pages/scan_qr_screen.dart';
 import '../../features/customer/presentation/pages/live_bill_screen.dart';
@@ -135,6 +136,14 @@ class AppRouter {
             builder: (context, state) {
               final merchantId = state.pathParameters['merchantId']!;
               return StartBillingPage(merchantId: merchantId);
+            },
+          ),
+          GoRoute(
+            path: 'voice-add',
+            name: 'voice-add',
+            builder: (context, state) {
+              final merchantId = state.pathParameters['merchantId']!;
+              return VoiceItemAddPage(merchantId: merchantId);
             },
           ),
           GoRoute(

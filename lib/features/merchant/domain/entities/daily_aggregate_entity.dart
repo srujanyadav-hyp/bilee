@@ -1,7 +1,8 @@
 /// Domain Entity - Aggregated Item
 class AggregatedItemEntity {
   final String name;
-  final int quantity;
+  final double
+  quantity; // Changed from int to double to support fractional quantities
   final double revenue;
 
   const AggregatedItemEntity({

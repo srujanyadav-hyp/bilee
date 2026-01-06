@@ -101,7 +101,7 @@ class VoiceItemConfirmationCard extends StatelessWidget {
             _buildDetailRow(
               context,
               'Price',
-              '₹${parsedItem.price.toStringAsFixed(2)}',
+              '₹${parsedItem.price?.toStringAsFixed(2) ?? '0.00'}',
               Icons.currency_rupee,
             ),
 
@@ -146,6 +146,29 @@ class VoiceItemConfirmationCard extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.error,
                         side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppDimensions.paddingMD,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.radiusMD,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: AppDimensions.spacingSM),
+
+                  // Edit button
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Edit'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primaryBlue,
+                        side: const BorderSide(color: AppColors.primaryBlue),
                         padding: const EdgeInsets.symmetric(
                           vertical: AppDimensions.paddingMD,
                         ),

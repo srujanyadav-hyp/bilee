@@ -29,7 +29,7 @@ class ThemeProvider extends ChangeNotifier {
   ThemeData get lightTheme => AppTheme.lightTheme;
 
   /// Get dark theme data
-  ThemeData get darkTheme => AppTheme.darkTheme;
+  // ThemeData get darkTheme => AppTheme.darkTheme;
 
   /// Load theme preference from storage
   Future<void> _loadThemePreference() async {

@@ -15,6 +15,10 @@ class ItemDuplicateChecker {
 
   /// Check if an item with similar name already exists
   /// Returns the existing item if found, null otherwise
+  ///
+  /// 🔥 SMART LOGIC to avoid false positives:
+  /// - Exact match only (with/without spaces)
+  /// - NO substring matching (prevents "బియ్యం" matching "సగ్గుబియ్యం")
   ItemEntity? findSimilarItem(
     String newItemName,
     List<ItemEntity> existingItems,
@@ -32,33 +36,20 @@ class ItemDuplicateChecker {
       final existingNameOriginal = item.name.toLowerCase().trim();
 
       // Method 1: Exact match after removing spaces
-      // This catches: "పార్లే జి" vs "పార్లేజీ", "rice 1kg" vs "rice1kg"
+      // ✅ Catches: "పార్లే జి" vs "పార్లేజీ", "rice 1kg" vs "rice1kg"
       if (existingNameNormalized == searchTermNormalized) {
         return item;
       }
 
-      // Method 2: Exact match with spaces (original behavior)
+      // Method 2: Exact match with spaces (case-insensitive)
+      // ✅ Catches: "Rice" vs "rice", "Parle G" vs "parle g"
       if (existingNameOriginal == searchTermOriginal) {
         return item;
       }
 
-      // Method 3: Contains match (one contains the other) with normalized text
-      if (existingNameNormalized.contains(searchTermNormalized) ||
-          searchTermNormalized.contains(existingNameNormalized)) {
-        // Avoid false positives for very short words
-        if (searchTermNormalized.length >= 3) {
-          return item;
-        }
-      }
-
-      // Method 4: Contains match with original spacing (fallback)
-      if (existingNameOriginal.contains(searchTermOriginal) ||
-          searchTermOriginal.contains(existingNameOriginal)) {
-        // Avoid false positives for very short words
-        if (searchTermOriginal.length >= 3) {
-          return item;
-        }
-      }
+      // 🚫 REMOVED Method 3 & 4: Contains matching
+      // ❌ Was causing false positives: "బియ్యం" matching "సగ్గుబియ్యం"
+      // ❌ Was causing: "Parle" matching "Parle G", "milk" matching "milk powder"
     }
 
     return null;

@@ -59,7 +59,7 @@ class SessionProvider with ChangeNotifier {
       _currentSession != null && _currentSession!.isActive;
   List<SessionItemEntity> get cartItems => _cartItems.values.toList();
   int get cartItemCount =>
-      _cartItems.values.fold(0, (sum, item) => sum + item.qty);
+      _cartItems.values.fold(0, (sum, item) => sum + item.qty.toInt());
   double get cartSubtotal => _cartItems.values.fold(
     0.0,
     (sum, item) => sum + item.subtotalAfterDiscount,
@@ -124,38 +124,50 @@ class SessionProvider with ChangeNotifier {
   }
 
   /// Add item to cart
-  void addToCart(ItemEntity item, {int quantity = 1}) {
+  void addToCart(ItemEntity item, {double quantity = 1}) {
     final key = item.id;
 
     if (_cartItems.containsKey(key)) {
       // Update quantity
       final existing = _cartItems[key]!;
       final newQty = existing.qty + quantity;
-      final itemTotal = item.price * newQty;
+
+      // Calculate price: use pricePerUnit for weight-based items, regular price for piece-based
+      final effectivePrice = item.isWeightBased && item.pricePerUnit != null
+          ? item.pricePerUnit!
+          : item.price;
+      final itemTotal = effectivePrice * newQty;
       final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[key] = SessionItemEntity(
         name: item.name,
         hsnCode: item.hsnCode,
-        price: item.price,
+        price: effectivePrice,
         qty: newQty,
         taxRate: item.taxRate,
         tax: itemTax,
         total: itemTotal + itemTax,
+        unit: item.unit,
+        pricePerUnit: item.isWeightBased ? item.pricePerUnit : null,
       );
     } else {
       // Add new item
-      final itemTotal = item.price * quantity;
+      final effectivePrice = item.isWeightBased && item.pricePerUnit != null
+          ? item.pricePerUnit!
+          : item.price;
+      final itemTotal = effectivePrice * quantity;
       final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[key] = SessionItemEntity(
         name: item.name,
         hsnCode: item.hsnCode,
-        price: item.price,
+        price: effectivePrice,
         qty: quantity,
         taxRate: item.taxRate,
         tax: itemTax,
         total: itemTotal + itemTax,
+        unit: item.unit,
+        pricePerUnit: item.isWeightBased ? item.pricePerUnit : null,
       );
     }
 
@@ -163,7 +175,7 @@ class SessionProvider with ChangeNotifier {
   }
 
   /// Update item quantity in cart
-  void updateCartItemQuantity(String itemName, int quantity) {
+  void updateCartItemQuantity(String itemName, double quantity) {
     final entry = _cartItems.entries.firstWhere(
       (e) => e.value.name == itemName,
       orElse: () => throw Exception('Item not found in cart'),
@@ -184,6 +196,8 @@ class SessionProvider with ChangeNotifier {
         taxRate: item.taxRate,
         tax: itemTax,
         total: itemTotal + itemTax,
+        unit: item.unit,
+        pricePerUnit: item.pricePerUnit,
       );
     }
 
@@ -219,6 +233,56 @@ class SessionProvider with ChangeNotifier {
   /// Remove item from cart
   void removeFromCart(String itemName) {
     _cartItems.removeWhere((key, item) => item.name == itemName);
+    notifyListeners();
+  }
+
+  /// Add temporary item to cart (for barcode-scanned items not yet in library)
+  /// This creates a session item directly without an ItemEntity
+  void addTemporaryItemToCart({
+    required String name,
+    required double price,
+    String? barcode,
+    double quantity = 1,
+    double taxRate = 0,
+    String? unit,
+  }) {
+    // Use name as key for temporary items
+    final key = name.toLowerCase().replaceAll(' ', '_');
+
+    if (_cartItems.containsKey(key)) {
+      // Update quantity if item already exists
+      final existing = _cartItems[key]!;
+      final newQty = existing.qty + quantity;
+      final itemTotal = price * newQty;
+      final itemTax = _isTaxEnabled ? (itemTotal * (taxRate / 100)) : 0.0;
+
+      _cartItems[key] = SessionItemEntity(
+        name: name,
+        hsnCode: barcode, // Store barcode in hsnCode field temporarily
+        price: price,
+        qty: newQty,
+        taxRate: taxRate,
+        tax: itemTax,
+        total: itemTotal + itemTax,
+        unit: unit ?? existing.unit ?? 'piece',
+      );
+    } else {
+      // Add new temporary item
+      final itemTotal = price * quantity;
+      final itemTax = _isTaxEnabled ? (itemTotal * (taxRate / 100)) : 0.0;
+
+      _cartItems[key] = SessionItemEntity(
+        name: name,
+        hsnCode: barcode, // Store barcode in hsnCode field temporarily
+        price: price,
+        qty: quantity,
+        taxRate: taxRate,
+        tax: itemTax,
+        total: itemTotal + itemTax,
+        unit: unit ?? 'piece',
+      );
+    }
+
     notifyListeners();
   }
 
@@ -275,7 +339,10 @@ class SessionProvider with ChangeNotifier {
     }
 
     final cart = _parkedCarts[cartId]!;
-    final itemCount = cart.values.fold(0, (sum, item) => sum + item.qty);
+    final itemCount = cart.values.fold(
+      0,
+      (sum, item) => sum + item.qty.toInt(),
+    );
     final total = cart.values.fold(0.0, (sum, item) => sum + item.total);
 
     return {'items': itemCount, 'total': total};

@@ -2,7 +2,8 @@
 /// Stores item with unit information for smart billing
 class ParsedItem {
   final String name;
-  final double price; // Total price mentioned by merchant
+  final double?
+  price; // OPTIONAL: Price for Fast Input (searches library first)
   final String? unit; // Full unit string (e.g., "1 kg", "500 ml")
   final double? quantity; // Numeric quantity (1, 0.5, 2.5, etc.)
   final String? unitType; // Unit type only (kg, liter, piece, etc.)
@@ -10,7 +11,7 @@ class ParsedItem {
 
   ParsedItem({
     required this.name,
-    required this.price,
+    this.price, // Optional - Fast Input searches library, only requires price if not found
     this.unit,
     this.quantity,
     this.unitType,

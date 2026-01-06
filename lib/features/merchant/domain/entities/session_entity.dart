@@ -3,11 +3,16 @@ class SessionItemEntity {
   final String name;
   final String? hsnCode;
   final double price;
-  final int qty;
+  final double
+  qty; // Changed from int to double to support fractional quantities (0.5kg, 2.5kg, etc.)
   final double taxRate;
   final double tax;
   final double discount; // Item-level discount amount
   final double total;
+
+  // Unit support for weight-based billing
+  final String unit; // 'piece', 'kg', 'gram', 'liter', 'ml'
+  final double? pricePerUnit; // Price per kg/liter (null for piece-based items)
 
   const SessionItemEntity({
     required this.name,
@@ -18,6 +23,8 @@ class SessionItemEntity {
     required this.tax,
     this.discount = 0,
     required this.total,
+    this.unit = 'piece',
+    this.pricePerUnit,
   });
 
   double get subtotal => price * qty;

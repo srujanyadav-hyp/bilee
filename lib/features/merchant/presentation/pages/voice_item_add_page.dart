@@ -5,7 +5,7 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../domain/entities/item_entity.dart';
 import '../../domain/models/parsed_item.dart';
 import '../../domain/services/voice_recognition_service.dart';
-import '../../domain/services/voice_item_parser.dart';
+import '../../domain/services/voice_item_library_parser.dart';
 import '../../domain/services/item_duplicate_checker.dart';
 import '../providers/item_provider.dart';
 import '../widgets/voice_language_selector.dart';
@@ -25,7 +25,7 @@ class VoiceItemAddPage extends StatefulWidget {
 
 class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
   late VoiceRecognitionService _voiceService;
-  late VoiceItemParser _parser;
+  late VoiceItemLibraryParser _parser;
   late ItemDuplicateChecker _duplicateChecker;
 
   ParsedItem? _currentParsedItem;
@@ -36,7 +36,7 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
   void initState() {
     super.initState();
     _voiceService = VoiceRecognitionService();
-    _parser = VoiceItemParser();
+    _parser = VoiceItemLibraryParser();
     _duplicateChecker = ItemDuplicateChecker();
 
     // Initialize voice service
@@ -526,23 +526,29 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
     }
   }
 
-  void _handleVoiceResult(String result) {
-    if (result.trim().isEmpty) return;
+  Future<void> _handleVoiceResult(String result) async {
+    print('🎤 Voice result received: "$result"');
+    if (result.trim().isEmpty) {
+      print('⚠️ Empty voice result, ignoring');
+      return;
+    }
 
     setState(() => _isProcessing = true);
 
-    // Parse the voice input
-    final parsed = _parser.parseVoiceInput(result);
+    // Parse the voice input (with translation for multilingual support)
+    final parsed = await _parser.parse(result);
+    print('✅ Parsed result: ${parsed?.name} - ₹${parsed?.price}');
 
     setState(() {
       _isProcessing = false;
       _currentParsedItem = parsed;
     });
 
-    if (parsed == null) {
-      _showError(
-        'Did not understand. Please speak clearly: Item name and price',
-      );
+    if (parsed == null || parsed.price == null || parsed.price! <= 0) {
+      print('❌ Failed to parse voice input or price missing');
+      _showError('Please say item name AND price. Example: "Rice 60 rupees"');
+      // Restart listening after error
+      _restartListening();
     }
   }
 
@@ -565,7 +571,7 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
         context: context,
         builder: (context) => DuplicateItemDialog(
           newItemName: _currentParsedItem!.name,
-          newItemPrice: _currentParsedItem!.price,
+          newItemPrice: _currentParsedItem!.price ?? 0.0,
           existingItem: existingItem,
         ),
       );
@@ -601,15 +607,100 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
   Future<void> _addNewItem() async {
     if (_currentParsedItem == null) return;
 
+    // Debug logging
+    debugPrint('🔍 _addNewItem called');
+    debugPrint('   📦 Parsed item: ${_currentParsedItem!.name}');
+    debugPrint('   💰 Price: ${_currentParsedItem!.price}');
+    debugPrint('   📏 Unit: ${_currentParsedItem!.unit}');
+    debugPrint('   📊 Unit Type: ${_currentParsedItem!.unitType}');
+    debugPrint('   🔢 Quantity: ${_currentParsedItem!.quantity}');
+    debugPrint('   💵 Price per unit: ${_currentParsedItem!.pricePerUnit}');
+
+    // Map unit type to standard unit string FIRST
+    // Use the actual unit string from parser (e.g., "కిలో", "గ్రాములు")
+    String unit = 'piece'; // default
+    bool isWeightBased = false;
+
+    if (_currentParsedItem!.unit != null &&
+        _currentParsedItem!.unit!.isNotEmpty) {
+      final unitStr = _currentParsedItem!.unit!.toLowerCase();
+      debugPrint('   🔎 Checking unit string: "$unitStr"');
+
+      // Check for weight units (kg, gram)
+      if (unitStr.contains('కిలో') ||
+          unitStr.contains('kg') ||
+          unitStr.contains('kilo')) {
+        unit = 'kg';
+        isWeightBased = true;
+        debugPrint('   ✅ Detected as KG (weight-based)');
+      } else if (unitStr.contains('గ్రా') ||
+          unitStr.contains('gram') ||
+          unitStr.contains('gm')) {
+        unit = 'gram';
+        isWeightBased = true;
+        debugPrint('   ✅ Detected as GRAM (weight-based)');
+      }
+      // Check for volume units (liter, ml)
+      else if (unitStr.contains('లీ') ||
+          unitStr.contains('liter') ||
+          unitStr.contains('litre')) {
+        unit = 'liter';
+        isWeightBased = true;
+        debugPrint('   ✅ Detected as LITER (weight-based)');
+      } else if (unitStr.contains('ml') || unitStr.contains('milliliter')) {
+        unit = 'ml';
+        isWeightBased = true;
+        debugPrint('   ✅ Detected as ML (weight-based)');
+      }
+      // Check for quantity units (dozen, pack, box, bottle)
+      else if (unitStr.contains('dozen') || unitStr.contains('డజన్')) {
+        unit = 'dozen';
+        isWeightBased = true; // Treat as weight-based to show unit beside price
+        debugPrint('   ✅ Detected as DOZEN (quantity unit)');
+      } else if (unitStr.contains('pack') || unitStr.contains('packet')) {
+        unit = 'pack';
+        isWeightBased = true;
+        debugPrint('   ✅ Detected as PACK (quantity unit)');
+      } else if (unitStr.contains('box') || unitStr.contains('carton')) {
+        unit = 'box';
+        isWeightBased = true;
+        debugPrint('   ✅ Detected as BOX (quantity unit)');
+      } else if (unitStr.contains('bottle') || unitStr.contains('బాటిల్')) {
+        unit = 'bottle';
+        isWeightBased = true;
+        debugPrint('   ✅ Detected as BOTTLE (quantity unit)');
+      }
+      // For unrecognized units, use piece
+      else {
+        unit = 'piece';
+        isWeightBased = false;
+        debugPrint('   ℹ️ No recognized unit detected, using PIECE');
+      }
+    } else {
+      debugPrint('   ⚠️ No unit string found, defaulting to PIECE');
+    }
+
+    debugPrint('   📋 Final values: unit=$unit, isWeightBased=$isWeightBased');
+
+    // Calculate pricePerUnit if not provided
+    final basePrice = _currentParsedItem!.price ?? 0.0;
+    final calculatedPricePerUnit =
+        _currentParsedItem!.pricePerUnit ?? (isWeightBased ? basePrice : null);
+
     final item = ItemEntity(
       id: '',
       merchantId: widget.merchantId,
       name: _currentParsedItem!.name,
       hsnCode: null,
-      price: _currentParsedItem!.price,
+      price: basePrice,
       taxRate: 18.0,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      // ✅ ADD UNIT INFORMATION FROM PARSED ITEM
+      unit: unit,
+      isWeightBased: isWeightBased,
+      pricePerUnit: calculatedPricePerUnit,
+      defaultQuantity: _currentParsedItem!.quantity,
     );
 
     final success = await context.read<ItemProvider>().createItem(item);
@@ -671,29 +762,164 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
   }
 
   void _editCurrentItem() {
-    // TODO: Implement manual edit dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Edit feature coming soon. For now, skip and add manually.',
-        ),
-      ),
+    if (_currentParsedItem == null) return;
+
+    final nameController = TextEditingController(
+      text: _currentParsedItem!.name,
+    );
+    final priceController = TextEditingController(
+      text: _currentParsedItem!.price.toString(),
+    );
+    final quantityController = TextEditingController(
+      text: _currentParsedItem!.quantity?.toString() ?? '1',
+    );
+    final unitController = TextEditingController(
+      text: _currentParsedItem!.unit ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit Item'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Item Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: priceController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Price (₹)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: quantityController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: unitController,
+                  decoration: const InputDecoration(
+                    labelText: 'Unit (e.g., kg, liter, piece)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // Dispose controllers before closing dialog
+                nameController.dispose();
+                priceController.dispose();
+                quantityController.dispose();
+                unitController.dispose();
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Update the parsed item with edited values
+                final editedPrice = double.tryParse(priceController.text);
+                final editedQuantity =
+                    double.tryParse(quantityController.text) ?? 1.0;
+                final editedName = nameController.text.trim();
+                final editedUnit = unitController.text.trim();
+
+                if (editedPrice == null || editedPrice <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid price'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                  return;
+                }
+
+                if (editedName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter an item name'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                  return;
+                }
+
+                // Close dialog first
+                Navigator.of(dialogContext).pop();
+
+                // Dispose controllers AFTER dialog is fully dismissed
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  nameController.dispose();
+                  priceController.dispose();
+                  quantityController.dispose();
+                  unitController.dispose();
+                });
+
+                // Update state after dialog is closed
+                setState(() {
+                  _currentParsedItem = ParsedItem(
+                    name: editedName,
+                    price: editedPrice,
+                    quantity: editedQuantity,
+                    unit: editedUnit.isEmpty ? null : editedUnit,
+                    unitType: _currentParsedItem!.unitType,
+                    pricePerUnit: _currentParsedItem!.pricePerUnit,
+                  );
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Item updated successfully'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Future<void> _restartListening() async {
     // Small delay to ensure previous processing is complete
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 800));
 
     if (!mounted) return;
 
     // Use stored _voiceService instead of context.read to avoid Provider errors
     if (!_voiceService.isListening && _voiceService.isInitialized) {
+      print('🎤 Restarting voice recognition...');
       await _voiceService.startListening(
         onResult: _handleVoiceResult,
         onPartialResult: (partial) {
           setState(() {});
         },
+      );
+      print('🎤 Voice recognition restarted successfully');
+    } else {
+      print(
+        '⚠️ Cannot restart: isListening=${_voiceService.isListening}, isInitialized=${_voiceService.isInitialized}',
       );
     }
   }

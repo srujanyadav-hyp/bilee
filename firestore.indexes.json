@@ -17,6 +17,20 @@
                     "order": "DESCENDING"
                 }
             ]
+        },
+        {
+            "collectionGroup": "items",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "merchantId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "barcode",
+                    "order": "ASCENDING"
+                }
+            ]
         }
     ],
     "fieldOverrides": []

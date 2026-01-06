@@ -113,11 +113,16 @@ class _ReceiptListScreenState extends State<ReceiptListScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('My Receipts'),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
+        title: Text(
+          'My Receipts',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        ),
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),

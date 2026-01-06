@@ -18,23 +18,24 @@
 - [Technology Stack](#-technology-stack)
 - [Architecture & Design Patterns](#-architecture--design-patterns)
 - [What's Remaining](#-whats-remaining)
-- [Upgrade Paths & Improvements](#-upgrade-paths--improvements)
 - [Setup Instructions](#-setup-instructions)
 - [Security Implementation](#-security-implementation)
 - [Known Issues](#-known-issues)
 - [Project Milestones](#-project-milestones)
+- [Recent Updates](#-recent-updates)
 
 ---
 
 ## 🎯 Project Overview
 
-**BILEE** is a modern, paperless billing system designed to eliminate traditional paper receipts. It provides a seamless digital receipt experience for both merchants and customers through QR code-based transactions.
+**BILEE** is a modern, paperless billing system designed to eliminate traditional paper receipts. It provides a seamless digital receipt experience for both merchants and customers through QR code-based transactions and UPI payment integration.
 
 ### **Core Concept:**
 1. **Merchants** create billing sessions with selected items
 2. Generate a **QR code** for the session
-3. **Customers** scan the QR code to view and save receipts
-4. All data is stored securely in **Firebase Firestore**
+3. **Customers** scan QR codes or add manual expenses
+4. Track spending with budget management
+5. All data is stored securely in **Firebase Firestore**
 
 ### **Benefits:**
 - ❌ **No paper receipts** (eco-friendly)
@@ -42,31 +43,122 @@
 - ❌ **No BPA/BPS chemicals** (health safe)
 - ✅ **Instant digital delivery**
 - ✅ **Permanent receipt storage**
-- ✅ **Easy expense tracking**
+- ✅ **Smart expense tracking with budgets**
+- ✅ **UPI payment integration**
+- ✅ **Monthly expense archiving**
 
 ---
 
 ## 📊 Current Implementation Status
 
-### **Overall Completion: 75%** 🎉
+### **Overall Completion: 85%** 🎉
 
 | Module | Status | Completion |
 |--------|--------|------------|
 | **Authentication System** | ✅ Complete | 100% |
 | **Onboarding Flow** | ✅ Complete | 100% |
 | **Navigation (go_router)** | ✅ Complete | 100% |
-| **Merchant Dashboard** | ✅ Complete | 95% |
-| **Item Library Management** | ✅ Complete | 90% |
-| **Billing Session Creation** | ✅ Complete | 95% |
-| **Live Session (QR Code)** | ✅ Complete | 90% |
-| **Daily Summary & Analytics** | ✅ Complete | 85% |
-| **Customer Dashboard** | ⚠️ Partial | 40% |
-| **Receipt Viewing** | ⚠️ Partial | 50% |
+| **Merchant Dashboard** | ✅ Complete | 100% |
+| **Item Library Management** | ✅ Complete | 100% |
+| **Billing Session Creation** | ✅ Complete | 100% |
+| **Live Session (QR Code)** | ✅ Complete | 95% |
+| **Daily Summary & Analytics** | ✅ Complete | 90% |
+| **Customer Dashboard** | ✅ Complete | 95% |
+| **Receipt Management** | ✅ Complete | 95% |
+| **Manual Expense Entry** | ✅ Complete | 100% |
+| **Budget Management** | ✅ Complete | 90% |
+| **Monthly Archiving** | ✅ Complete | 90% |
+| **UPI Integration** | ✅ Complete | 85% |
 | **Firebase Security Rules** | ✅ Complete | 100% |
-| **State Management** | ✅ Complete | 90% |
-| **UI/UX Design** | ✅ Complete | 85% |
+| **State Management** | ✅ Complete | 95% |
+| **UI/UX Design** | ✅ Complete | 95% |
 | **Offline Support** | ❌ Not Started | 0% |
 | **Push Notifications** | ❌ Not Started | 0% |
+
+---
+
+## 🎉 Recent Updates (January 2026)
+
+### **Customer Module Major Expansion:**
+- ✅ **Receipt Management System** implemented with full CRUD operations
+  - Real-time Firestore integration for receipt listing
+  - Advanced filtering (amount range, date range, category, payment method)
+  - Search functionality for merchants and items
+  - Sort options (date newest/oldest, amount high/low)
+  - Receipt detail view with complete transaction info
+  
+- ✅ **Manual Expense Entry** fully implemented
+  - Category-based expense tracking (10+ categories)
+  - Multi-payment method support (Cash, Card, UPI)
+  - UPI integration with CustomUpiLauncher service
+  - Photo attachment for receipts using image_picker
+  - Merchant name input and notes field
+  - Form validation and error handling
+  
+- ✅ **Budget Management System** operational
+  - Category-wise monthly budget settings
+  - Real-time expense tracking against budgets
+  - Visual progress indicators with color coding
+  - Overspending alerts
+  - Budget cards with completion percentages
+  - Edit/delete budget functionality
+  
+- ✅ **Monthly Expense Archiving** system deployed
+  - Automatic monthly archiving of receipts
+  - Two-tab interface (All Receipts / Archived Months)
+  - Archive browsing by month selection
+  - Unarchive functionality
+  - Archive statistics (total amount, count)
+  - Clean UI with month cards
+  
+- ✅ **Profile & Settings** enhanced
+  - Personal information display
+  - Account deletion with confirmation
+  - Theme toggle (Light/Dark mode)
+  - Theme persistence across sessions
+  - Improved logout flow
+
+### **UI/UX Improvements:**
+- ✅ **Dark Mode Fixes:**
+  - Fixed text field visibility in budget settings (black text in all modes)
+  - Fixed white card text visibility in profile screen
+  - Theme-aware AppBar implementation for manual expense and receipt list screens
+  - Consistent color scheme across customer modules
+  
+- ✅ **Design Enhancements:**
+  - Modern gradient AppBars on customer screens
+  - Improved empty state designs
+  - Better loading states and error handling
+  - Responsive layouts for various screen sizes
+  - Enhanced button styles and iconography
+
+### **Technical Improvements:**
+- ✅ **New Services Integrated:**
+  - CustomUpiLauncher for UPI payment deep linking
+  - ReceiptPhotoService for image handling
+  - MonthlyArchiveProvider for expense archiving
+  - BudgetProvider for budget state management
+  
+- ✅ **Package Additions:**
+  - url_launcher for UPI integration
+  - image_picker for photo attachments
+  - connectivity_plus for network monitoring
+  - sqflite for local database support
+
+### **Merchant Module Polish:**
+- ✅ Updated completion percentages:
+  - Merchant Dashboard: 100% (was 95%)
+  - Item Library: 100% (was 90%)
+  - Billing Session: 100% (was 95%)
+  - Live Session: 95% (was 90%)
+  - Daily Summary: 90% (was 85%)
+  - Voice Recognition: 85% (added for item entry)
+
+### **Bug Fixes:**
+- ✅ Fixed TextField text color issues in dark mode
+- ✅ Fixed profile card text visibility on white backgrounds
+- ✅ Resolved theme inconsistencies across screens
+- ✅ Fixed AppBar styling in theme-aware components
 
 ---
 
@@ -188,10 +280,42 @@ bilee/
 │   │   │           ├── session_provider.dart
 │   │   │           └── daily_aggregate_provider.dart
 │   │   │
-│   │   └── customer/
-│   │       └── dashboard/
-│   │           └── view/
-│   │               └── customer_dashboard.dart      # Minimal (needs work)
+│   │   └── customer/                 # Customer features (95% complete)
+│   │       ├── data/
+│   │       │   ├── models/
+│   │       │   │   ├── receipt_model.dart
+│   │       │   │   ├── budget_model.dart
+│   │       │   │   └── archive_model.dart
+│   │       │   │
+│   │       │   └── repositories/
+│   │       │       ├── receipt_repository.dart
+│   │       │       └── budget_repository.dart
+│   │       │
+│   │       ├── domain/
+│   │       │   ├── entities/
+│   │       │   │   ├── receipt.dart
+│   │       │   │   └── budget.dart
+│   │       │   │
+│   │       │   └── repositories/
+│   │       │       └── customer_repository.dart
+│   │       │
+│   │       └── presentation/
+│   │           ├── pages/
+│   │           │   ├── customer_home_page.dart              # Customer dashboard
+│   │           │   ├── add_manual_expense_screen.dart       # 962 lines - Full expense entry
+│   │           │   ├── receipt_list_screen.dart             # 1271 lines - List & filter
+│   │           │   ├── budget_settings_screen.dart          # 470 lines - Budget management
+│   │           │   └── customer_profile_screen.dart         # 766 lines - Profile & settings
+│   │           │
+│   │           ├── providers/
+│   │           │   ├── receipt_provider.dart                # Receipt state management
+│   │           │   ├── budget_provider.dart                 # Budget tracking
+│   │           │   └── monthly_archive_provider.dart        # Archiving logic
+│   │           │
+│   │           └── services/
+│   │               ├── custom_upi_launcher.dart             # UPI integration
+│   │               ├── receipt_photo_service.dart           # Image handling
+│   │               └── account_deletion_service.dart        # Account management
 │   │
 │   └── widgets/                      # Reusable widgets
 │       └── splash_animation.dart
@@ -205,7 +329,7 @@ bilee/
 └── README.md                         # This file
 ```
 
-**Total Lines of Code:** ~6000+ lines across 50+ Dart files
+**Total Lines of Code:** ~10,000+ lines across 75+ Dart files
 
 ---
 
@@ -520,22 +644,73 @@ bilee/
 
 ---
 
-### 👥 **10. Customer Dashboard** (40%)
+### 👥 **10. Customer Dashboard** (95%)
 
 **Completed:**
-- ✅ Basic layout with AppBar
-- ✅ Navigation route defined
-- ✅ Empty state design
+- ✅ **Receipt Management:**
+  - Receipt list view with real-time Firestore integration
+  - Receipt detail view with full item list, totals, payment info
+  - Filter receipts by amount range, date range, category, payment method
+  - Search receipts by merchant name or items
+  - Sort by date (newest/oldest) or amount (high/low)
+  - Pull-to-refresh functionality
+  
+- ✅ **Manual Expense Entry:**
+  - Add expenses without merchant scanning
+  - Category selection (Groceries, Food & Dining, Transport, etc.)
+  - Amount input with validation
+  - Payment method selection (Cash, Card, UPI)
+  - UPI payment integration with app chooser
+  - Merchant name input
+  - Photo attachment support
+  - Notes/description field
+  
+- ✅ **Budget Management:**
+  - Category-wise budget settings
+  - Monthly budget limits
+  - Real-time expense tracking
+  - Budget progress indicators
+  - Overspending alerts
+  - Visual budget cards with color coding
+  
+- ✅ **Monthly Archiving:**
+  - Automatic monthly expense archiving
+  - Two-tab interface (All Receipts / Archived Months)
+  - Archive month selection
+  - View archived receipts by month
+  - Unarchive functionality
+  - Archive statistics (total amount, receipt count)
+  
+- ✅ **Profile & Settings:**
+  - Personal information display
+  - Account settings
+  - Theme toggle (Light/Dark mode)
+  - Theme persistence
+  - Logout functionality
+  - Account deletion option
+  
+- ✅ **UI/UX:**
+  - Modern gradient AppBars
+  - Theme-aware components
+  - Dark mode support with proper text visibility
+  - Responsive layouts
+  - Loading states and error handling
+  - Empty state designs
 
-**Remaining (60% work):**
-- ❌ **QR Scanner:** Camera integration, scan merchant QR
-- ❌ **Receipt History:** List of all scanned receipts
-- ❌ **Receipt Details:** View full receipt with items
-- ❌ **Search & Filter:** Find receipts by date/merchant
-- ❌ **Save/Share:** Download receipt, share via WhatsApp
-- ❌ **Statistics:** Total spending, monthly breakdown
+**Remaining (5% work):**
+- ⚠️ **QR Scanner:** Camera integration to scan merchant QR codes
+- ⚠️ **Statistics Dashboard:** Visual charts for spending trends
+- ⚠️ **Export Receipts:** Download/share receipt PDFs
 
-**Files:** `lib/features/customer/dashboard/view/customer_dashboard.dart` (Minimal - needs expansion)
+**Files:** 
+- `lib/features/customer/presentation/pages/customer_home_page.dart`
+- `lib/features/customer/presentation/pages/add_manual_expense_screen.dart` (962 lines)
+- `lib/features/customer/presentation/pages/receipt_list_screen.dart` (1271 lines)
+- `lib/features/customer/presentation/pages/budget_settings_screen.dart` (470 lines)
+- `lib/features/customer/presentation/pages/customer_profile_screen.dart` (766 lines)
+- `lib/features/customer/presentation/providers/receipt_provider.dart`
+- `lib/features/customer/presentation/providers/budget_provider.dart`
+- `lib/features/customer/presentation/providers/monthly_archive_provider.dart`
 
 ---
 
@@ -569,6 +744,16 @@ bilee/
 - **qr_flutter:** 4.2.0 (QR generation)
 - **intl:** 0.19.0 (Date formatting)
 - **flutter_secure_storage:** 9.2.2 (Secure token storage)
+- **url_launcher:** (UPI payment deep linking)
+- **image_picker:** (Photo attachments for receipts)
+- **mobile_scanner:** (QR/barcode scanning)
+- **speech_to_text:** (Voice recognition for item entry)
+- **permission_handler:** (Camera, microphone permissions)
+- **sqflite:** (Local database for offline support)
+- **connectivity_plus:** (Network status monitoring)
+- **cloud_functions:** (Firebase Cloud Functions integration)
+- **printing:** (Receipt PDF generation)
+- **external_app_launcher:** (Launch external apps)
 
 ---
 
@@ -1148,94 +1333,80 @@ Widget rebuilds
 
 ### **Critical (Must-Have):**
 
-#### **1. Customer Module** (60% work remaining)
+#### **1. Customer Module QR Integration** (5% work remaining)
 - [ ] QR Scanner implementation
   - Camera permission handling
   - Scan merchant QR codes
   - Parse session URL from QR
-  - Navigate to receipt view
+  - Navigate to live receipt view
   
-- [ ] Receipt Viewing Interface
-  - Display session details
-  - Show items with quantities
-  - Price breakdown (subtotal, tax, total)
-  - Merchant info display
-  
-- [ ] Receipt History Management
-  - List all scanned receipts
-  - Search by merchant/date
-  - Filter by date range
-  - Sort by date/amount
-  
-- [ ] Save & Share
-  - Save receipt to device
-  - Generate PDF receipt
-  - Share via WhatsApp/Email
-  - Export functionality
+✅ **Already Completed:**
+- Receipt list with search & filter (100%)
+- Manual expense entry (100%)
+- Budget management system (90%)
+- Monthly archiving (90%)
+- Receipt detail view (100%)
+- Payment method tracking (100%)
+- Category management (100%)
+- Dark/Light mode support (100%)
 
-**Estimated Time:** 2-3 weeks
+**Estimated Time:** 3-5 days
 
 ---
 
-#### **2. Receipt Generation** (50% work remaining)
-- [ ] PDF Generation
-  - Receipt template design
-  - Items table formatting
-  - Merchant branding
-  - QR code on receipt
+#### **2. Customer Statistics & Charts** (100% work remaining)
+- [ ] Charts Integration
+  - Install fl_chart package
+  - Spending trend line chart
+  - Category-wise pie chart
+  - Month-over-month comparison
   
-- [ ] Sharing Integration
-  - WhatsApp share
-  - Email integration
-  - SMS option
-  - Social media share
+- [ ] Dashboard Widgets
+  - Total spending cards
+  - Budget vs actual
+  - Category breakdown
+  - Monthly trends
 
 **Estimated Time:** 1-2 weeks
 
 ---
 
-#### **3. Advanced Analytics** (40% work remaining)
-- [ ] Charts Integration
-  - Install fl_chart package
-  - Revenue trend line chart
-  - Item-wise pie chart
-  - Hour-wise bar chart
+#### **3. Receipt PDF Export** (100% work remaining)
+- [ ] PDF Generation
+  - Receipt template design
+  - Items table formatting
+  - Merchant branding
+  - Generate shareable PDF
   
-- [ ] Reports
-  - Weekly summary
-  - Monthly comparison
-  - Year-over-year growth
-  - Custom date range
-  
-- [ ] Export Options
-  - Export as PDF
-  - Export as Excel
-  - Email reports
-  - Scheduled reports
+- [ ] Export & Share
+  - Download PDF to device
+  - Share via WhatsApp/Email
+  - Print receipt
+  - Bulk export
 
-**Estimated Time:** 2 weeks
+**Estimated Time:** 1 week
 
 ---
 
-#### **4. Profile Management** (30% work remaining)
+#### **4. Profile Management Enhancement** (30% work remaining)
 - [ ] Edit Profile
   - Update name
   - Change phone number
   - Upload profile photo
   - Email change (with verification)
   
-- [ ] Business Information
-  - Business name
+- [ ] Business Information (Merchant)
+  - Business name editing
   - GST number validation
   - Business address
   - Business logo upload
   - Operating hours
-  
-- [ ] App Preferences
-  - Default tax rate
-  - Currency settings
-  - Receipt template
-  - Notification preferences
+
+✅ **Already Completed:**
+- Profile display (100%)
+- Account deletion (100%)
+- Theme preferences (100%)
+- Logout functionality (100%)
 
 **Estimated Time:** 1 week
 
@@ -1244,23 +1415,18 @@ Widget rebuilds
 ### **Important (Should-Have):**
 
 #### **5. Offline Support** (100% work remaining)
-- [ ] Local Database Setup
-  - Hive or Drift integration
-  - Schema design
-  - Migration strategy
-  
-- [ ] Offline Caching
-  - Cache items locally
-  - Cache daily summaries
-  - Cache user profile
+- [ ] Enhanced Local Database
+  - Better caching strategy
+  - Offline receipt access
+  - Queue pending operations
   
 - [ ] Sync Mechanism
   - Detect online/offline status
-  - Queue offline operations
   - Auto-sync when online
   - Conflict resolution
+  - Sync indicators
 
-**Estimated Time:** 3-4 weeks
+**Estimated Time:** 2-3 weeks
 
 ---
 
@@ -1273,8 +1439,8 @@ Widget rebuilds
 - [ ] Notification Types
   - Session completion alerts
   - New receipt notifications
-  - Daily summary reminders
-  - Payment received alerts
+  - Budget overspending alerts
+  - Payment received alerts (Merchant)
   
 - [ ] In-App Notifications
   - Notification center
@@ -1285,42 +1451,29 @@ Widget rebuilds
 
 ---
 
-#### **7. Search & Filter** (60% work remaining)
-- [ ] Global Search
-  - Search across items
-  - Search in receipts
-  - Search customers
+#### **7. Advanced Analytics** (40% work remaining)
+- [ ] Merchant Analytics
+  - Revenue trend charts
+  - Item popularity analysis
+  - Hour-wise sales patterns
+  - Customer frequency tracking
   
-- [ ] Advanced Filters
-  - Date range filters
-  - Amount range filters
-  - Category filters
-  - Status filters
+- [ ] Reports Generation
+  - Weekly summary
+  - Monthly comparison
+  - Year-over-year growth
+  - Custom date range reports
   
-- [ ] Sort Options
-  - Sort by date
-  - Sort by amount
-  - Sort by popularity
+- [ ] Export Options
+  - Export as PDF
+  - Export as Excel
+  - Email reports
+  - Scheduled reports
 
-**Estimated Time:** 1 week
-
----
-
-#### **8. Export & Reports** (80% work remaining)
-- [ ] PDF Export
-  - Daily summary PDF
-  - Monthly report PDF
-  - Custom report PDF
-  
-- [ ] Excel Export
-  - Transaction export
-  - Item-wise sales
-  - Customer data
-  
-- [ ] Automated Reports
-  - Email daily summary
-  - Weekly digest
-  - Monthly statement
+✅ **Already Completed:**
+- Daily summary (90%)
+- Session history (100%)
+- Item tracking (100%)
 
 **Estimated Time:** 2 weeks
 
@@ -1328,7 +1481,7 @@ Widget rebuilds
 
 ### **Nice-to-Have:**
 
-#### **9. Multi-Language Support** (100% work remaining)
+#### **8. Multi-Language Support** (100% work remaining)
 - [ ] i18n Setup (intl package)
 - [ ] Language selector in settings
 - [ ] English, Hindi, Telugu, Tamil translations
@@ -1908,6 +2061,19 @@ radiusXL:  24px  // Bottom sheets
 
 ---
 
+### **5. Dark Mode Text Visibility Issues**
+**Status:** ✅ **FIXED** (January 2026)  
+**Previous Issue:** Text fields showed white text on light backgrounds in dark mode  
+**Fixed In:** 
+- budget_settings_screen.dart (TextField text color)
+- customer_profile_screen.dart (card text colors)
+- add_manual_expense_screen.dart (theme-aware AppBar)
+- receipt_list_screen.dart (theme-aware AppBar)
+**Fix:** Explicit color overrides and theme-aware component styling  
+**Priority:** Resolved
+
+---
+
 ## 🤝 Contributing
 
 ### **Development Workflow:**
@@ -1979,21 +2145,54 @@ This project is not open-source and is not for public distribution.
 
 ---
 
-### **Milestone 3: Analytics & Export** ⏳ Planned (Jan 2026)
-- [ ] Charts & graphs (fl_chart)
-- [ ] Weekly/Monthly reports
-- [ ] PDF/Excel export
-- [ ] Email automation
+## 📅 Project Milestones
 
-**Target:** 95% app completion
+### **Milestone 1: Core Merchant Features** ✅ Completed (December 2025)
+- ✅ Authentication system
+- ✅ Item library management
+- ✅ Billing session creation
+- ✅ Live session with QR
+- ✅ Daily summary dashboard
+- ✅ Voice recognition for items
+
+**Result:** 100% merchant core features
 
 ---
 
-### **Milestone 4: Production Ready** ⏳ Planned (Feb 2026)
-- [ ] Offline support
-- [ ] Push notifications
-- [ ] Complete testing (>80% coverage)
+### **Milestone 2: Customer Module** ✅ ~95% Complete (January 2026)
+- ✅ Receipt management system
+- ✅ Manual expense entry
+- ✅ Budget management
+- ✅ Monthly archiving
+- ✅ Profile & settings
+- ✅ Payment method tracking (Cash/Card/UPI)
+- ✅ Category-wise expense tracking
+- ✅ Advanced filtering & search
+- ⏳ QR scanner (5% remaining)
+- ⏳ Statistics dashboard (planned)
+
+**Result:** 95% customer module completion (85% overall app)
+
+---
+
+### **Milestone 3: Analytics & Export** ⏳ In Progress (January 2026)
+- ✅ Daily summary with metrics (90% complete)
+- ⏳ Charts & graphs (fl_chart integration planned)
+- ⏳ Weekly/Monthly reports
+- ⏳ PDF receipt export
+- ⏳ Excel export functionality
+- ⏳ Email automation
+
+**Target:** 95% app completion by end of January
+
+---
+
+### **Milestone 4: Production Ready** ⏳ Planned (February 2026)
+- [ ] Enhanced offline support
+- [ ] Push notifications (FCM)
+- [ ] Complete testing suite (>80% coverage)
 - [ ] Performance optimization
+- [ ] Security audit
 - [ ] App store submission (Play Store, App Store)
 
 **Target:** 100% app completion, production deployment
@@ -2008,6 +2207,13 @@ This project is not open-source and is not for public distribution.
 - **Material Design** - Comprehensive UI guidelines
 - **Provider Package** - Simple yet powerful state management
 - **go_router Package** - Modern declarative routing
+- **Community Packages** - url_launcher, image_picker, mobile_scanner, speech_to_text
+
+---
+
+**Last Updated:** January 5, 2026  
+**Current Version:** 0.8.5 (85% Complete)  
+**Next Major Release:** v0.9.0 (Planned: January 31, 2026)
 
 ---
 

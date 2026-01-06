@@ -65,6 +65,30 @@ class MerchantRepositoryImpl implements IMerchantRepository {
   }
 
   @override
+  Future<ItemEntity?> searchItemByBarcode(
+    String merchantId,
+    String barcode,
+  ) async {
+    try {
+      final querySnapshot = await _dataSource.firestore
+          .collection('items')
+          .where('merchantId', isEqualTo: merchantId)
+          .where('barcode', isEqualTo: barcode)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+
+      return ItemModel.fromFirestore(querySnapshot.docs.first).toEntity();
+    } catch (e) {
+      FirebaseErrorHandler.logError('searchItemByBarcode', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
+    }
+  }
+
+  @override
   Future<void> createItem(ItemEntity item) async {
     try {
       final model = ItemModel(
@@ -74,9 +98,15 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         price: item.price,
         hsn: item.hsnCode,
         category: null,
+        barcode: item.barcode,
         taxRate: item.taxRate,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
+        // ✅ ADD UNIT INFORMATION FROM ENTITY
+        unit: item.unit,
+        isWeightBased: item.isWeightBased,
+        pricePerUnit: item.pricePerUnit,
+        defaultQuantity: item.defaultQuantity,
       );
 
       await _dataSource.createItem(model);
@@ -96,9 +126,15 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         price: item.price,
         hsn: item.hsnCode,
         category: null,
+        barcode: item.barcode,
         taxRate: item.taxRate,
         createdAt: Timestamp.fromDate(item.createdAt),
         updatedAt: Timestamp.now(),
+        // ✅ ADD UNIT INFORMATION FROM ENTITY
+        unit: item.unit,
+        isWeightBased: item.isWeightBased,
+        pricePerUnit: item.pricePerUnit,
+        defaultQuantity: item.defaultQuantity,
       );
 
       await _dataSource.updateItem(model);

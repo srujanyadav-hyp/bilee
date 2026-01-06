@@ -14,10 +14,15 @@ extension ItemModelToEntity on ItemModel {
       merchantId: merchantId,
       name: name,
       hsnCode: hsn, // Firestore: hsn → Entity: hsnCode
+      barcode: barcode,
       price: price,
       taxRate: taxRate,
       createdAt: createdAt.toDate(),
       updatedAt: updatedAt.toDate(),
+      unit: unit,
+      isWeightBased: isWeightBased,
+      pricePerUnit: pricePerUnit,
+      defaultQuantity: defaultQuantity,
     );
   }
 }
@@ -32,9 +37,14 @@ extension ItemEntityToModel on ItemEntity {
       price: price,
       hsn: hsnCode, // Entity: hsnCode → Firestore: hsn
       category: null, // Category not in entity, set to null
+      barcode: barcode,
       taxRate: taxRate,
       createdAt: Timestamp.fromDate(createdAt),
       updatedAt: Timestamp.fromDate(updatedAt),
+      unit: unit,
+      isWeightBased: isWeightBased,
+      pricePerUnit: pricePerUnit,
+      defaultQuantity: defaultQuantity,
     );
   }
 }
@@ -50,6 +60,8 @@ extension SessionItemLineToEntity on SessionItemLine {
       taxRate: taxRate,
       tax: tax,
       total: total,
+      unit: unit ?? 'piece',
+      pricePerUnit: pricePerUnit,
     );
   }
 }
@@ -65,6 +77,8 @@ extension SessionItemEntityToModel on SessionItemEntity {
       taxRate: taxRate,
       tax: tax,
       total: total,
+      unit: unit,
+      pricePerUnit: pricePerUnit,
     );
   }
 }

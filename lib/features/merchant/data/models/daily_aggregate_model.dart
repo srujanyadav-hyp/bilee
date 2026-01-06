@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Data Model - Aggregated Item (Firestore Representation)
 class AggregatedItem {
   final String name;
-  final int qty;
+  final double qty;
   final double revenue;
 
   const AggregatedItem({
@@ -15,7 +15,7 @@ class AggregatedItem {
   factory AggregatedItem.fromJson(Map<String, dynamic> json) {
     return AggregatedItem(
       name: json['name'] as String,
-      qty: json['qty'] as int,
+      qty: (json['qty'] as num).toDouble(),
       revenue: (json['revenue'] as num).toDouble(),
     );
   }

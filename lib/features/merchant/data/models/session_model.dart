@@ -5,10 +5,13 @@ class SessionItemLine {
   final String name;
   final String? hsn;
   final double price;
-  final int qty;
+  final double
+  qty; // Changed from int to double to support fractional quantities
   final double taxRate;
   final double tax;
   final double total;
+  final String? unit; // Unit for weight-based items
+  final double? pricePerUnit; // Price per unit for weight-based items
 
   const SessionItemLine({
     required this.name,
@@ -18,6 +21,8 @@ class SessionItemLine {
     required this.taxRate,
     required this.tax,
     required this.total,
+    this.unit,
+    this.pricePerUnit,
   });
 
   factory SessionItemLine.fromJson(Map<String, dynamic> json) {
@@ -25,10 +30,15 @@ class SessionItemLine {
       name: json['name'] as String,
       hsn: json['hsn'] as String?,
       price: (json['price'] as num).toDouble(),
-      qty: json['qty'] as int,
+      qty: (json['qty'] as num)
+          .toDouble(), // Support both int and double from Firestore
       taxRate: (json['taxRate'] as num).toDouble(),
       tax: (json['tax'] as num).toDouble(),
       total: (json['total'] as num).toDouble(),
+      unit: json['unit'] as String? ?? 'piece',
+      pricePerUnit: json['pricePerUnit'] != null
+          ? (json['pricePerUnit'] as num).toDouble()
+          : null,
     );
   }
 
@@ -41,6 +51,8 @@ class SessionItemLine {
       'taxRate': taxRate,
       'tax': tax,
       'total': total,
+      if (unit != null) 'unit': unit,
+      if (pricePerUnit != null) 'pricePerUnit': pricePerUnit,
     };
   }
 }

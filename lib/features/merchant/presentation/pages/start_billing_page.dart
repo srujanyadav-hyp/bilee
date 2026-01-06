@@ -11,6 +11,8 @@ import '../../domain/entities/item_entity.dart';
 import '../../domain/entities/payment_entity.dart';
 import '../../data/datasources/user_preferences_data_source.dart';
 import '../widgets/advanced_checkout_dialog.dart';
+import '../widgets/add_item_dialog.dart';
+import '../widgets/fast_input_options_dialog.dart';
 
 /// Redesigned Billing Screen - Expert UI/UX
 /// Compact, efficient, no overlays, optimized for merchant speed
@@ -268,6 +270,18 @@ class _StartBillingPageState extends State<StartBillingPage> {
           _buildCategoryIcon(Icons.grid_view, 'All', 0),
           _buildCategoryIcon(Icons.star, 'Favorites', 1),
           _buildCategoryIcon(Icons.history, 'Recent', 2),
+          // Voice Input - Fast input for users who don't type
+          IconButton(
+            icon: Icon(
+              Icons.mic,
+              color: AppColors.primaryBlue,
+              size: AppDimensions.iconMD,
+            ),
+            onPressed: () => _openVoiceInput(),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            tooltip: 'Voice Input',
+          ),
           // Quick Add
           IconButton(
             icon: Icon(
@@ -278,6 +292,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
             onPressed: () => setState(() => _showQuickAdd = true),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            tooltip: 'Quick Add',
           ),
         ],
       ),
@@ -329,6 +344,21 @@ class _StartBillingPageState extends State<StartBillingPage> {
       color: AppColors.lightBackground.withOpacity(0.5),
       child: Row(
         children: [
+          // Fast Input Button (for users who don't type)
+          ElevatedButton.icon(
+            icon: const Icon(Icons.bolt, size: 18),
+            label: const Text('Fast Input'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              elevation: 2,
+            ),
+            onPressed: () => _showFastInputOptions(),
+          ),
+          const SizedBox(width: 12),
           // Park indicator
           Consumer<SessionProvider>(
             builder: (context, provider, _) {
@@ -394,7 +424,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
           itemBuilder: (context, index) {
             final item = filteredItems[index];
             // Get quantity from cart items
-            int quantity = 0;
+            double quantity = 0;
             try {
               final cartItem = sessionProvider.cartItems.firstWhere(
                 (ci) => ci.name == item.name,
@@ -420,10 +450,27 @@ class _StartBillingPageState extends State<StartBillingPage> {
   // ==================== FIXED-HEIGHT ITEM CARD (130px) ====================
   Widget _buildFixedHeightItemCard(
     ItemEntity item,
-    int quantity,
+    double quantity,
     bool isInCart,
     SessionProvider provider,
   ) {
+    // Format quantity display
+    String formatQuantity(double qty) {
+      if (qty == qty.toInt()) {
+        return qty.toInt().toString();
+      }
+      return qty.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+    }
+
+    // Format price display based on unit type
+    String formatPrice() {
+      if (item.isWeightBased) {
+        final priceToShow = item.pricePerUnit ?? item.price;
+        return '₹${priceToShow.toStringAsFixed(2)}/${item.unit}';
+      }
+      return '₹${item.price.toStringAsFixed(2)}';
+    }
+
     return AnimatedContainer(
       duration: Duration(milliseconds: AppDimensions.animationFast),
       curve: Curves.easeOutCubic,
@@ -463,11 +510,26 @@ class _StartBillingPageState extends State<StartBillingPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
+          onTap: () async {
             if (!isInCart) {
               HapticFeedback.lightImpact();
-              provider.addToCart(item);
-              _markAsRecent(item.name);
+              // Show dialog for weight-based items
+              if (item.isWeightBased) {
+                await showDialog(
+                  context: context,
+                  builder: (context) => AddItemToCartDialog(
+                    item: item,
+                    onAdd: (qty, unit) {
+                      provider.addToCart(item, quantity: qty);
+                      _markAsRecent(item.name);
+                    },
+                  ),
+                );
+              } else {
+                // Quick add for piece-based items
+                provider.addToCart(item);
+                _markAsRecent(item.name);
+              }
             }
           },
           borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
@@ -515,11 +577,17 @@ class _StartBillingPageState extends State<StartBillingPage> {
                     ),
                     if (isInCart) ...[
                       const SizedBox(width: 4),
-                      CircleAvatar(
-                        radius: 10,
-                        backgroundColor: AppColors.primaryBlue,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBlue,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: Text(
-                          '$quantity',
+                          '${formatQuantity(quantity)} ${item.unit}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -531,13 +599,53 @@ class _StartBillingPageState extends State<StartBillingPage> {
                   ],
                 ),
                 const Spacer(),
-                // Price
-                Text(
-                  '₹${item.price.toStringAsFixed(2)}',
-                  style: AppTypography.h4.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.lightTextPrimary,
-                  ),
+                // Price with unit info
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formatPrice(),
+                      style: AppTypography.h4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.lightTextPrimary,
+                        fontSize: 16,
+                      ),
+                    ),
+                    if (item.isWeightBased)
+                      Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.scale,
+                              size: 10,
+                              color: Colors.orange.shade700,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              'By weight',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 // Action buttons
@@ -585,17 +693,19 @@ class _StartBillingPageState extends State<StartBillingPage> {
                                 ),
                               ),
                               Container(
-                                constraints: const BoxConstraints(minWidth: 16),
+                                constraints: const BoxConstraints(minWidth: 20),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 4,
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
-                                  '$quantity',
+                                  formatQuantity(quantity),
                                   style: AppTypography.caption.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                                    fontSize: 11,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               InkWell(
@@ -621,11 +731,27 @@ class _StartBillingPageState extends State<StartBillingPage> {
                     width: double.infinity,
                     height: 32,
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add'),
-                      onPressed: () {
-                        provider.addToCart(item);
-                        _markAsRecent(item.name);
+                      icon: Icon(
+                        item.isWeightBased ? Icons.scale : Icons.add,
+                        size: 16,
+                      ),
+                      label: Text(item.isWeightBased ? 'Select' : 'Add'),
+                      onPressed: () async {
+                        if (item.isWeightBased) {
+                          await showDialog(
+                            context: context,
+                            builder: (context) => AddItemToCartDialog(
+                              item: item,
+                              onAdd: (qty, unit) {
+                                provider.addToCart(item, quantity: qty);
+                                _markAsRecent(item.name);
+                              },
+                            ),
+                          );
+                        } else {
+                          provider.addToCart(item);
+                          _markAsRecent(item.name);
+                        }
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -727,6 +853,28 @@ class _StartBillingPageState extends State<StartBillingPage> {
                       separatorBuilder: (_, __) => Divider(height: 1),
                       itemBuilder: (context, index) {
                         final item = provider.cartItems[index];
+
+                        // Format quantity with unit
+                        String formatCartQuantity(double qty, String unit) {
+                          String qtyStr;
+                          if (qty == qty.toInt()) {
+                            qtyStr = qty.toInt().toString();
+                          } else {
+                            qtyStr = qty
+                                .toStringAsFixed(2)
+                                .replaceAll(RegExp(r'\.?0+$'), '');
+                          }
+                          return '$qtyStr $unit';
+                        }
+
+                        // Format price display
+                        String formatItemDisplay() {
+                          if (item.pricePerUnit != null) {
+                            return '₹${item.pricePerUnit!.toStringAsFixed(2)}/${item.unit}';
+                          }
+                          return '';
+                        }
+
                         return Padding(
                           padding: EdgeInsets.symmetric(
                             vertical: AppDimensions.spacing2XS,
@@ -737,19 +885,33 @@ class _StartBillingPageState extends State<StartBillingPage> {
                               // Item name
                               Expanded(
                                 flex: 3,
-                                child: Text(
-                                  item.name,
-                                  style: AppTypography.body3,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.name,
+                                      style: AppTypography.body3,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (item.pricePerUnit != null)
+                                      Text(
+                                        formatItemDisplay(),
+                                        style: AppTypography.caption.copyWith(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                              // Quantity
+                              // Quantity with unit
                               Expanded(
                                 child: Text(
-                                  'x${item.qty}',
+                                  formatCartQuantity(item.qty, item.unit),
                                   style: AppTypography.body3.copyWith(
                                     color: AppColors.lightTextSecondary,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -915,13 +1077,12 @@ class _StartBillingPageState extends State<StartBillingPage> {
 
     // Apply search filter
     if (_searchController.text.isNotEmpty) {
-      filtered = filtered
-          .where(
-            (item) => item.name.toLowerCase().contains(
-              _searchController.text.toLowerCase(),
-            ),
-          )
-          .toList();
+      final query = _searchController.text.toLowerCase();
+
+      filtered = filtered.where((item) {
+        final itemName = item.name.toLowerCase();
+        return itemName.contains(query);
+      }).toList();
     }
 
     // Apply category filter
@@ -1074,7 +1235,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
                           int itemCount = 0;
                           items.forEach((name, sessionItem) {
                             total += sessionItem.subtotal;
-                            itemCount += sessionItem.qty;
+                            itemCount += sessionItem.qty as int;
                           });
 
                           return Card(
@@ -1266,6 +1427,20 @@ class _StartBillingPageState extends State<StartBillingPage> {
     _quickNameController.clear();
     _quickPriceController.clear();
     setState(() => _showQuickAdd = false);
+  }
+
+  /// Open voice input for fast item addition (for users who don't type)
+  void _openVoiceInput() {
+    context.push('/merchant/${widget.merchantId}/voice-add');
+  }
+
+  /// Show fast input options dialog (Voice, Barcode, Number Pad)
+  void _showFastInputOptions() {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          FastInputOptionsDialog(merchantId: widget.merchantId),
+    );
   }
 
   void _handleCheckout(SessionProvider provider) async {
