@@ -9,6 +9,7 @@ import '../../domain/services/voice_cart_item_parser.dart';
 import '../../domain/models/parsed_item.dart';
 import '../providers/session_provider.dart';
 import 'barcode_scanner_page.dart';
+import 'voice_language_selector.dart';
 
 /// Fast Input Options Dialog
 /// Provides multiple ways for users to quickly add items to cart
@@ -855,6 +856,20 @@ class _VoiceInputDialogState extends State<_VoiceInputDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Language selector
+              VoiceLanguageSelector(
+                selectedLanguage: widget.voiceService.selectedLanguage,
+                onLanguageChanged: (language) async {
+                  await widget.voiceService.setLanguage(language);
+                  // Restart listening with new language
+                  if (widget.voiceService.isListening) {
+                    await widget.voiceService.stopListening();
+                    await _startListening();
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+
               // Listening indicator
               if (widget.voiceService.isListening)
                 Container(

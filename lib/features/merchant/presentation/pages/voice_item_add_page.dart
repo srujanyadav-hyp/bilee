@@ -100,8 +100,8 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
       builder: (context, service, child) {
         return VoiceLanguageSelector(
           selectedLanguage: service.selectedLanguage,
-          onLanguageChanged: (language) {
-            service.setLanguage(language);
+          onLanguageChanged: (language) async {
+            await service.setLanguage(language);
           },
         );
       },

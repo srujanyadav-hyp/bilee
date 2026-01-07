@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Voice recognition service for continuous item input
 /// Handles permissions, speech-to-text, and real-time transcription
@@ -14,6 +15,7 @@ class VoiceRecognitionService extends ChangeNotifier {
   bool _hasPermission = false;
   String? _errorMessage;
   bool _disposed = false;
+  static const String _languagePrefsKey = 'selected_voice_language';
 
   // Getters
   bool get isInitialized => _isInitialized;
@@ -43,6 +45,9 @@ class VoiceRecognitionService extends ChangeNotifier {
   Future<bool> initialize() async {
     try {
       _errorMessage = null;
+
+      // Load saved language from persistent storage
+      await _loadSavedLanguage();
 
       // Request microphone permission
       final permissionStatus = await Permission.microphone.request();
@@ -79,10 +84,36 @@ class VoiceRecognitionService extends ChangeNotifier {
     }
   }
 
-  /// Change the selected language
-  void setLanguage(String languageCode) {
+  /// Load saved language from SharedPreferences
+  Future<void> _loadSavedLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLanguage = prefs.getString(_languagePrefsKey);
+      if (savedLanguage != null &&
+          availableLanguages.containsKey(savedLanguage)) {
+        _selectedLanguage = savedLanguage;
+        debugPrint('✅ Loaded saved language: $_selectedLanguage');
+      } else {
+        debugPrint('ℹ️ No saved language, using default: $_selectedLanguage');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to load saved language: $e');
+    }
+  }
+
+  /// Change the selected language and persist it
+  Future<void> setLanguage(String languageCode) async {
     _selectedLanguage = languageCode;
     _notifyListeners();
+
+    // Save to persistent storage
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_languagePrefsKey, languageCode);
+      debugPrint('✅ Saved language preference: $languageCode');
+    } catch (e) {
+      debugPrint('⚠️ Failed to save language preference: $e');
+    }
   }
 
   /// Start listening for voice input
