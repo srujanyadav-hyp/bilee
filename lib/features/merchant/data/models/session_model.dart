@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'modifier_model.dart';
 
 /// Data Model - Session Item Line (Firestore Representation)
 class SessionItemLine {
@@ -13,6 +14,10 @@ class SessionItemLine {
   final String? unit; // Unit for weight-based items
   final double? pricePerUnit; // Price per unit for weight-based items
 
+  // Modifiers support for food customization
+  final List<SelectedModifierModel>? selectedModifiers;
+  final String? specialInstructions;
+
   const SessionItemLine({
     required this.name,
     this.hsn,
@@ -23,6 +28,8 @@ class SessionItemLine {
     required this.total,
     this.unit,
     this.pricePerUnit,
+    this.selectedModifiers,
+    this.specialInstructions,
   });
 
   factory SessionItemLine.fromJson(Map<String, dynamic> json) {
@@ -39,6 +46,15 @@ class SessionItemLine {
       pricePerUnit: json['pricePerUnit'] != null
           ? (json['pricePerUnit'] as num).toDouble()
           : null,
+      selectedModifiers: json['selectedModifiers'] != null
+          ? (json['selectedModifiers'] as List<dynamic>)
+                .map(
+                  (m) =>
+                      SelectedModifierModel.fromJson(m as Map<String, dynamic>),
+                )
+                .toList()
+          : null,
+      specialInstructions: json['specialInstructions'] as String?,
     );
   }
 
@@ -53,6 +69,10 @@ class SessionItemLine {
       'total': total,
       if (unit != null) 'unit': unit,
       if (pricePerUnit != null) 'pricePerUnit': pricePerUnit,
+      if (selectedModifiers != null)
+        'selectedModifiers': selectedModifiers!.map((m) => m.toJson()).toList(),
+      if (specialInstructions != null)
+        'specialInstructions': specialInstructions,
     };
   }
 }
@@ -76,6 +96,14 @@ class SessionModel {
   final Timestamp expiresAt;
   final Timestamp? completedAt;
 
+  // Kitchen orders support for restaurants (optional)
+  final String? kitchenStatus; // NEW, COOKING, READY, SERVED
+  final String? orderType; // DINE_IN, PARCEL
+  final String? customerName; // Temporary, session only
+  final String? tableNumber; // For dine-in only
+  final Timestamp? cookingStartedAt;
+  final Timestamp? readyAt;
+
   const SessionModel({
     required this.sessionId,
     required this.merchantId,
@@ -92,6 +120,12 @@ class SessionModel {
     required this.createdAt,
     required this.expiresAt,
     this.completedAt,
+    this.kitchenStatus,
+    this.orderType,
+    this.customerName,
+    this.tableNumber,
+    this.cookingStartedAt,
+    this.readyAt,
   });
 
   /// Create SessionModel from Firestore document
@@ -115,6 +149,12 @@ class SessionModel {
       createdAt: data['createdAt'] as Timestamp,
       expiresAt: data['expiresAt'] as Timestamp,
       completedAt: data['completedAt'] as Timestamp?,
+      kitchenStatus: data['kitchenStatus'] as String?,
+      orderType: data['orderType'] as String?,
+      customerName: data['customerName'] as String?,
+      tableNumber: data['tableNumber'] as String?,
+      cookingStartedAt: data['cookingStartedAt'] as Timestamp?,
+      readyAt: data['readyAt'] as Timestamp?,
     );
   }
 
@@ -138,6 +178,12 @@ class SessionModel {
       createdAt: json['createdAt'] as Timestamp,
       expiresAt: json['expiresAt'] as Timestamp,
       completedAt: json['completedAt'] as Timestamp?,
+      kitchenStatus: json['kitchenStatus'] as String?,
+      orderType: json['orderType'] as String?,
+      customerName: json['customerName'] as String?,
+      tableNumber: json['tableNumber'] as String?,
+      cookingStartedAt: json['cookingStartedAt'] as Timestamp?,
+      readyAt: json['readyAt'] as Timestamp?,
     );
   }
 
@@ -158,6 +204,12 @@ class SessionModel {
       'createdAt': createdAt,
       'expiresAt': expiresAt,
       'completedAt': completedAt,
+      if (kitchenStatus != null) 'kitchenStatus': kitchenStatus,
+      if (orderType != null) 'orderType': orderType,
+      if (customerName != null) 'customerName': customerName,
+      if (tableNumber != null) 'tableNumber': tableNumber,
+      if (cookingStartedAt != null) 'cookingStartedAt': cookingStartedAt,
+      if (readyAt != null) 'readyAt': readyAt,
     };
   }
 }

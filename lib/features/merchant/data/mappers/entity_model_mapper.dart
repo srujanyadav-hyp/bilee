@@ -15,6 +15,7 @@ extension ItemModelToEntity on ItemModel {
       name: name,
       hsnCode: hsn, // Firestore: hsn → Entity: hsnCode
       barcode: barcode,
+      itemCode: itemCode,
       price: price,
       taxRate: taxRate,
       createdAt: createdAt.toDate(),
@@ -38,6 +39,7 @@ extension ItemEntityToModel on ItemEntity {
       hsn: hsnCode, // Entity: hsnCode → Firestore: hsn
       category: null, // Category not in entity, set to null
       barcode: barcode,
+      itemCode: itemCode,
       taxRate: taxRate,
       createdAt: Timestamp.fromDate(createdAt),
       updatedAt: Timestamp.fromDate(updatedAt),

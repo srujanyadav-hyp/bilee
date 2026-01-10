@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../providers/daily_aggregate_provider.dart';
@@ -17,6 +18,9 @@ class MerchantHomePage extends StatefulWidget {
 }
 
 class _MerchantHomePageState extends State<MerchantHomePage> {
+  String? _businessType;
+  bool _isLoadingBusinessType = true;
+
   @override
   void initState() {
     super.initState();
@@ -24,7 +28,30 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
       context.read<DailyAggregateProvider>().loadTodayAggregate(
         widget.merchantId,
       );
+      _loadMerchantBusinessType();
     });
+  }
+
+  Future<void> _loadMerchantBusinessType() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('merchants')
+          .doc(widget.merchantId)
+          .get();
+
+      if (doc.exists && mounted) {
+        setState(() {
+          _businessType = doc.data()?['businessType'] as String?;
+          _isLoadingBusinessType = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingBusinessType = false;
+        });
+      }
+    }
   }
 
   @override
@@ -164,7 +191,39 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
             context.go('/merchant/${widget.merchantId}/summary');
           },
         ),
+        // Kitchen Orders - Only for restaurants/food businesses
+        if (!_isLoadingBusinessType && _isRestaurantBusiness())
+          const SizedBox(height: AppDimensions.spacingMD),
+        if (!_isLoadingBusinessType && _isRestaurantBusiness())
+          _buildActionCard(
+            context,
+            title: 'Kitchen Orders',
+            subtitle: 'View and manage orders',
+            icon: Icons.restaurant,
+            color: Colors.purple,
+            onTap: () {
+              context.go('/merchant/${widget.merchantId}/kitchen-orders');
+            },
+          ),
       ],
+    );
+  }
+
+  /// Check if merchant is restaurant or food business
+  bool _isRestaurantBusiness() {
+    if (_businessType == null) return false;
+
+    final restaurantTypes = [
+      'restaurant',
+      'food',
+      'cafe',
+      'bakery',
+      'food truck',
+      'catering',
+    ];
+
+    return restaurantTypes.any(
+      (type) => _businessType!.toLowerCase().contains(type),
     );
   }
 

@@ -118,9 +118,11 @@ class VoiceRecognitionService extends ChangeNotifier {
 
   /// Start listening for voice input
   /// Supports continuous mode for merchant billing workflow
+  /// Now includes confidence score for visual feedback
   Future<void> startListening({
     required Function(String) onResult,
     Function(String)? onPartialResult,
+    Function(double)? onConfidence, // NEW: Confidence score callback
     bool continuousMode = false, // NEW: Keep listening after each phrase
   }) async {
     if (!_isInitialized) {
@@ -138,9 +140,21 @@ class VoiceRecognitionService extends ChangeNotifier {
         onResult: (result) {
           _currentTranscript = result.recognizedWords;
 
+          // NEW: Send confidence score to UI for visual feedback
+          if (onConfidence != null && result.hasConfidenceRating) {
+            onConfidence(result.confidence);
+          }
+
           if (result.finalResult) {
             // Final result - process item
             final transcript = _currentTranscript;
+            final confidence = result.hasConfidenceRating
+                ? result.confidence
+                : 1.0;
+
+            print(
+              '🎤 Final: "$transcript" (confidence: ${(confidence * 100).toStringAsFixed(0)}%)',
+            );
 
             // In continuous mode, keep listening; otherwise stop
             if (!continuousMode) {

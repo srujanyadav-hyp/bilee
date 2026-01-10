@@ -1,3 +1,5 @@
+import 'modifier_entity.dart';
+
 /// Domain Entity - Item (Pure Business Object)
 /// No Flutter or Firebase dependencies
 class ItemEntity {
@@ -6,6 +8,8 @@ class ItemEntity {
   final String name;
   final String? hsnCode;
   final String? barcode; // Barcode for fast scanning
+  final String?
+  itemCode; // 3-4 digit code for number pad fast input (e.g., "101", "205")
   final double price;
   final double taxRate;
   final DateTime createdAt;
@@ -19,12 +23,17 @@ class ItemEntity {
   final double?
   defaultQuantity; // Default quantity for quick add (e.g., 1, 0.5, 0.25)
 
+  // Modifiers support for food customization (restaurants)
+  final List<ModifierGroupEntity>?
+  modifierGroups; // Optional: Spice levels, add-ons, etc.
+
   const ItemEntity({
     required this.id,
     required this.merchantId,
     required this.name,
     this.hsnCode,
     this.barcode,
+    this.itemCode,
     required this.price,
     required this.taxRate,
     required this.createdAt,
@@ -33,6 +42,7 @@ class ItemEntity {
     this.isWeightBased = false,
     this.pricePerUnit,
     this.defaultQuantity,
+    this.modifierGroups,
   });
 
   double get finalPrice => price * (1 + taxRate / 100);
@@ -43,6 +53,7 @@ class ItemEntity {
     String? name,
     String? hsnCode,
     String? barcode,
+    String? itemCode,
     double? price,
     double? taxRate,
     DateTime? createdAt,
@@ -51,6 +62,7 @@ class ItemEntity {
     bool? isWeightBased,
     double? pricePerUnit,
     double? defaultQuantity,
+    List<ModifierGroupEntity>? modifierGroups,
   }) {
     return ItemEntity(
       id: id ?? this.id,
@@ -58,6 +70,7 @@ class ItemEntity {
       name: name ?? this.name,
       hsnCode: hsnCode ?? this.hsnCode,
       barcode: barcode ?? this.barcode,
+      itemCode: itemCode ?? this.itemCode,
       price: price ?? this.price,
       taxRate: taxRate ?? this.taxRate,
       createdAt: createdAt ?? this.createdAt,
@@ -66,6 +79,7 @@ class ItemEntity {
       isWeightBased: isWeightBased ?? this.isWeightBased,
       pricePerUnit: pricePerUnit ?? this.pricePerUnit,
       defaultQuantity: defaultQuantity ?? this.defaultQuantity,
+      modifierGroups: modifierGroups ?? this.modifierGroups,
     );
   }
 }

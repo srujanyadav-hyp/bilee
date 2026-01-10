@@ -8,6 +8,7 @@ import '../../domain/services/voice_recognition_service.dart';
 import '../../domain/services/voice_cart_item_parser.dart';
 import '../../domain/models/parsed_item.dart';
 import '../providers/session_provider.dart';
+import '../pages/number_pad_input_page.dart';
 import 'barcode_scanner_page.dart';
 import 'voice_language_selector.dart';
 
@@ -462,47 +463,11 @@ class FastInputOptionsDialog extends StatelessWidget {
   }
 
   void _showNumberPadInput(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Number Pad Input'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter item code and quantity'),
-            const SizedBox(height: 16),
-            // TODO: Implement number pad input
-            // This is a placeholder
-            const TextField(
-              decoration: InputDecoration(
-                hintText: 'Item Code (e.g., 101)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 12),
-            const TextField(
-              decoration: InputDecoration(
-                hintText: 'Quantity',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement add logic
-              Navigator.pop(context);
-            },
-            child: const Text('Add'),
-          ),
-        ],
+    Navigator.pop(context); // Close dialog
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NumberPadInputPage(merchantId: merchantId),
       ),
     );
   }

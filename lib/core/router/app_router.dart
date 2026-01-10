@@ -19,6 +19,7 @@ import '../../features/merchant/presentation/pages/merchant_profile_page.dart';
 import '../../features/merchant/presentation/pages/live_session_page.dart';
 import '../../features/merchant/presentation/pages/customer_ledger_page.dart';
 import '../../features/merchant/presentation/pages/voice_item_add_page.dart';
+import '../../features/merchant/presentation/pages/kitchen_orders_page.dart';
 import '../../features/customer/presentation/pages/customer_home_screen.dart';
 import '../../features/customer/presentation/pages/scan_qr_screen.dart';
 import '../../features/customer/presentation/pages/live_bill_screen.dart';
@@ -188,6 +189,14 @@ class AppRouter {
                 merchantId: merchantId,
                 sessionId: sessionId,
               );
+            },
+          ),
+          GoRoute(
+            path: 'kitchen-orders',
+            name: 'kitchen-orders',
+            builder: (context, state) {
+              final merchantId = state.pathParameters['merchantId']!;
+              return KitchenOrdersPage(merchantId: merchantId);
             },
           ),
         ],

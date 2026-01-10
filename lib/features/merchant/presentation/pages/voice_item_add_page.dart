@@ -31,6 +31,7 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
   ParsedItem? _currentParsedItem;
   final List<ItemEntity> _addedItems = [];
   bool _isProcessing = false;
+  double? _currentConfidence; // NEW: Track confidence score for visual feedback
 
   @override
   void initState() {
@@ -155,6 +156,13 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
 
             const SizedBox(height: AppDimensions.spacingMD),
 
+            // NEW: Confidence Indicator (only show when listening/processing)
+            if (service.isListening && _currentConfidence != null)
+              _buildConfidenceIndicator(_currentConfidence!),
+
+            if (service.isListening && _currentConfidence != null)
+              const SizedBox(height: AppDimensions.spacingMD),
+
             // Live transcription
             if (service.currentTranscript.isNotEmpty)
               _buildTranscriptionText(service.currentTranscript),
@@ -164,6 +172,84 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
               _buildErrorMessage(service.errorMessage!),
           ],
         ),
+      ),
+    );
+  }
+
+  // NEW: Confidence Indicator Widget
+  Widget _buildConfidenceIndicator(double confidence) {
+    // Determine color and icon based on confidence level
+    Color confidenceColor;
+    IconData confidenceIcon;
+    String confidenceText;
+
+    if (confidence >= 0.9) {
+      // High confidence (90%+) - GREEN
+      confidenceColor = AppColors.success;
+      confidenceIcon = Icons.check_circle;
+      confidenceText = 'Excellent';
+    } else if (confidence >= 0.7) {
+      // Medium confidence (70-89%) - YELLOW
+      confidenceColor = AppColors.warning;
+      confidenceIcon = Icons.warning_amber;
+      confidenceText = 'Good';
+    } else {
+      // Low confidence (<70%) - RED
+      confidenceColor = AppColors.error;
+      confidenceIcon = Icons.error_outline;
+      confidenceText = 'Please repeat';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.paddingMD),
+      decoration: BoxDecoration(
+        color: confidenceColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        border: Border.all(color: confidenceColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    confidenceIcon,
+                    color: confidenceColor,
+                    size: AppDimensions.iconMD,
+                  ),
+                  const SizedBox(width: AppDimensions.spacingXS),
+                  Text(
+                    confidenceText,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: confidenceColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '${(confidence * 100).toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: confidenceColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.spacingSM),
+          // Confidence Bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
+            child: LinearProgressIndicator(
+              value: confidence,
+              backgroundColor: confidenceColor.withOpacity(0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(confidenceColor),
+              minHeight: 8,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -522,6 +608,13 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
           // Live transcription - just display
           setState(() {});
         },
+        onConfidence: (confidence) {
+          // NEW: Update confidence score in real-time
+          setState(() {
+            _currentConfidence = confidence;
+          });
+          print('🎯 Confidence: ${(confidence * 100).toStringAsFixed(0)}%');
+        },
       );
     }
   }
@@ -530,6 +623,20 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
     print('🎤 Voice result received: "$result"');
     if (result.trim().isEmpty) {
       print('⚠️ Empty voice result, ignoring');
+      return;
+    }
+
+    // NEW: Check confidence score and prompt retry if too low
+    if (_currentConfidence != null && _currentConfidence! < 0.7) {
+      print(
+        '⚠️ Low confidence (${(_currentConfidence! * 100).toStringAsFixed(0)}%), prompting retry',
+      );
+      _showError(
+        'Voice unclear. Please repeat more clearly.\nConfidence: ${(_currentConfidence! * 100).toStringAsFixed(0)}%',
+      );
+      // Clear confidence and restart
+      setState(() => _currentConfidence = null);
+      _restartListening();
       return;
     }
 
@@ -542,6 +649,7 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
     setState(() {
       _isProcessing = false;
       _currentParsedItem = parsed;
+      _currentConfidence = null; // Clear confidence after processing
     });
 
     if (parsed == null || parsed.price == null || parsed.price! <= 0) {

@@ -13,6 +13,7 @@ abstract class IMerchantRepository {
   // Item operations
   Stream<List<ItemEntity>> getItemsStream(String merchantId);
   Future<ItemEntity?> searchItemByBarcode(String merchantId, String barcode);
+  Future<ItemEntity?> searchItemByCode(String merchantId, String code);
   Future<void> createItem(ItemEntity item);
   Future<void> updateItem(ItemEntity item);
   Future<void> deleteItem(String merchantId, String itemId);

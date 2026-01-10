@@ -89,6 +89,27 @@ class MerchantRepositoryImpl implements IMerchantRepository {
   }
 
   @override
+  Future<ItemEntity?> searchItemByCode(String merchantId, String code) async {
+    try {
+      final querySnapshot = await _dataSource.firestore
+          .collection('items')
+          .where('merchantId', isEqualTo: merchantId)
+          .where('itemCode', isEqualTo: code)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+
+      return ItemModel.fromFirestore(querySnapshot.docs.first).toEntity();
+    } catch (e) {
+      FirebaseErrorHandler.logError('searchItemByCode', e);
+      throw Exception(FirebaseErrorHandler.handleError(e));
+    }
+  }
+
+  @override
   Future<void> createItem(ItemEntity item) async {
     try {
       final model = ItemModel(
@@ -99,6 +120,7 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         hsn: item.hsnCode,
         category: null,
         barcode: item.barcode,
+        itemCode: item.itemCode,
         taxRate: item.taxRate,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -127,6 +149,7 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         hsn: item.hsnCode,
         category: null,
         barcode: item.barcode,
+        itemCode: item.itemCode,
         taxRate: item.taxRate,
         createdAt: Timestamp.fromDate(item.createdAt),
         updatedAt: Timestamp.now(),

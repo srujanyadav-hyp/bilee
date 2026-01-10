@@ -1,3 +1,5 @@
+import 'modifier_entity.dart';
+
 /// Domain Entity - Session Item
 class SessionItemEntity {
   final String name;
@@ -14,6 +16,11 @@ class SessionItemEntity {
   final String unit; // 'piece', 'kg', 'gram', 'liter', 'ml'
   final double? pricePerUnit; // Price per kg/liter (null for piece-based items)
 
+  // Modifiers support for food customization
+  final List<SelectedModifierEntity>?
+  selectedModifiers; // Selected customizations
+  final String? specialInstructions; // "Less oil", "Extra plate", etc.
+
   const SessionItemEntity({
     required this.name,
     this.hsnCode,
@@ -25,6 +32,8 @@ class SessionItemEntity {
     required this.total,
     this.unit = 'piece',
     this.pricePerUnit,
+    this.selectedModifiers,
+    this.specialInstructions,
   });
 
   double get subtotal => price * qty;
@@ -49,6 +58,14 @@ class SessionEntity {
   final DateTime expiresAt;
   final DateTime? completedAt;
 
+  // Kitchen orders support for restaurants (optional)
+  final String? kitchenStatus; // NEW, COOKING, READY, SERVED
+  final String? orderType; // DINE_IN, PARCEL
+  final String? customerName; // Temporary, session only
+  final String? tableNumber; // For dine-in only
+  final DateTime? cookingStartedAt;
+  final DateTime? readyAt;
+
   const SessionEntity({
     required this.id,
     required this.merchantId,
@@ -65,6 +82,12 @@ class SessionEntity {
     required this.createdAt,
     required this.expiresAt,
     this.completedAt,
+    this.kitchenStatus,
+    this.orderType,
+    this.customerName,
+    this.tableNumber,
+    this.cookingStartedAt,
+    this.readyAt,
   });
 
   bool get isPaid => paymentStatus == 'PAID';
@@ -89,6 +112,12 @@ class SessionEntity {
     DateTime? createdAt,
     DateTime? expiresAt,
     DateTime? completedAt,
+    String? kitchenStatus,
+    String? orderType,
+    String? customerName,
+    String? tableNumber,
+    DateTime? cookingStartedAt,
+    DateTime? readyAt,
   }) {
     return SessionEntity(
       id: id ?? this.id,
@@ -106,6 +135,12 @@ class SessionEntity {
       createdAt: createdAt ?? this.createdAt,
       expiresAt: expiresAt ?? this.expiresAt,
       completedAt: completedAt ?? this.completedAt,
+      kitchenStatus: kitchenStatus ?? this.kitchenStatus,
+      orderType: orderType ?? this.orderType,
+      customerName: customerName ?? this.customerName,
+      tableNumber: tableNumber ?? this.tableNumber,
+      cookingStartedAt: cookingStartedAt ?? this.cookingStartedAt,
+      readyAt: readyAt ?? this.readyAt,
     );
   }
 }
