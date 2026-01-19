@@ -219,6 +219,18 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         completedAt: session.completedAt != null
             ? Timestamp.fromDate(session.completedAt!)
             : null,
+        // ✅ RESTAURANT ORDER FIELDS (kitchen tracking)
+        kitchenStatus: session.kitchenStatus,
+        orderType: session.orderType,
+        customerName: session.customerName,
+        tableNumber: session.tableNumber,
+        phoneNumber: session.phoneNumber,
+        cookingStartedAt: session.cookingStartedAt != null
+            ? Timestamp.fromDate(session.cookingStartedAt!)
+            : null,
+        readyAt: session.readyAt != null
+            ? Timestamp.fromDate(session.readyAt!)
+            : null,
       );
 
       print('🟡 [REPOSITORY] Model created, calling datasource...');

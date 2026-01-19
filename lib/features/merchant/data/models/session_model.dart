@@ -101,6 +101,7 @@ class SessionModel {
   final String? orderType; // DINE_IN, PARCEL
   final String? customerName; // Temporary, session only
   final String? tableNumber; // For dine-in only
+  final String? phoneNumber; // Optional phone for parcels
   final Timestamp? cookingStartedAt;
   final Timestamp? readyAt;
 
@@ -124,6 +125,7 @@ class SessionModel {
     this.orderType,
     this.customerName,
     this.tableNumber,
+    this.phoneNumber,
     this.cookingStartedAt,
     this.readyAt,
   });
@@ -153,6 +155,7 @@ class SessionModel {
       orderType: data['orderType'] as String?,
       customerName: data['customerName'] as String?,
       tableNumber: data['tableNumber'] as String?,
+      phoneNumber: data['phoneNumber'] as String?,
       cookingStartedAt: data['cookingStartedAt'] as Timestamp?,
       readyAt: data['readyAt'] as Timestamp?,
     );
@@ -182,6 +185,7 @@ class SessionModel {
       orderType: json['orderType'] as String?,
       customerName: json['customerName'] as String?,
       tableNumber: json['tableNumber'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
       cookingStartedAt: json['cookingStartedAt'] as Timestamp?,
       readyAt: json['readyAt'] as Timestamp?,
     );
@@ -208,6 +212,7 @@ class SessionModel {
       if (orderType != null) 'orderType': orderType,
       if (customerName != null) 'customerName': customerName,
       if (tableNumber != null) 'tableNumber': tableNumber,
+      if (phoneNumber != null) 'phoneNumber': phoneNumber,
       if (cookingStartedAt != null) 'cookingStartedAt': cookingStartedAt,
       if (readyAt != null) 'readyAt': readyAt,
     };

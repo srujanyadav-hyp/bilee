@@ -169,7 +169,10 @@ service cloud.firestore {
                           (resource.data.paymentStatus == 'PENDING' && 
                            request.resource.data.paymentStatus == 'PAID') ||
                           // Allow adding connected customers
-                          (resource.data.connectedCustomers.size() < request.resource.data.connectedCustomers.size())
+                          (resource.data.connectedCustomers.size() < request.resource.data.connectedCustomers.size()) ||
+                          // ✅ KITCHEN ORDERS: Allow updating kitchen status and timestamps
+                          (request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['kitchenStatus', 'cookingStartedAt', 'readyAt', 'updatedBy', 'status', 'completedAt']))
                         )) ||
                        // Customer can add themselves to connectedCustomers array
                        (request.auth != null &&

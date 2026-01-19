@@ -104,6 +104,14 @@ extension SessionModelToEntity on SessionModel {
       createdAt: createdAt.toDate(),
       expiresAt: expiresAt.toDate(),
       completedAt: completedAt?.toDate(),
+      // 🍽️ RESTAURANT ORDER FIELDS (kitchen tracking)
+      kitchenStatus: kitchenStatus,
+      orderType: orderType,
+      customerName: customerName,
+      tableNumber: tableNumber,
+      phoneNumber: phoneNumber,
+      cookingStartedAt: cookingStartedAt?.toDate(),
+      readyAt: readyAt?.toDate(),
     );
   }
 }
@@ -129,6 +137,16 @@ extension SessionEntityToModel on SessionEntity {
       completedAt: completedAt != null
           ? Timestamp.fromDate(completedAt!)
           : null,
+      // 🍽️ RESTAURANT ORDER FIELDS (kitchen tracking)
+      kitchenStatus: kitchenStatus,
+      orderType: orderType,
+      customerName: customerName,
+      tableNumber: tableNumber,
+      phoneNumber: phoneNumber,
+      cookingStartedAt: cookingStartedAt != null
+          ? Timestamp.fromDate(cookingStartedAt!)
+          : null,
+      readyAt: readyAt != null ? Timestamp.fromDate(readyAt!) : null,
     );
   }
 }

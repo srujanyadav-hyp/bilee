@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
+import 'dart:ui';
 import '../../data/models/session_model.dart';
 
 /// Kitchen Orders Page - displays active restaurant orders with real-time updates
@@ -55,9 +57,10 @@ class _KitchenOrdersPageState extends State<KitchenOrdersPage> {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('sessions')
+            .collection('billingSessions')
             .where('merchantId', isEqualTo: widget.merchantId)
-            .where('status', isEqualTo: 'ACTIVE')
+            // Show both ACTIVE and COMPLETED sessions (completed = paid orders)
+            .where('status', whereIn: ['ACTIVE', 'COMPLETED'])
             .where('kitchenStatus', whereIn: ['NEW', 'COOKING', 'READY'])
             .orderBy('createdAt', descending: false)
             .snapshots(),
@@ -138,47 +141,37 @@ class _KitchenOrdersPageState extends State<KitchenOrdersPage> {
 
   Future<void> _updateOrderStatus(SessionModel order, String newStatus) async {
     try {
-      final updates = <String, dynamic>{'kitchenStatus': newStatus};
+      final updates = <String, dynamic>{
+        'kitchenStatus': newStatus,
+        'updatedBy': FirebaseAuth.instance.currentUser?.uid,
+      };
 
       // Add timestamps based on status
       if (newStatus == 'COOKING') {
         updates['cookingStartedAt'] = FieldValue.serverTimestamp();
       } else if (newStatus == 'READY') {
         updates['readyAt'] = FieldValue.serverTimestamp();
+      } else if (newStatus == 'SERVED') {
+        // When marked as served, complete the session
+        updates['status'] = 'COMPLETED';
+        updates['completedAt'] = FieldValue.serverTimestamp();
       }
 
       await FirebaseFirestore.instance
-          .collection('sessions')
+          .collection('billingSessions')
           .doc(order.sessionId)
           .update(updates);
 
-      // Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Order marked as $newStatus'),
-            duration: const Duration(seconds: 2),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      // No snackbar - silent update
     } catch (e) {
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update: $e'),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // Silent error handling - could log to console if needed
+      debugPrint('Failed to update kitchen status: $e');
     }
   }
 }
 
 /// Kitchen Order Card Widget - displays single order with status and actions
-class _KitchenOrderCard extends StatelessWidget {
+class _KitchenOrderCard extends StatefulWidget {
   final SessionModel order;
   final Function(String) onStatusUpdate;
 
@@ -189,8 +182,15 @@ class _KitchenOrderCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<_KitchenOrderCard> createState() => _KitchenOrderCardState();
+}
+
+class _KitchenOrderCardState extends State<_KitchenOrderCard> {
+  bool _isReady = false; // Toggle state for Ready/Serve
+
+  @override
   Widget build(BuildContext context) {
-    final status = order.kitchenStatus ?? 'NEW';
+    final status = widget.order.kitchenStatus ?? 'NEW';
     final isNew = status == 'NEW';
     final isCooking = status == 'COOKING';
 
@@ -208,7 +208,7 @@ class _KitchenOrderCard extends StatelessWidget {
         : Colors.green.shade50;
 
     // Time elapsed
-    final timeElapsed = _getTimeElapsed(order.createdAt.toDate());
+    final timeElapsed = _getTimeElapsed(widget.order.createdAt.toDate());
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -276,20 +276,92 @@ class _KitchenOrderCard extends StatelessWidget {
             const Divider(height: 24),
 
             // Items List
-            ...order.items.map((item) => _buildItemRow(item)).toList(),
+            ...widget.order.items.map((item) => _buildItemRow(item)).toList(),
 
             const SizedBox(height: 16),
 
-            // Action Buttons
-            _buildActionButtons(context, status),
+            // Action Buttons or Toggle
+            if (isNew)
+              _buildActionButtons(context, status)
+            else if (isCooking)
+              _buildReadyServeToggle(),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildReadyServeToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (_isReady) {
+                setState(() => _isReady = false);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: !_isReady ? Colors.orange : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Ready',
+                style: TextStyle(
+                  color: !_isReady ? Colors.white : Colors.grey,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              if (!_isReady) {
+                setState(() => _isReady = true);
+                // Auto-mark as served after toggle
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  widget.onStatusUpdate('SERVED');
+                });
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _isReady ? Colors.green : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Serve',
+                style: TextStyle(
+                  color: _isReady ? Colors.white : Colors.grey,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOrderInfo() {
-    final isParcel = order.orderType == 'PARCEL';
+    final isParcel = widget.order.orderType == 'PARCEL';
     final icon = isParcel ? Icons.shopping_bag : Icons.table_restaurant;
     final orderTypeText = isParcel ? 'PARCEL' : 'Dine-in';
 
@@ -301,18 +373,30 @@ class _KitchenOrderCard extends StatelessWidget {
           orderTypeText,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        if (order.tableNumber != null) ...[
+        if (widget.order.tableNumber != null) ...[
           const SizedBox(width: 8),
           Text(
-            '• Table ${order.tableNumber}',
+            '• Table ${widget.order.tableNumber}',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ],
-        if (order.customerName != null) ...[
+        if (widget.order.customerName != null) ...[
           const SizedBox(width: 8),
-          Text(
-            '• ${order.customerName}',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Text(
+              widget.order.customerName!,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue.shade900,
+              ),
+            ),
           ),
         ],
       ],
@@ -411,7 +495,7 @@ class _KitchenOrderCard extends StatelessWidget {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: () => onStatusUpdate('COOKING'),
+          onPressed: () => widget.onStatusUpdate('COOKING'),
           icon: const Icon(Icons.restaurant),
           label: const Text('START COOKING', style: TextStyle(fontSize: 16)),
           style: ElevatedButton.styleFrom(
@@ -428,7 +512,7 @@ class _KitchenOrderCard extends StatelessWidget {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: () => onStatusUpdate('READY'),
+          onPressed: () => widget.onStatusUpdate('READY'),
           icon: const Icon(Icons.check_circle),
           label: const Text('MARK AS READY', style: TextStyle(fontSize: 16)),
           style: ElevatedButton.styleFrom(
@@ -442,29 +526,21 @@ class _KitchenOrderCard extends StatelessWidget {
         ),
       );
     } else {
-      // READY - show status message
-      return Container(
+      // READY - allow marking as SERVED
+      return SizedBox(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.green.shade100,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text(
-              'Ready to Serve!',
-              style: TextStyle(
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+        child: ElevatedButton.icon(
+          onPressed: () => widget.onStatusUpdate('SERVED'),
+          icon: const Icon(Icons.done_all),
+          label: const Text('MARK AS SERVED', style: TextStyle(fontSize: 16)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
+          ),
         ),
       );
     }

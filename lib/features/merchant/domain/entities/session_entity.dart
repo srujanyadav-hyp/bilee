@@ -63,6 +63,7 @@ class SessionEntity {
   final String? orderType; // DINE_IN, PARCEL
   final String? customerName; // Temporary, session only
   final String? tableNumber; // For dine-in only
+  final String? phoneNumber; // Optional phone for parcels
   final DateTime? cookingStartedAt;
   final DateTime? readyAt;
 
@@ -86,6 +87,7 @@ class SessionEntity {
     this.orderType,
     this.customerName,
     this.tableNumber,
+    this.phoneNumber,
     this.cookingStartedAt,
     this.readyAt,
   });
@@ -116,6 +118,7 @@ class SessionEntity {
     String? orderType,
     String? customerName,
     String? tableNumber,
+    String? phoneNumber,
     DateTime? cookingStartedAt,
     DateTime? readyAt,
   }) {
@@ -139,6 +142,7 @@ class SessionEntity {
       orderType: orderType ?? this.orderType,
       customerName: customerName ?? this.customerName,
       tableNumber: tableNumber ?? this.tableNumber,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       cookingStartedAt: cookingStartedAt ?? this.cookingStartedAt,
       readyAt: readyAt ?? this.readyAt,
     );

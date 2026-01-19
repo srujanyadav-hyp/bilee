@@ -7,6 +7,7 @@ import '../../domain/usecases/session_usecases.dart';
 import '../../domain/usecases/receipt_usecases.dart';
 import '../../domain/usecases/merchant_usecases.dart';
 import '../../../../core/services/receipt_generator_service.dart';
+import '../widgets/order_info_dialog.dart';
 
 /// Session Provider - State management for billing sessions
 class SessionProvider with ChangeNotifier {
@@ -349,10 +350,12 @@ class SessionProvider with ChangeNotifier {
   }
 
   /// Create a billing session from cart with payment details
+  /// For restaurant merchants, pass OrderInfo to enable kitchen tracking
   Future<String?> createSessionWithPayment(
     String merchantId,
-    PaymentDetails paymentDetails,
-  ) async {
+    PaymentDetails paymentDetails, {
+    OrderInfo? orderInfo, // Restaurant order information
+  }) async {
     if (_cartItems.isEmpty) {
       _error = 'Cart is empty';
       notifyListeners();
@@ -424,7 +427,14 @@ class SessionProvider with ChangeNotifier {
         connectedCustomers: [],
         createdAt: DateTime.now(),
         expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+        // Complete session immediately if fully paid (for proper revenue tracking)
         completedAt: paymentDetails.isFullyPaid ? DateTime.now() : null,
+        // Restaurant order fields (only set if orderInfo is provided)
+        kitchenStatus: orderInfo != null ? 'NEW' : null,
+        orderType: orderInfo?.orderType,
+        customerName: orderInfo?.customerName,
+        tableNumber: orderInfo?.tableNumber,
+        phoneNumber: orderInfo?.phoneNumber,
       );
 
       print(

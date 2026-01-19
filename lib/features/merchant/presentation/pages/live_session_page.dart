@@ -553,6 +553,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                     ),
                   ),
                 ],
+                // Complete Session button for any paid session
                 if (session.isPaid)
                   SizedBox(
                     width: double.infinity,
@@ -578,6 +579,44 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                         'Complete Session',
                         style: TextStyle(fontSize: 16),
                       ),
+                    ),
+                  ),
+                // Info message for restaurant orders
+                if (session.isPaid && session.kitchenStatus != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.restaurant,
+                          color: Colors.green.shade700,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Order sent to Kitchen!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Check Kitchen Orders screen to track preparation',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],

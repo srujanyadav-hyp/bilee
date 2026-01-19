@@ -13,6 +13,8 @@ import '../../data/datasources/user_preferences_data_source.dart';
 import '../widgets/advanced_checkout_dialog.dart';
 import '../widgets/add_item_dialog.dart';
 import '../widgets/fast_input_options_dialog.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/order_info_dialog.dart';
 
 /// Redesigned Billing Screen - Expert UI/UX
 /// Compact, efficient, no overlays, optimized for merchant speed
@@ -39,6 +41,10 @@ class _StartBillingPageState extends State<StartBillingPage> {
   final Map<String, DateTime> _recentItems = {};
   late final UserPreferencesDataSource _preferencesDataSource;
 
+  // Restaurant merchant detection
+  String? _merchantBusinessType;
+  bool _isLoadingBusinessType = true;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +52,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ItemProvider>().loadItems(widget.merchantId);
       _loadUserPreferences();
+      _loadMerchantBusinessType();
     });
   }
 
@@ -63,6 +70,47 @@ class _StartBillingPageState extends State<StartBillingPage> {
     } catch (e) {
       debugPrint('Failed to load preferences: $e');
     }
+  }
+
+  Future<void> _loadMerchantBusinessType() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('merchants')
+          .doc(widget.merchantId)
+          .get();
+
+      if (doc.exists && mounted) {
+        setState(() {
+          _merchantBusinessType = doc.data()?['businessType'] as String?;
+          _isLoadingBusinessType = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load merchant business type: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingBusinessType = false;
+        });
+      }
+    }
+  }
+
+  /// Check if merchant is restaurant or food business
+  bool _isRestaurantBusiness() {
+    if (_merchantBusinessType == null) return false;
+
+    final restaurantTypes = [
+      'restaurant',
+      'food',
+      'cafe',
+      'bakery',
+      'food truck',
+      'catering',
+    ];
+
+    return restaurantTypes.any(
+      (type) => _merchantBusinessType!.toLowerCase().contains(type),
+    );
   }
 
   @override
@@ -1444,7 +1492,16 @@ class _StartBillingPageState extends State<StartBillingPage> {
   }
 
   void _handleCheckout(SessionProvider provider) async {
-    // Open advanced checkout dialog
+    // Step 1: For restaurant merchants, show OrderInfoDialog first
+    OrderInfo? orderInfo;
+    if (!_isLoadingBusinessType && _isRestaurantBusiness()) {
+      orderInfo = await showOrderInfoDialog(context);
+
+      // User cancelled the dialog
+      if (orderInfo == null) return;
+    }
+
+    // Step 2: Open advanced checkout dialog
     final result = await showDialog<PaymentDetails>(
       context: context,
       builder: (context) => AdvancedCheckoutDialog(
@@ -1455,9 +1512,11 @@ class _StartBillingPageState extends State<StartBillingPage> {
 
     if (result != null && mounted) {
       try {
+        // Step 3: Create session with payment details and optional orderInfo
         final sessionId = await provider.createSessionWithPayment(
           widget.merchantId,
           result,
+          orderInfo: orderInfo, // Pass restaurant order info if available
         );
 
         if (mounted) {
