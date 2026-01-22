@@ -513,15 +513,37 @@ class VoiceItemLibraryParser {
       name = name.replaceAll(unit, ' ');
     }
 
-    // Remove digits
-    name = name.replaceAll(RegExp(r'\s+\d+\.?\d*\s+'), ' ');
-    name = name.replaceAll(RegExp(r'^\d+\.?\d*\s+'), '');
-    name = name.replaceAll(RegExp(r'\s+\d+\.?\d*$'), '');
+    // IMPROVED: Remove digits smartly - preserve dish names with numbers
+    // Problem: "Chicken 65 160 rupees" was becoming "Chicken 160"
+    // Solution: Only remove large numbers (>100) that are likely prices
+
+    // First, remove digits that appear WITH price indicators
+    for (final indicator in _priceIndicators) {
+      // Remove "160 rupees", "rupees 160", "₹160", etc.
+      name = name.replaceAll(
+        RegExp(
+          r'\d+\.?\d*\s*' + RegExp.escape(indicator),
+          caseSensitive: false,
+        ),
+        ' ',
+      );
+      name = name.replaceAll(
+        RegExp(
+          RegExp.escape(indicator) + r'\s*\d+\.?\d*',
+          caseSensitive: false,
+        ),
+        ' ',
+      );
+    }
+
+    // Remove standalone large numbers (>=100) that are likely prices
+    // Preserve small numbers (<100) that are likely dish names (e.g., "65" in "Chicken 65")
+    name = name.replaceAll(RegExp(r'\b(1\d{2,}|[2-9]\d{2,})\b'), ' ');
 
     // Remove price symbols
     name = name.replaceAll(RegExp(r'[₹$£€¥]\s*\d+\.?\d*'), '');
 
-    // Remove price indicators
+    // Remove pr ice indicators
     for (final indicator in _priceIndicators) {
       name = name.replaceAll(RegExp(indicator, caseSensitive: false), ' ');
     }

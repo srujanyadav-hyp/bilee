@@ -626,13 +626,14 @@ class _VoiceItemAddPageState extends State<VoiceItemAddPage> {
       return;
     }
 
-    // NEW: Check confidence score and prompt retry if too low
-    if (_currentConfidence != null && _currentConfidence! < 0.7) {
+    // IMPROVED: Lower confidence threshold for multilingual support
+    // 40% threshold works better for Telugu and other regional languages
+    if (_currentConfidence != null && _currentConfidence! < 0.4) {
       print(
-        '⚠️ Low confidence (${(_currentConfidence! * 100).toStringAsFixed(0)}%), prompting retry',
+        '⚠️ Very low confidence (${(_currentConfidence! * 100).toStringAsFixed(0)}%), prompting retry',
       );
       _showError(
-        'Voice unclear. Please repeat more clearly.\nConfidence: ${(_currentConfidence! * 100).toStringAsFixed(0)}%',
+        'Voice unclear. Please speak more clearly.\\nConfidence: ${(_currentConfidence! * 100).toStringAsFixed(0)}%',
       );
       // Clear confidence and restart
       setState(() => _currentConfidence = null);

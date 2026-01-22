@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'dart:ui';
 import '../../data/models/session_model.dart';
+import '../../../../core/services/device_mode_service.dart';
 
 /// Kitchen Orders Page - displays active restaurant orders with real-time updates
 /// Merchant uses this screen on second device to track cooking status
@@ -38,105 +39,119 @@ class _KitchenOrdersPageState extends State<KitchenOrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.restaurant),
-            SizedBox(width: 8),
-            Text('Kitchen Orders'),
+    return WillPopScope(
+      onWillPop: () async {
+        // Prevent back navigation if in kitchen mode
+        final isKitchen = await DeviceModeService.isKitchenMode();
+        return !isKitchen; // Return false to block, true to allow
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Row(
+            children: [
+              Icon(Icons.restaurant),
+              SizedBox(width: 8),
+              Text('Kitchen Orders'),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => setState(() {}),
+              tooltip: 'Refresh orders',
+            ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => setState(() {}),
-            tooltip: 'Refresh orders',
-          ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('billingSessions')
-            .where('merchantId', isEqualTo: widget.merchantId)
-            // Show both ACTIVE and COMPLETED sessions (completed = paid orders)
-            .where('status', whereIn: ['ACTIVE', 'COMPLETED'])
-            .where('kitchenStatus', whereIn: ['NEW', 'COOKING', 'READY'])
-            .orderBy('createdAt', descending: false)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => setState(() {}),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('billingSessions')
+              .where('merchantId', isEqualTo: widget.merchantId)
+              // Show both ACTIVE and COMPLETED sessions (completed = paid orders)
+              .where('status', whereIn: ['ACTIVE', 'COMPLETED'])
+              .where('kitchenStatus', whereIn: ['NEW', 'COOKING', 'READY'])
+              .orderBy('createdAt', descending: false)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Error: ${snapshot.error}'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => setState(() {}),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: 80,
-                    color: Colors.green.shade300,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No Active Orders',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'All orders completed! ✅',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            );
-          }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 80,
+                      color: Colors.green.shade300,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No Active Orders',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'All orders completed! ✅',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              );
+            }
 
-          final orders = snapshot.data!.docs
-              .map((doc) => SessionModel.fromFirestore(doc))
-              .toList();
+            final orders = snapshot.data!.docs
+                .map((doc) => SessionModel.fromFirestore(doc))
+                .toList();
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(() {});
-              await Future.delayed(const Duration(milliseconds: 500));
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: orders.length,
-              itemBuilder: (context, index) {
-                final order = orders[index];
-                return _KitchenOrderCard(
-                  order: order,
-                  onStatusUpdate: (newStatus) =>
-                      _updateOrderStatus(order, newStatus),
-                );
+            return RefreshIndicator(
+              onRefresh: () async {
+                setState(() {});
+                await Future.delayed(const Duration(milliseconds: 500));
               },
-            ),
-          );
-        },
-      ),
-    );
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: orders.length,
+                itemBuilder: (context, index) {
+                  final order = orders[index];
+                  return _KitchenOrderCard(
+                    order: order,
+                    onStatusUpdate: (newStatus) =>
+                        _updateOrderStatus(order, newStatus),
+                  );
+                },
+              ),
+            );
+          },
+        ), // End of body StreamBuilder
+      ), // End of Scaffold (child of WillPopScope)
+    ); // End of WillPopScope
   }
 
   Future<void> _updateOrderStatus(SessionModel order, String newStatus) async {

@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/services/device_mode_service.dart';
 import '../providers/daily_aggregate_provider.dart';
 import '../providers/session_provider.dart';
+import 'kitchen_orders_page.dart';
 
 /// Merchant Home Page - Dashboard with navigation to all features
 class MerchantHomePage extends StatefulWidget {
@@ -24,12 +26,32 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
   @override
   void initState() {
     super.initState();
+    _checkDeviceMode(); // Check if device is in kitchen mode
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DailyAggregateProvider>().loadTodayAggregate(
         widget.merchantId,
       );
       _loadMerchantBusinessType();
     });
+  }
+
+  /// Check device mode and redirect if in kitchen mode
+  Future<void> _checkDeviceMode() async {
+    final isKitchen = await DeviceModeService.isKitchenMode();
+    if (isKitchen && mounted) {
+      // Navigate to Kitchen Orders and remove all previous routes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) =>
+                  KitchenOrdersPage(merchantId: widget.merchantId),
+            ),
+            (route) => false, // Remove all previous routes
+          );
+        }
+      });
+    }
   }
 
   Future<void> _loadMerchantBusinessType() async {

@@ -10,6 +10,7 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/models/user_model.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/account_deletion_service.dart';
+import '../../../../core/services/device_mode_service.dart';
 import '../../domain/entities/merchant_entity.dart';
 import '../providers/merchant_provider.dart';
 
@@ -28,14 +29,68 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
   final AuthService _authService = AuthService();
   UserModel? _userData;
   bool _loadingUserData = true;
+  bool _isKitchenMode = false; // Device mode toggle state
 
   @override
   void initState() {
     super.initState();
+    _loadDeviceMode(); // Load device mode
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MerchantProvider>().loadProfile(widget.merchantId);
       _loadUserData();
     });
+  }
+
+  Future<void> _loadDeviceMode() async {
+    final isKitchen = await DeviceModeService.isKitchenMode();
+    if (mounted) {
+      setState(() {
+        _isKitchenMode = isKitchen;
+      });
+    }
+  }
+
+  Future<void> _toggleDeviceMode(bool value) async {
+    await DeviceModeService.setDeviceMode(
+      value ? DeviceModeService.modeKitchen : DeviceModeService.modeCounter,
+    );
+    setState(() {
+      _isKitchenMode = value;
+    });
+
+    if (mounted) {
+      // Clear any existing snackbars first
+      ScaffoldMessenger.of(context).clearSnackBars();
+
+      // Show new snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value
+                ? 'Device set to Kitchen Mode. Restart app to activate.'
+                : 'Device set to Counter Mode.',
+          ),
+          duration: const Duration(seconds: 3),
+          backgroundColor: AppColors.success,
+          action: value
+              ? SnackBarAction(
+                  label: 'RESTART',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    // User will manually restart
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please close and reopen the app'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                )
+              : null,
+        ),
+      );
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -468,6 +523,28 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
       margin: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingMD),
       child: Column(
         children: [
+          // Kitchen Mode Toggle
+          ListTile(
+            leading: Icon(
+              _isKitchenMode ? Icons.restaurant : Icons.point_of_sale,
+              color: _isKitchenMode ? Colors.orange : AppColors.primaryBlue,
+            ),
+            title: const Text('Kitchen Mode'),
+            subtitle: Text(
+              _isKitchenMode
+                  ? 'Device locked to Kitchen Orders only'
+                  : 'Full app access (Counter mode)',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.lightTextSecondary,
+              ),
+            ),
+            trailing: Switch(
+              value: _isKitchenMode,
+              onChanged: _toggleDeviceMode,
+              activeColor: Colors.orange,
+            ),
+          ),
+          const Divider(height: 1),
           _buildSettingTile(
             icon: Icons.notifications_outlined,
             title: 'Notifications',

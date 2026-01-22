@@ -5,6 +5,7 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../domain/entities/item_entity.dart';
 import '../providers/item_provider.dart';
 import 'voice_item_add_page.dart';
+import '../widgets/barcode_scanner_page.dart';
 
 /// Item Library Page - CRUD operations for merchant items
 class ItemLibraryPage extends StatefulWidget {
@@ -258,16 +259,49 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                 autofocus: true,
               ),
               const SizedBox(height: AppDimensions.spacingMD),
-              TextField(
-                controller: itemCodeController,
-                decoration: const InputDecoration(
-                  labelText: 'Item Code (Optional)',
-                  hintText: 'e.g., 101',
-                  helperText: '3-4 digits for fast number pad entry',
-                  prefixIcon: Icon(Icons.dialpad),
-                ),
-                keyboardType: TextInputType.number,
-                maxLength: 4,
+              // Item Code with Barcode Scanner
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: itemCodeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Item Code (Optional)',
+                        hintText: 'e.g., 101',
+                        helperText: '3-4 digits for fast number pad entry',
+                        prefixIcon: Icon(Icons.dialpad),
+                      ),
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    margin: const EdgeInsets.only(
+                      bottom: 20,
+                    ), // Align with text field
+                    child: IconButton(
+                      icon: const Icon(Icons.qr_code_scanner, size: 28),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                        foregroundColor: AppColors.primaryBlue,
+                      ),
+                      tooltip: 'Scan Barcode',
+                      onPressed: () async {
+                        // Open barcode scanner
+                        final barcode = await Navigator.push<String>(
+                          dialogContext,
+                          MaterialPageRoute(
+                            builder: (context) => const BarcodeScannerPage(),
+                          ),
+                        );
+                        if (barcode != null && barcode.isNotEmpty) {
+                          itemCodeController.text = barcode;
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: AppDimensions.spacingMD),
               TextField(
@@ -362,16 +396,49 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                 autofocus: true,
               ),
               const SizedBox(height: AppDimensions.spacingMD),
-              TextField(
-                controller: itemCodeController,
-                decoration: const InputDecoration(
-                  labelText: 'Item Code (Optional)',
-                  hintText: 'e.g., 101',
-                  helperText: '3-4 digits for fast number pad entry',
-                  prefixIcon: Icon(Icons.dialpad),
-                ),
-                keyboardType: TextInputType.number,
-                maxLength: 4,
+              // Item Code with Barcode Scanner
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: itemCodeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Item Code (Optional)',
+                        hintText: 'e.g., 101',
+                        helperText: '3-4 digits for fast number pad entry',
+                        prefixIcon: Icon(Icons.dialpad),
+                      ),
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    margin: const EdgeInsets.only(
+                      bottom: 20,
+                    ), // Align with text field
+                    child: IconButton(
+                      icon: const Icon(Icons.qr_code_scanner, size: 28),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                        foregroundColor: AppColors.primaryBlue,
+                      ),
+                      tooltip: 'Scan Barcode',
+                      onPressed: () async {
+                        // Open barcode scanner
+                        final barcode = await Navigator.push<String>(
+                          dialogContext,
+                          MaterialPageRoute(
+                            builder: (context) => const BarcodeScannerPage(),
+                          ),
+                        );
+                        if (barcode != null && barcode.isNotEmpty) {
+                          itemCodeController.text = barcode;
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: AppDimensions.spacingMD),
               TextField(
