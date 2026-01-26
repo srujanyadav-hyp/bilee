@@ -9,7 +9,7 @@ import '../../domain/services/voice_cart_item_parser.dart';
 import '../../domain/models/parsed_item.dart';
 import '../providers/session_provider.dart';
 import '../pages/number_pad_input_page.dart';
-import 'barcode_scanner_page.dart';
+import 'continuous_barcode_scanner.dart';
 import 'voice_language_selector.dart';
 
 /// Fast Input Options Dialog
@@ -199,64 +199,38 @@ class FastInputOptionsDialog extends StatelessWidget {
     );
   }
 
-  /// Smart barcode scanning with auto-add (Option B: Smart Defaults)
-  /// - Scans barcode
-  /// - Searches by barcode in repository
-  /// - If found: Auto-adds to cart with toast notification
-  /// - If not found: Auto-creates temporary item with barcode
+  /// Barcode scanning with continuous mode and smart features
+  /// Uses the new ContinuousBarcodeScannerPage which handles:
+  /// - Continuous scanning (multiple items without closing)
+  /// - Auto-add to cart with sound/haptic feedback
+  /// - Smart duplicate detection (auto-increment quantity)
+  /// - Item not found handling (create temporary items)
   Future<void> _handleBarcodeScanning(BuildContext context) async {
     try {
-      // Open barcode scanner
-      final barcode = await Navigator.push<String>(
+      // Open continuous barcode scanner
+      final result = await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const BarcodeScannerPage()),
+        MaterialPageRoute(
+          builder: (context) =>
+              ContinuousBarcodeScannerPage(merchantId: merchantId),
+        ),
       );
 
-      if (barcode == null || barcode.isEmpty) return;
-
-      // Show loading indicator
-      if (context.mounted) {
-        _showLoadingSnackBar(context, 'Searching for $barcode...');
-      }
-
-      // Get repository and search for item
-      final repository = getIt<IMerchantRepository>();
-      final item = await repository.searchItemByBarcode(merchantId, barcode);
-
-      if (context.mounted) {
-        // Remove loading indicator
-        ScaffoldMessenger.of(context).clearSnackBars();
-
-        if (item != null) {
-          // ✅ Item found by barcode - Auto-add to cart
-          final sessionProvider = context.read<SessionProvider>();
-          sessionProvider.addToCart(item);
-
-          // Show success toast with undo option
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('✅ Added "${item.name}" to cart')),
-                ],
-              ),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 3),
-              action: SnackBarAction(
-                label: 'UNDO',
-                textColor: Colors.white,
-                onPressed: () {
-                  sessionProvider.updateCartItemQuantity(item.name, 0);
-                },
-              ),
+      // Result is true if items were scanned
+      if (result == true && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('✅ Scanning complete'),
+              ],
             ),
-          );
-        } else {
-          // ⚠️ Item not found - Create temporary item
-          _showBarcodeNotFoundDialog(context, barcode);
-        }
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       if (context.mounted) {
@@ -268,160 +242,6 @@ class FastInputOptionsDialog extends StatelessWidget {
         );
       }
     }
-  }
-
-  void _showLoadingSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(message),
-          ],
-        ),
-        duration: const Duration(seconds: 10), // Will be cleared manually
-        backgroundColor: AppColors.primaryBlue,
-      ),
-    );
-  }
-
-  void _showBarcodeNotFoundDialog(BuildContext context, String barcode) {
-    final nameController = TextEditingController();
-    final priceController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.warning),
-            SizedBox(width: 8),
-            Text('Barcode Not Found'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Barcode: $barcode',
-              style: AppTypography.body2.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryBlue,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Add this as a new item?'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Item Name',
-                border: OutlineInputBorder(),
-                hintText: 'Enter item name',
-              ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: priceController,
-              decoration: const InputDecoration(
-                labelText: 'Price',
-                border: OutlineInputBorder(),
-                prefixText: '₹',
-                hintText: '0.00',
-              ),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              final priceText = priceController.text.trim();
-
-              if (name.isEmpty || priceText.isEmpty) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please fill all fields'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-                return;
-              }
-
-              final price = double.tryParse(priceText);
-              if (price == null || price <= 0) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter a valid price'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-                return;
-              }
-
-              Navigator.pop(dialogContext);
-              _createAndAddTempItem(context, name, price, barcode);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Add to Cart'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _createAndAddTempItem(
-    BuildContext context,
-    String name,
-    double price,
-    String barcode,
-  ) {
-    // Create temporary item that will be auto-synced to library later
-    final sessionProvider = context.read<SessionProvider>();
-
-    // For now, we create a session item directly
-    // TODO: In production, you might want to create ItemEntity with barcode
-    // and save it to the library immediately
-
-    sessionProvider.addTemporaryItemToCart(
-      name: name,
-      price: price,
-      barcode: barcode,
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.add_shopping_cart, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text('✅ Added "$name" to cart (temporary)')),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        duration: const Duration(seconds: 3),
-      ),
-    );
   }
 
   /// Handle voice input for adding items to cart
