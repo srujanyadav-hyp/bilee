@@ -25,7 +25,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Incremented for inventory management
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -109,7 +109,49 @@ class LocalDatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle database upgrades in future versions
+    // Version 1 → 2: Add inventory management support
+    if (oldVersion < 2) {
+      // Add inventory columns to items_cache table
+      await db.execute(
+        'ALTER TABLE items_cache ADD COLUMN inventoryEnabled INTEGER DEFAULT 0',
+      );
+      await db.execute('ALTER TABLE items_cache ADD COLUMN currentStock REAL');
+      await db.execute(
+        'ALTER TABLE items_cache ADD COLUMN lowStockThreshold REAL',
+      );
+      await db.execute('ALTER TABLE items_cache ADD COLUMN stockUnit TEXT');
+      await db.execute(
+        'ALTER TABLE items_cache ADD COLUMN lastStockUpdate INTEGER',
+      );
+
+      // Create inventory_transactions table
+      await db.execute('''
+        CREATE TABLE inventory_transactions (
+          id TEXT PRIMARY KEY,
+          itemId TEXT NOT NULL,
+          merchantId TEXT NOT NULL,
+          quantityChange REAL NOT NULL,
+          stockAfter REAL NOT NULL,
+          type TEXT NOT NULL,
+          sessionId TEXT,
+          notes TEXT,
+          timestamp INTEGER NOT NULL,
+          isSynced INTEGER DEFAULT 0,
+          FOREIGN KEY (itemId) REFERENCES items_cache(id)
+        )
+      ''');
+
+      // Create indexes for inventory_transactions
+      await db.execute(
+        'CREATE INDEX idx_inventory_item ON inventory_transactions(itemId)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_inventory_merchant ON inventory_transactions(merchantId)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_inventory_synced ON inventory_transactions(isSynced)',
+      );
+    }
   }
 
   // ==================== SESSION OPERATIONS ====================
@@ -318,6 +360,103 @@ class LocalDatabaseService {
       'syncQueue': syncQueueCount,
       'unsyncedLogs': logsCount,
     };
+  }
+
+  // ==================== INVENTORY OPERATIONS ====================
+
+  /// Insert inventory transaction
+  Future<void> insertInventoryTransaction(
+    Map<String, dynamic> transaction,
+  ) async {
+    final db = await database;
+    await db.insert(
+      'inventory_transactions',
+      transaction,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Get unsynced inventory transactions
+  Future<List<Map<String, dynamic>>> getUnsyncedInventoryTransactions() async {
+    final db = await database;
+    return await db.query(
+      'inventory_transactions',
+      where: 'isSynced = ?',
+      whereArgs: [0],
+      orderBy: 'timestamp ASC',
+    );
+  }
+
+  /// Mark inventory transaction as synced
+  Future<void> markInventoryTransactionAsSynced(String transactionId) async {
+    final db = await database;
+    await db.update(
+      'inventory_transactions',
+      {'isSynced': 1},
+      where: 'id = ?',
+      whereArgs: [transactionId],
+    );
+  }
+
+  /// Get inventory transaction history for an item
+  Future<List<Map<String, dynamic>>> getInventoryHistory(String itemId) async {
+    final db = await database;
+    return await db.query(
+      'inventory_transactions',
+      where: 'itemId = ?',
+      whereArgs: [itemId],
+      orderBy: 'timestamp DESC',
+      limit: 50, // Last 50 transactions
+    );
+  }
+
+  /// Update item stock in cache
+  Future<void> updateItemStock({
+    required String itemId,
+    required double newStock,
+    required int timestamp,
+  }) async {
+    final db = await database;
+    await db.update(
+      'items_cache',
+      {'currentStock': newStock, 'lastStockUpdate': timestamp},
+      where: 'id = ?',
+      whereArgs: [itemId],
+    );
+  }
+
+  /// Get low stock items
+  Future<List<Map<String, dynamic>>> getLowStockItems(String merchantId) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
+      SELECT * FROM items_cache
+      WHERE merchantId = ?
+        AND inventoryEnabled = 1
+        AND currentStock IS NOT NULL
+        AND lowStockThreshold IS NOT NULL
+        AND currentStock <= lowStockThreshold
+      ORDER BY currentStock ASC
+    ''',
+      [merchantId],
+    );
+  }
+
+  /// Get out of stock items
+  Future<List<Map<String, dynamic>>> getOutOfStockItems(
+    String merchantId,
+  ) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
+      SELECT * FROM items_cache
+      WHERE merchantId = ?
+        AND inventoryEnabled = 1
+        AND currentStock IS NOT NULL
+        AND currentStock <= 0
+    ''',
+      [merchantId],
+    );
   }
 
   Future<void> close() async {

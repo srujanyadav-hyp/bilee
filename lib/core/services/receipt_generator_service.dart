@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../../../features/merchant/domain/entities/session_entity.dart';
+import 'performance_service.dart';
 
 /// Service for generating receipts client-side (Phase 3 optimization)
 /// Replaces Cloud Function receipt generation to save costs
@@ -21,6 +22,9 @@ class ReceiptGeneratorService {
     String? merchantGst,
     String? businessCategory,
   }) async {
+    // Track receipt generation performance
+    final generationStartTime = DateTime.now();
+
     try {
       debugPrint('========================================');
       debugPrint('📝 [ReceiptGen] STARTING RECEIPT GENERATION');
@@ -182,19 +186,21 @@ class ReceiptGeneratorService {
 
       debugPrint('========================================');
       debugPrint('🎉 [ReceiptGen] RECEIPT GENERATION COMPLETE!');
-      debugPrint('   Receipt ID: $receiptId');
+      debugPrint('✅ [ReceiptGen] Receipt created successfully: $receiptId');
       debugPrint('========================================');
+
+      // Track receipt generation performance
+      final generationDuration = DateTime.now().difference(generationStartTime);
+      await PerformanceService.trackReceiptGeneration(
+        receiptId: receiptId,
+        itemCount: session.items.length,
+        duration: generationDuration,
+      );
 
       return receiptId;
     } catch (e, stackTrace) {
-      debugPrint('========================================');
-      debugPrint('❌ [ReceiptGen] CRITICAL ERROR IN RECEIPT GENERATION');
-      debugPrint('   Error: $e');
-      debugPrint('   Stack trace: $stackTrace');
-      debugPrint('========================================');
-
-      // Don't throw - allow session to complete even if receipt fails
-      // Receipt can be regenerated later if needed
+      debugPrint('❌ [ReceiptGen] Error generating receipt: $e');
+      debugPrint('Stack trace: $stackTrace');
       return null;
     }
   }

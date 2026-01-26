@@ -27,6 +27,15 @@ class ItemEntity {
   final List<ModifierGroupEntity>?
   modifierGroups; // Optional: Spice levels, add-ons, etc.
 
+  // Inventory Management fields
+  final bool inventoryEnabled; // Whether to track inventory for this item
+  final double? currentStock; // Current stock quantity (null if not tracked)
+  final double?
+  lowStockThreshold; // Alert when stock falls below this (null if not tracked)
+  final String?
+  stockUnit; // Unit of measurement (pieces, kg, liters, boxes, etc.)
+  final DateTime? lastStockUpdate; // When stock was last updated
+
   const ItemEntity({
     required this.id,
     required this.merchantId,
@@ -43,9 +52,27 @@ class ItemEntity {
     this.pricePerUnit,
     this.defaultQuantity,
     this.modifierGroups,
+    this.inventoryEnabled = false,
+    this.currentStock,
+    this.lowStockThreshold,
+    this.stockUnit,
+    this.lastStockUpdate,
   });
 
   double get finalPrice => price * (1 + taxRate / 100);
+
+  // Inventory computed properties
+  bool get isLowStock =>
+      inventoryEnabled &&
+      currentStock != null &&
+      lowStockThreshold != null &&
+      currentStock! <= lowStockThreshold!;
+
+  bool get isOutOfStock =>
+      inventoryEnabled && currentStock != null && currentStock! <= 0;
+
+  bool get hasStock =>
+      !inventoryEnabled || (currentStock != null && currentStock! > 0);
 
   ItemEntity copyWith({
     String? id,
@@ -63,6 +90,11 @@ class ItemEntity {
     double? pricePerUnit,
     double? defaultQuantity,
     List<ModifierGroupEntity>? modifierGroups,
+    bool? inventoryEnabled,
+    double? currentStock,
+    double? lowStockThreshold,
+    String? stockUnit,
+    DateTime? lastStockUpdate,
   }) {
     return ItemEntity(
       id: id ?? this.id,
@@ -80,6 +112,11 @@ class ItemEntity {
       pricePerUnit: pricePerUnit ?? this.pricePerUnit,
       defaultQuantity: defaultQuantity ?? this.defaultQuantity,
       modifierGroups: modifierGroups ?? this.modifierGroups,
+      inventoryEnabled: inventoryEnabled ?? this.inventoryEnabled,
+      currentStock: currentStock ?? this.currentStock,
+      lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
+      stockUnit: stockUnit ?? this.stockUnit,
+      lastStockUpdate: lastStockUpdate ?? this.lastStockUpdate,
     );
   }
 }

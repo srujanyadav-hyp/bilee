@@ -1,9 +1,13 @@
 import 'package:get_it/get_it.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/local_database_service.dart';
 import '../../features/merchant/data/datasources/merchant_firestore_datasource.dart';
 import '../../features/merchant/data/datasources/receipt_remote_data_source.dart';
 import '../../features/merchant/data/repositories/merchant_repository_impl.dart';
 import '../../features/merchant/data/repositories/receipt_repository.dart';
+import '../../features/merchant/data/repositories/inventory_repository_impl.dart';
 import '../../features/merchant/domain/repositories/i_merchant_repository.dart';
+import '../../features/merchant/domain/repositories/inventory_repository.dart';
 import '../../features/merchant/domain/usecases/merchant_usecases.dart';
 import '../../features/merchant/domain/usecases/item_usecases.dart';
 import '../../features/merchant/domain/usecases/session_usecases.dart';
@@ -13,6 +17,7 @@ import '../../features/merchant/presentation/providers/item_provider.dart';
 import '../../features/merchant/presentation/providers/session_provider.dart';
 import '../../features/merchant/presentation/providers/daily_aggregate_provider.dart';
 import '../../features/merchant/presentation/providers/merchant_provider.dart';
+import '../../features/merchant/presentation/providers/inventory_provider.dart';
 
 final getIt = GetIt.instance;
 
@@ -36,6 +41,18 @@ void setupDependencyInjection() {
 
   getIt.registerLazySingleton<ReceiptRepository>(
     () => ReceiptRepository(remoteDataSource: getIt()),
+  );
+
+  // Inventory repository
+  getIt.registerLazySingleton<LocalDatabaseService>(
+    () => LocalDatabaseService(),
+  );
+
+  getIt.registerLazySingleton<IInventoryRepository>(
+    () => InventoryRepositoryImpl(
+      localDb: getIt(),
+      firestore: FirebaseFirestore.instance,
+    ),
   );
 
   // ==================== USE CASES ====================
@@ -85,6 +102,7 @@ void setupDependencyInjection() {
       finalizeSession: getIt(),
       logReceiptAccess: getIt(),
       getMerchantProfile: getIt(),
+      inventoryProvider: getIt(),
     ),
   );
 
@@ -101,4 +119,6 @@ void setupDependencyInjection() {
       saveMerchantProfile: getIt(),
     ),
   );
+
+  getIt.registerFactory(() => InventoryProvider(repository: getIt()));
 }

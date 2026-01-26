@@ -216,6 +216,38 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                   ],
                 ),
               ),
+            if (item.inventoryEnabled)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: Colors.teal.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.warehouse_outlined,
+                      size: 12,
+                      color: Colors.teal,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Stock: ${item.currentStock?.toStringAsFixed(0) ?? '0'} ${item.stockUnit ?? 'units'}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (item.hsnCode != null) Text('HSN: ${item.hsnCode}'),
             Text('Tax: ${item.taxRate}%'),
           ],
@@ -242,11 +274,18 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
     final priceController = TextEditingController();
     final itemCodeController = TextEditingController();
 
+    // Inventory tracking values
+    bool inventoryEnabled = false;
+    double? initialStock;
+    double? lowStockThreshold;
+    String? stockUnit;
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Add Item'),
         content: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -255,6 +294,7 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                 decoration: const InputDecoration(
                   labelText: 'Item Name *',
                   hintText: 'e.g., Rice, Dal, Oil',
+                  border: OutlineInputBorder(),
                 ),
                 autofocus: true,
               ),
@@ -320,6 +360,18 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                   color: AppColors.lightTextSecondary,
                 ),
               ),
+              const SizedBox(height: AppDimensions.spacingLG),
+              const Divider(),
+              const SizedBox(height: AppDimensions.spacingMD),
+              // Inventory Tracking Section
+              _InventoryTrackingFields(
+                onChanged: (enabled, stock, threshold, unit) {
+                  inventoryEnabled = enabled;
+                  initialStock = stock;
+                  lowStockThreshold = threshold;
+                  stockUnit = unit;
+                },
+              ),
             ],
           ),
         ),
@@ -356,6 +408,11 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                 taxRate: 18.0, // Auto-set to 18%
                 createdAt: DateTime.now(),
                 updatedAt: DateTime.now(),
+                // Inventory tracking fields
+                inventoryEnabled: inventoryEnabled,
+                currentStock: initialStock,
+                lowStockThreshold: lowStockThreshold,
+                stockUnit: stockUnit,
               );
 
               final success = await context.read<ItemProvider>().createItem(
@@ -382,17 +439,27 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
     final priceController = TextEditingController(text: item.price.toString());
     final itemCodeController = TextEditingController(text: item.itemCode ?? '');
 
+    // Inventory tracking values - initialize from existing item
+    bool inventoryEnabled = item.inventoryEnabled;
+    double? currentStock = item.currentStock;
+    double? lowStockThreshold = item.lowStockThreshold;
+    String? stockUnit = item.stockUnit;
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Item'),
         content: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Item Name *'),
+                decoration: const InputDecoration(
+                  labelText: 'Item Name *',
+                  border: OutlineInputBorder(),
+                ),
                 autofocus: true,
               ),
               const SizedBox(height: AppDimensions.spacingMD),
@@ -456,6 +523,22 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                   color: AppColors.lightTextSecondary,
                 ),
               ),
+              const SizedBox(height: AppDimensions.spacingLG),
+              const Divider(),
+              const SizedBox(height: AppDimensions.spacingMD),
+              // Inventory Tracking Section with existing values
+              _InventoryTrackingFields(
+                initialEnabled: item.inventoryEnabled,
+                initialStock: item.currentStock,
+                initialThreshold: item.lowStockThreshold,
+                initialUnit: item.stockUnit,
+                onChanged: (enabled, stock, threshold, unit) {
+                  inventoryEnabled = enabled;
+                  currentStock = stock;
+                  lowStockThreshold = threshold;
+                  stockUnit = unit;
+                },
+              ),
             ],
           ),
         ),
@@ -487,6 +570,11 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
                     : itemCodeController.text,
                 price: double.tryParse(priceController.text) ?? item.price,
                 updatedAt: DateTime.now(),
+                // Update inventory tracking fields
+                inventoryEnabled: inventoryEnabled,
+                currentStock: currentStock,
+                lowStockThreshold: lowStockThreshold,
+                stockUnit: stockUnit,
               );
 
               final success = await context.read<ItemProvider>().updateItem(
@@ -561,5 +649,152 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
       // Reload items
       context.read<ItemProvider>().loadItems(widget.merchantId);
     }
+  }
+}
+
+/// Inventory Tracking Fields Widget
+/// Reusable widget for inventory tracking configuration
+class _InventoryTrackingFields extends StatefulWidget {
+  final bool initialEnabled;
+  final double? initialStock;
+  final double? initialThreshold;
+  final String? initialUnit;
+  final Function(bool enabled, double? stock, double? threshold, String? unit)
+  onChanged;
+
+  const _InventoryTrackingFields({
+    this.initialEnabled = false,
+    this.initialStock,
+    this.initialThreshold,
+    this.initialUnit,
+    required this.onChanged,
+  });
+
+  @override
+  State<_InventoryTrackingFields> createState() =>
+      _InventoryTrackingFieldsState();
+}
+
+class _InventoryTrackingFieldsState extends State<_InventoryTrackingFields> {
+  late bool _trackInventory;
+  late TextEditingController _stockController;
+  late TextEditingController _thresholdController;
+  late TextEditingController _unitController;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackInventory = widget.initialEnabled;
+    _stockController = TextEditingController(
+      text: widget.initialStock?.toString() ?? '',
+    );
+    _thresholdController = TextEditingController(
+      text: widget.initialThreshold?.toString() ?? '',
+    );
+    _unitController = TextEditingController(
+      text: widget.initialUnit ?? 'units',
+    );
+  }
+
+  @override
+  void dispose() {
+    _stockController.dispose();
+    _thresholdController.dispose();
+    _unitController.dispose();
+    super.dispose();
+  }
+
+  void _notifyChanges() {
+    widget.onChanged(
+      _trackInventory,
+      _trackInventory ? double.tryParse(_stockController.text) : null,
+      _trackInventory ? double.tryParse(_thresholdController.text) : null,
+      _trackInventory && _unitController.text.isNotEmpty
+          ? _unitController.text
+          : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Track Inventory Toggle
+        Row(
+          children: [
+            Icon(
+              Icons.warehouse_outlined,
+              color: AppColors.primaryBlue,
+              size: 20,
+            ),
+            const SizedBox(width: AppDimensions.spacingXS),
+            Text(
+              'Inventory Tracking',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const Spacer(),
+            Switch(
+              value: _trackInventory,
+              onChanged: (value) {
+                setState(() {
+                  _trackInventory = value;
+                });
+                _notifyChanges();
+              },
+            ),
+          ],
+        ),
+        if (_trackInventory) ...[
+          const SizedBox(height: AppDimensions.spacingMD),
+          Text(
+            'Enable automatic stock tracking and low stock alerts',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.lightTextSecondary,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spacingMD),
+          // Initial Stock
+          TextField(
+            controller: _stockController,
+            decoration: const InputDecoration(
+              labelText: 'Initial Stock *',
+              hintText: 'e.g., 100',
+              helperText: 'Starting quantity in inventory',
+              prefixIcon: Icon(Icons.inventory_2_outlined),
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (_) => _notifyChanges(),
+          ),
+          const SizedBox(height: AppDimensions.spacingMD),
+          // Low Stock Threshold
+          TextField(
+            controller: _thresholdController,
+            decoration: const InputDecoration(
+              labelText: 'Low Stock Alert Level *',
+              hintText: 'e.g., 20',
+              helperText: 'Get notified when stock falls below this',
+              prefixIcon: Icon(Icons.warning_amber_rounded),
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (_) => _notifyChanges(),
+          ),
+          const SizedBox(height: AppDimensions.spacingMD),
+          // Stock Unit
+          TextField(
+            controller: _unitController,
+            decoration: const InputDecoration(
+              labelText: 'Stock Unit *',
+              hintText: 'e.g., kg, pieces, liters',
+              helperText: 'Unit of measurement',
+              prefixIcon: Icon(Icons.straighten),
+            ),
+            onChanged: (_) => _notifyChanges(),
+          ),
+        ],
+      ],
+    );
   }
 }

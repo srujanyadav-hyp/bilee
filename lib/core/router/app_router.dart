@@ -1,6 +1,8 @@
 import 'package:bilee/core/services/role_storage_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/presentation/pages/splash_screen.dart';
 import '../../features/onboarding/view/role_selection.dart';
@@ -20,6 +22,9 @@ import '../../features/merchant/presentation/pages/live_session_page.dart';
 import '../../features/merchant/presentation/pages/customer_ledger_page.dart';
 import '../../features/merchant/presentation/pages/voice_item_add_page.dart';
 import '../../features/merchant/presentation/pages/kitchen_orders_page.dart';
+import '../../features/merchant/presentation/pages/inventory_management_page.dart';
+import '../../features/merchant/presentation/providers/inventory_provider.dart';
+import '../../features/merchant/presentation/providers/item_provider.dart';
 import '../../features/customer/presentation/pages/customer_home_screen.dart';
 import '../../features/customer/presentation/pages/scan_qr_screen.dart';
 import '../../features/customer/presentation/pages/live_bill_screen.dart';
@@ -197,6 +202,24 @@ class AppRouter {
             builder: (context, state) {
               final merchantId = state.pathParameters['merchantId']!;
               return KitchenOrdersPage(merchantId: merchantId);
+            },
+          ),
+          GoRoute(
+            path: 'inventory',
+            name: 'inventory-management',
+            builder: (context, state) {
+              final merchantId = state.pathParameters['merchantId']!;
+              return MultiProvider(
+                providers: [
+                  ChangeNotifierProvider(
+                    create: (_) => GetIt.instance<InventoryProvider>(),
+                  ),
+                  ChangeNotifierProvider(
+                    create: (_) => GetIt.instance<ItemProvider>(),
+                  ),
+                ],
+                child: InventoryManagementPage(merchantId: merchantId),
+              );
             },
           ),
         ],

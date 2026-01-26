@@ -7,7 +7,9 @@ import '../../domain/usecases/session_usecases.dart';
 import '../../domain/usecases/receipt_usecases.dart';
 import '../../domain/usecases/merchant_usecases.dart';
 import '../../../../core/services/receipt_generator_service.dart';
+import '../../../../core/services/performance_service.dart';
 import '../widgets/order_info_dialog.dart';
+import 'inventory_provider.dart';
 
 /// Session Provider - State management for billing sessions
 class SessionProvider with ChangeNotifier {
@@ -19,6 +21,7 @@ class SessionProvider with ChangeNotifier {
   final LogReceiptAccess _logReceiptAccess;
   final GetMerchantProfile _getMerchantProfile;
   final ReceiptGeneratorService _receiptGenerator;
+  final InventoryProvider? _inventoryProvider;
 
   SessionProvider({
     required CreateBillingSession createBillingSession,
@@ -28,13 +31,15 @@ class SessionProvider with ChangeNotifier {
     required LogReceiptAccess logReceiptAccess,
     required GetMerchantProfile getMerchantProfile,
     ReceiptGeneratorService? receiptGenerator,
+    InventoryProvider? inventoryProvider,
   }) : _createBillingSession = createBillingSession,
        _getLiveSession = getLiveSession,
        _markSessionPaid = markSessionPaid,
        _finalizeSession = finalizeSession,
        _logReceiptAccess = logReceiptAccess,
        _getMerchantProfile = getMerchantProfile,
-       _receiptGenerator = receiptGenerator ?? ReceiptGeneratorService();
+       _receiptGenerator = receiptGenerator ?? ReceiptGeneratorService(),
+       _inventoryProvider = inventoryProvider;
 
   SessionEntity? _currentSession;
   bool _isLoading = false;
@@ -340,9 +345,10 @@ class SessionProvider with ChangeNotifier {
     }
 
     final cart = _parkedCarts[cartId]!;
-    final itemCount = cart.values.fold(
+    final itemCount = cart.values.fold<int>(
       0,
-      (sum, item) => sum + item.qty.toInt(),
+      (sum, item) =>
+          sum + item.qty.round(), // Fixed: use round() to convert double to int
     );
     final total = cart.values.fold(0.0, (sum, item) => sum + item.total);
 
@@ -372,6 +378,9 @@ class SessionProvider with ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
+
+    // Track billing session performance
+    final sessionStartTime = DateTime.now();
 
     try {
       // Determine payment method and status for session
@@ -513,11 +522,24 @@ class SessionProvider with ChangeNotifier {
         );
       }
 
+      // Clear cart after successful session creation
+      clearCart();
+
+      print('✅ [PROVIDER] Session created successfully: $sessionId');
+
+      // Track billing session performance
+      final sessionDuration = DateTime.now().difference(sessionStartTime);
+      await PerformanceService.trackBillingSession(
+        sessionId: sessionId,
+        itemCount: _cartItems.length,
+        duration: sessionDuration,
+      );
+
       return sessionId;
-    } catch (e) {
-      print('🔴 [PROVIDER ERROR] Failed to create session: $e');
+    } catch (e, stackTrace) {
+      print('❌ [PROVIDER] Error creating session: $e');
+      print('Stack trace: $stackTrace');
       _error = e.toString();
-      _isLoading = false;
       notifyListeners();
       return null;
     }
@@ -663,72 +685,103 @@ class SessionProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    try {
-      debugPrint('🏁 [SessionProvider] Completing session: $sessionId');
+    // Track session completion performance
+    return await PerformanceService.trace('complete_session', () async {
+      try {
+        debugPrint('🏁 [SessionProvider] Completing session: $sessionId');
 
-      // STEP 1: Ensure session is marked as PAID and generate receipt
-      if (_currentSession != null && !_currentSession!.isPaid) {
-        debugPrint(
-          '💰 [SessionProvider] Session not paid yet, marking as PAID...',
-        );
-
-        // Mark as paid with default payment method
-        final paymentMethod = _currentSession!.paymentMethod ?? 'cash';
-        final txnId =
-            _currentSession!.paymentTxnId ??
-            'TXN${DateTime.now().millisecondsSinceEpoch}';
-
-        final paid = await markAsPaid(sessionId, paymentMethod, txnId);
-
-        if (!paid) {
-          debugPrint('❌ [SessionProvider] Failed to mark session as paid');
-          throw Exception('Failed to mark session as paid');
-        }
-      } else if (_currentSession != null && _currentSession!.isPaid) {
-        debugPrint(
-          '✅ [SessionProvider] Session already paid, ensuring receipt exists...',
-        );
-
-        // Session is paid, but check if receipt was generated
-        final receiptExists = await _receiptGenerator.receiptExistsForSession(
-          sessionId,
-        );
-
-        if (!receiptExists) {
-          debugPrint('📝 [SessionProvider] Receipt missing, generating now...');
-
-          final merchantProfile = await _getMerchantProfile(
-            _currentSession!.merchantId,
+        // STEP 1: Ensure session is marked as PAID and generate receipt
+        if (_currentSession != null && !_currentSession!.isPaid) {
+          debugPrint(
+            '💰 [SessionProvider] Session not paid yet, marking as PAID...',
           );
 
-          await _receiptGenerator.generateReceiptForSession(
-            session: _currentSession!,
-            merchantName: merchantProfile?.businessName ?? 'MY BUSINESS',
-            merchantLogo: merchantProfile?.logoUrl,
-            merchantAddress: merchantProfile?.businessAddress,
-            merchantPhone: merchantProfile?.businessPhone,
-            merchantGst: merchantProfile?.gstNumber,
-            businessCategory: merchantProfile?.businessType,
+          // Mark as paid with default payment method
+          final paymentMethod = _currentSession!.paymentMethod ?? 'cash';
+          final txnId =
+              _currentSession!.paymentTxnId ??
+              'TXN${DateTime.now().millisecondsSinceEpoch}';
+
+          final paid = await markAsPaid(sessionId, paymentMethod, txnId);
+
+          if (!paid) {
+            debugPrint('❌ [SessionProvider] Failed to mark session as paid');
+            throw Exception('Failed to mark session as paid');
+          }
+        } else if (_currentSession != null && _currentSession!.isPaid) {
+          debugPrint(
+            '✅ [SessionProvider] Session already paid, ensuring receipt exists...',
           );
-        } else {
-          debugPrint('✅ [SessionProvider] Receipt already exists for session');
+
+          // Session is paid, but check if receipt was generated
+          final receiptExists = await _receiptGenerator.receiptExistsForSession(
+            sessionId,
+          );
+
+          if (!receiptExists) {
+            debugPrint(
+              '📝 [SessionProvider] Receipt missing, generating now...',
+            );
+
+            final merchantProfile = await _getMerchantProfile(
+              _currentSession!.merchantId,
+            );
+
+            await _receiptGenerator.generateReceiptForSession(
+              session: _currentSession!,
+              merchantName: merchantProfile?.businessName ?? 'MY BUSINESS',
+              merchantLogo: merchantProfile?.logoUrl,
+              merchantAddress: merchantProfile?.businessAddress,
+              merchantPhone: merchantProfile?.businessPhone,
+              merchantGst: merchantProfile?.gstNumber,
+              businessCategory: merchantProfile?.businessType,
+            );
+          } else {
+            debugPrint(
+              '✅ [SessionProvider] Receipt already exists for session',
+            );
+          }
         }
+
+        // STEP 2: Finalize the session
+        debugPrint('🏁 [SessionProvider] Finalizing session...');
+        await _finalizeSession(sessionId);
+
+        // STEP 3: Deduct inventory stock for items with inventory tracking enabled
+        if (_inventoryProvider != null && _currentSession != null) {
+          debugPrint('📦 [SessionProvider] Deducting inventory stock...');
+          try {
+            // Build item quantities map from session items
+            final itemQuantities = <String, double>{};
+            for (final item in _currentSession!.items) {
+              // Use item name as key since we don't have itemId in SessionItemEntity
+              // This will be matched against item names in the repository
+              itemQuantities[item.name] = item.qty;
+            }
+
+            await _inventoryProvider.deductStockForSession(
+              sessionId: sessionId,
+              merchantId: _currentSession!.merchantId,
+              itemQuantities: itemQuantities,
+            );
+            debugPrint('✅ [SessionProvider] Inventory deducted successfully');
+          } catch (e) {
+            // Don't fail session completion if inventory deduction fails
+            debugPrint('⚠️ [SessionProvider] Inventory deduction failed: $e');
+          }
+        }
+
+        _currentSession = null;
+
+        debugPrint('✅ [SessionProvider] Session completed successfully');
+        return true;
+      } catch (e) {
+        debugPrint('❌ [SessionProvider] Error completing session: $e');
+        _error = e.toString();
+        notifyListeners();
+        return false;
       }
-
-      // STEP 2: Finalize the session
-      debugPrint('🏁 [SessionProvider] Finalizing session...');
-      await _finalizeSession(sessionId);
-
-      _currentSession = null;
-
-      debugPrint('✅ [SessionProvider] Session completed successfully');
-      return true;
-    } catch (e) {
-      debugPrint('❌ [SessionProvider] Error completing session: $e');
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
+    }, attributes: {'session_id': sessionId});
   }
 
   /// Clear error

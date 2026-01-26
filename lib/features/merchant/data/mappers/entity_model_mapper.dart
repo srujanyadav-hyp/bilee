@@ -24,6 +24,11 @@ extension ItemModelToEntity on ItemModel {
       isWeightBased: isWeightBased,
       pricePerUnit: pricePerUnit,
       defaultQuantity: defaultQuantity,
+      inventoryEnabled: inventoryEnabled,
+      currentStock: currentStock,
+      lowStockThreshold: lowStockThreshold,
+      stockUnit: stockUnit,
+      lastStockUpdate: lastStockUpdate?.toDate(),
     );
   }
 }
@@ -47,6 +52,13 @@ extension ItemEntityToModel on ItemEntity {
       isWeightBased: isWeightBased,
       pricePerUnit: pricePerUnit,
       defaultQuantity: defaultQuantity,
+      inventoryEnabled: inventoryEnabled,
+      currentStock: currentStock,
+      lowStockThreshold: lowStockThreshold,
+      stockUnit: stockUnit,
+      lastStockUpdate: lastStockUpdate != null
+          ? Timestamp.fromDate(lastStockUpdate!)
+          : null,
     );
   }
 }

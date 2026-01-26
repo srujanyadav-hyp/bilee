@@ -205,6 +205,17 @@ class _MerchantHomePageState extends State<MerchantHomePage> {
         const SizedBox(height: AppDimensions.spacingMD),
         _buildActionCard(
           context,
+          title: 'Inventory Management',
+          subtitle: 'Track stock levels & alerts',
+          icon: Icons.warehouse_outlined,
+          color: Colors.teal,
+          onTap: () {
+            context.go('/merchant/${widget.merchantId}/inventory');
+          },
+        ),
+        const SizedBox(height: AppDimensions.spacingMD),
+        _buildActionCard(
+          context,
           title: 'Daily Summary',
           subtitle: 'View sales reports',
           icon: Icons.analytics,

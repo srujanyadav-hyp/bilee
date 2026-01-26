@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'local_database_service.dart';
 import 'connectivity_service.dart';
+import '../utils/retry_helper.dart';
+import 'performance_service.dart';
 
 /// Sync Service - Manages syncing local data to Firestore when online
 class SyncService extends ChangeNotifier {
@@ -69,66 +71,95 @@ class SyncService extends ChangeNotifier {
     _lastSyncError = null;
     notifyListeners();
 
+    // Track sync performance
+    final syncStartTime = DateTime.now();
+    int totalRecordsSynced = 0;
+    bool syncSuccess = true;
+
     try {
       // 1. Sync pending sessions
-      await _syncSessions();
+      final sessionCount = await _syncSessions();
+      totalRecordsSynced += sessionCount;
 
       // 2. Sync activity logs
-      await _syncActivityLogs();
+      final logCount = await _syncActivityLogs();
+      totalRecordsSynced += logCount;
 
       // 3. Process sync queue
-      await _processSyncQueue();
+      final queueCount = await _processSyncQueue();
+      totalRecordsSynced += queueCount;
 
       _lastSyncAt = DateTime.now();
-      debugPrint('Sync completed successfully');
+      debugPrint('✅ Sync completed successfully');
     } catch (e) {
+      syncSuccess = false;
       _lastSyncError = e.toString();
-      debugPrint('Sync error: $e');
+      debugPrint('❌ Sync error: $e');
     } finally {
       _isSyncing = false;
       await _updatePendingCount();
+
+      // Track sync operation performance
+      final syncDuration = DateTime.now().difference(syncStartTime);
+      await PerformanceService.trackSyncOperation(
+        syncType: 'full_sync',
+        recordCount: totalRecordsSynced,
+        duration: syncDuration,
+        success: syncSuccess,
+      );
     }
   }
 
-  Future<void> _syncSessions() async {
+  Future<int> _syncSessions() async {
     final sessions = await _localDb.getUnsyncedSessions();
-    debugPrint('Syncing ${sessions.length} sessions...');
+    debugPrint('🔄 Syncing ${sessions.length} sessions...');
+
+    int syncedCount = 0;
 
     for (final session in sessions) {
       try {
         // Parse items from JSON
         final items = jsonDecode(session['items'] as String) as List;
 
-        // Create session in Firestore
-        await _firestore
-            .collection('sessions')
-            .doc(session['id'] as String)
-            .set({
-              'merchantId': session['merchantId'],
-              'staffId': session['staffId'],
-              'items': items,
-              'totalAmount': session['totalAmount'],
-              'discount': session['discount'],
-              'tax': session['tax'],
-              'paymentMethod': session['paymentMethod'],
-              'paymentStatus': session['paymentStatus'],
-              'createdAt': Timestamp.fromMillisecondsSinceEpoch(
-                session['createdAt'] as int,
-              ),
-              'syncedFrom': 'offline',
-            });
+        // Create session in Firestore with retry logic
+        await RetryHelper.withRetry(
+          operation: () => _firestore
+              .collection('sessions')
+              .doc(session['id'] as String)
+              .set({
+                'merchantId': session['merchantId'],
+                'staffId': session['staffId'],
+                'items': items,
+                'totalAmount': session['totalAmount'],
+                'discount': session['discount'],
+                'tax': session['tax'],
+                'paymentMethod': session['paymentMethod'],
+                'paymentStatus': session['paymentStatus'],
+                'createdAt': Timestamp.fromMillisecondsSinceEpoch(
+                  session['createdAt'] as int,
+                ),
+                'syncedFrom': 'offline',
+              }),
+          maxAttempts: 3,
+          retryIf: (e) =>
+              e is FirebaseException &&
+              (e.code == 'unavailable' || e.code == 'deadline-exceeded'),
+        );
 
         // Mark as synced in local DB
         await _localDb.markSessionAsSynced(session['id'] as String);
-        debugPrint('Synced session: ${session['id']}');
+        debugPrint('✅ Synced session: ${session['id']}');
+        syncedCount++;
       } catch (e) {
-        debugPrint('Error syncing session ${session['id']}: $e');
+        debugPrint('❌ Error syncing session ${session['id']}: $e');
         // Continue with next session
       }
     }
+
+    return syncedCount;
   }
 
-  Future<void> _syncActivityLogs() async {
+  Future<int> _syncActivityLogs() async {
     final logs = await _localDb.getUnsyncedLogs();
     debugPrint('Syncing ${logs.length} activity logs...');
 
@@ -159,15 +190,25 @@ class SyncService extends ChangeNotifier {
     }
 
     if (syncedIds.isNotEmpty) {
-      await batch.commit();
+      await RetryHelper.withRetry(
+        operation: () => batch.commit(),
+        maxAttempts: 3,
+        retryIf: (e) =>
+            e is FirebaseException &&
+            (e.code == 'unavailable' || e.code == 'deadline-exceeded'),
+      );
       await _localDb.markLogsAsSynced(syncedIds);
-      debugPrint('Synced ${syncedIds.length} activity logs');
+      debugPrint('✅ Synced ${syncedIds.length} activity logs');
     }
+
+    return syncedIds.length;
   }
 
-  Future<void> _processSyncQueue() async {
+  Future<int> _processSyncQueue() async {
     final queue = await _localDb.getSyncQueue();
-    debugPrint('Processing ${queue.length} sync queue items...');
+    debugPrint('🔄 Processing ${queue.length} sync queue items...');
+
+    int syncedCount = 0;
 
     for (final item in queue) {
       try {
@@ -176,35 +217,49 @@ class SyncService extends ChangeNotifier {
         final entityId = item['entityId'] as String;
         final data = jsonDecode(item['data'] as String) as Map<String, dynamic>;
 
-        // Process based on operation type
-        switch (operationType) {
-          case 'CREATE':
-            await _firestore.collection(entityType).doc(entityId).set(data);
-            break;
-          case 'UPDATE':
-            await _firestore.collection(entityType).doc(entityId).update(data);
-            break;
-          case 'DELETE':
-            await _firestore.collection(entityType).doc(entityId).delete();
-            break;
-        }
+        // Process based on operation type with retry logic
+        await RetryHelper.withRetry(
+          operation: () async {
+            switch (operationType) {
+              case 'CREATE':
+                await _firestore.collection(entityType).doc(entityId).set(data);
+                break;
+              case 'UPDATE':
+                await _firestore
+                    .collection(entityType)
+                    .doc(entityId)
+                    .update(data);
+                break;
+              case 'DELETE':
+                await _firestore.collection(entityType).doc(entityId).delete();
+                break;
+            }
+          },
+          maxAttempts: 3,
+          retryIf: (e) =>
+              e is FirebaseException &&
+              (e.code == 'unavailable' || e.code == 'deadline-exceeded'),
+        );
 
         // Remove from queue after successful sync
         await _localDb.removeSyncQueueItem(item['id'] as int);
-        debugPrint('Synced $operationType $entityType: $entityId');
+        debugPrint('✅ Synced $operationType $entityType: $entityId');
+        syncedCount++;
       } catch (e) {
-        debugPrint('Error syncing queue item ${item['id']}: $e');
+        debugPrint('❌ Error syncing queue item ${item['id']}: $e');
 
         // Update retry count
         await _localDb.updateSyncQueueRetry(item['id'] as int, e.toString());
 
-        // Remove if retry count exceeds threshold
-        if ((item['retryCount'] as int) >= 5) {
+        // Remove if retry count exceeds threshold (increased to 10 with exponential backoff)
+        if ((item['retryCount'] as int) >= 10) {
           await _localDb.removeSyncQueueItem(item['id'] as int);
-          debugPrint('Removed failed item after 5 retries');
+          debugPrint('⚠️ Removed failed item after 10 retries');
         }
       }
     }
+
+    return syncedCount;
   }
 
   /// Force sync now (called by user action)

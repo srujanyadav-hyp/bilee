@@ -3,7 +3,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../../features/merchant/domain/entities/daily_aggregate_entity.dart';
+import 'performance_service.dart';
 
 /// PDF Report Service - Client-side PDF generation
 /// COST OPTIMIZATION: Replaces expensive Puppeteer Cloud Function ($50-200/month)
@@ -23,18 +25,93 @@ class PDFReportService {
     String? merchantGst,
     String? logoUrl,
   }) async {
+    // Track PDF generation performance
+    final pdfStartTime = DateTime.now();
+
     final pdf = pw.Document();
     final dateFormat = DateFormat('MMMM dd, yyyy');
 
-    // Load a font that supports rupee symbol
-    // Using Google Fonts which has built-in support for special characters
-    final font = await PdfGoogleFonts.notoSansRegular();
-    final fontBold = await PdfGoogleFonts.notoSansBold();
+    // Load ALL Indian language fonts for comprehensive script support
+    // This enables proper rendering of Telugu, Hindi, Tamil, Kannada, Malayalam,
+    // Marathi, Gujarati, Punjabi, Bengali, and English text in PDFs
 
-    // Create custom theme with the loaded font
-    final theme = pw.ThemeData.withFont(base: font, bold: fontBold);
+    // Devanagari script (Hindi, Marathi, Sanskrit)
+    final devanagariData = await rootBundle.load(
+      'assets/fonts/NotoSansDevanagari/NotoSansDevanagari-Variable.ttf',
+    );
+    final devanagariFont = pw.Font.ttf(devanagariData);
 
-    // Currency format with rupee symbol - will now render correctly
+    // Telugu script
+    final teluguData = await rootBundle.load(
+      'assets/fonts/NotoSansTelugu/NotoSansTelugu-Variable.ttf',
+    );
+    final teluguFont = pw.Font.ttf(teluguData);
+
+    // Tamil script
+    final tamilData = await rootBundle.load(
+      'assets/fonts/NotoSansTamil/NotoSansTamil-Variable.ttf',
+    );
+    final tamilFont = pw.Font.ttf(tamilData);
+
+    // Kannada script
+    final kannadaData = await rootBundle.load(
+      'assets/fonts/NotoSansKannada/NotoSansKannada-Variable.ttf',
+    );
+    final kannadaFont = pw.Font.ttf(kannadaData);
+
+    // Malayalam script
+    final malayalamData = await rootBundle.load(
+      'assets/fonts/NotoSansMalayalam/NotoSansMalayalam-Variable.ttf',
+    );
+    final malayalamFont = pw.Font.ttf(malayalamData);
+
+    // Gujarati script
+    final gujaratiData = await rootBundle.load(
+      'assets/fonts/NotoSansGujarati/NotoSansGujarati-Variable.ttf',
+    );
+    final gujaratiFont = pw.Font.ttf(gujaratiData);
+
+    // Gurmukhi script (Punjabi)
+    final gurmukhiData = await rootBundle.load(
+      'assets/fonts/NotoSansGurmukhi/NotoSansGurmukhi-Variable.ttf',
+    );
+    final gurmukhiFont = pw.Font.ttf(gurmukhiData);
+
+    // Bengali script
+    final bengaliData = await rootBundle.load(
+      'assets/fonts/NotoSansBengali/NotoSansBengali-Variable.ttf',
+    );
+    final bengaliFont = pw.Font.ttf(bengaliData);
+
+    // Odia script (Oriya)
+    final odiaData = await rootBundle.load(
+      'assets/fonts/NotoSansOriya/NotoSansOriya-Variable.ttf',
+    );
+    final odiaFont = pw.Font.ttf(odiaData);
+
+    // Create theme with Devanagari as base (covers Hindi, Marathi + Latin/English)
+    // The PDF library will use the base font, but we'll explicitly specify fonts
+    // for table cells to ensure proper rendering
+    final theme = pw.ThemeData.withFont(
+      base: devanagariFont,
+      bold: devanagariFont,
+    );
+
+    // Font fallback list - PDF library will try fonts in order until it finds
+    // one that supports the characters being rendered
+    final fontFallbacks = [
+      devanagariFont, // Hindi, Marathi, English, numbers
+      teluguFont, // Telugu
+      tamilFont, // Tamil
+      kannadaFont, // Kannada
+      malayalamFont, // Malayalam
+      gujaratiFont, // Gujarati
+      gurmukhiFont, // Punjabi
+      bengaliFont, // Bengali
+      odiaFont, // Odia
+    ];
+
+    // Currency format with rupee symbol
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
 
     // Load logo if available
@@ -118,6 +195,7 @@ class PDFReportService {
           _buildItemsTable(
             items: aggregate.items,
             currencyFormat: currencyFormat,
+            fontFallbacks: fontFallbacks,
           ),
 
           pw.SizedBox(height: 40),
@@ -126,6 +204,14 @@ class PDFReportService {
           _buildFooter(),
         ],
       ),
+    );
+
+    // Track PDF generation performance
+    final pdfEndTime = DateTime.now();
+    PerformanceService.trackPDFGeneration(
+      duration: pdfEndTime.difference(pdfStartTime),
+      reportType: 'daily_sales',
+      pageCount: pdf.document.pdfPageList.pages.length,
     );
 
     return pdf.save();
@@ -288,14 +374,22 @@ class PDFReportService {
   pw.Widget _buildItemsTable({
     required List<AggregatedItemEntity> items,
     required NumberFormat currencyFormat,
+    required List<pw.Font> fontFallbacks,
   }) {
     return pw.Table.fromTextArray(
       headerStyle: pw.TextStyle(
         fontWeight: pw.FontWeight.bold,
         color: PdfColors.white,
+        font: fontFallbacks[0], // Use Devanagari for headers (includes Latin)
+        fontFallback: fontFallbacks,
       ),
       headerDecoration: const pw.BoxDecoration(color: PdfColors.blue800),
-      cellStyle: const pw.TextStyle(fontSize: 11),
+      cellStyle: pw.TextStyle(
+        fontSize: 11,
+        font:
+            fontFallbacks[0], // Base font (Devanagari - includes Latin/English)
+        fontFallback: fontFallbacks, // Fallback for other Indian scripts
+      ),
       cellAlignment: pw.Alignment.centerLeft,
       headerAlignment: pw.Alignment.centerLeft,
       cellPadding: const pw.EdgeInsets.all(8),

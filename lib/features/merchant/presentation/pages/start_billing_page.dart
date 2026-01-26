@@ -1283,7 +1283,8 @@ class _StartBillingPageState extends State<StartBillingPage> {
                           int itemCount = 0;
                           items.forEach((name, sessionItem) {
                             total += sessionItem.subtotal;
-                            itemCount += sessionItem.qty as int;
+                            itemCount += sessionItem.qty
+                                .toInt(); // Fixed: use toInt() instead of 'as int'
                           });
 
                           return Card(

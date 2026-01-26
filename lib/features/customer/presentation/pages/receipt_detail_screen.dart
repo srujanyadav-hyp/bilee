@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/upi_payment_service.dart';
 import '../../domain/entities/receipt_entity.dart';
@@ -1270,6 +1271,78 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
       decimalDigits: 2,
     );
 
+    // Load ALL Indian language fonts for comprehensive script support
+    // This enables proper rendering of Telugu, Hindi, Tamil, Kannada, Malayalam,
+    // Marathi, Gujarati, Punjabi, Bengali, Odia, and English text in customer receipts
+
+    // Devanagari script (Hindi, Marathi, Sanskrit)
+    final devanagariData = await rootBundle.load(
+      'assets/fonts/NotoSansDevanagari/NotoSansDevanagari-Variable.ttf',
+    );
+    final devanagariFont = pw.Font.ttf(devanagariData);
+
+    // Telugu script
+    final teluguData = await rootBundle.load(
+      'assets/fonts/NotoSansTelugu/NotoSansTelugu-Variable.ttf',
+    );
+    final teluguFont = pw.Font.ttf(teluguData);
+
+    // Tamil script
+    final tamilData = await rootBundle.load(
+      'assets/fonts/NotoSansTamil/NotoSansTamil-Variable.ttf',
+    );
+    final tamilFont = pw.Font.ttf(tamilData);
+
+    // Kannada script
+    final kannadaData = await rootBundle.load(
+      'assets/fonts/NotoSansKannada/NotoSansKannada-Variable.ttf',
+    );
+    final kannadaFont = pw.Font.ttf(kannadaData);
+
+    // Malayalam script
+    final malayalamData = await rootBundle.load(
+      'assets/fonts/NotoSansMalayalam/NotoSansMalayalam-Variable.ttf',
+    );
+    final malayalamFont = pw.Font.ttf(malayalamData);
+
+    // Gujarati script
+    final gujaratiData = await rootBundle.load(
+      'assets/fonts/NotoSansGujarati/NotoSansGujarati-Variable.ttf',
+    );
+    final gujaratiFont = pw.Font.ttf(gujaratiData);
+
+    // Gurmukhi script (Punjabi)
+    final gurmukhiData = await rootBundle.load(
+      'assets/fonts/NotoSansGurmukhi/NotoSansGurmukhi-Variable.ttf',
+    );
+    final gurmukhiFont = pw.Font.ttf(gurmukhiData);
+
+    // Bengali script
+    final bengaliData = await rootBundle.load(
+      'assets/fonts/NotoSansBengali/NotoSansBengali-Variable.ttf',
+    );
+    final bengaliFont = pw.Font.ttf(bengaliData);
+
+    // Odia script (Oriya)
+    final odiaData = await rootBundle.load(
+      'assets/fonts/NotoSansOriya/NotoSansOriya-Variable.ttf',
+    );
+    final odiaFont = pw.Font.ttf(odiaData);
+
+    // Font fallback list - PDF library will try fonts in order until it finds
+    // one that supports the characters being rendered
+    final fontFallbacks = [
+      devanagariFont, // Hindi, Marathi, English, numbers
+      teluguFont, // Telugu
+      tamilFont, // Tamil
+      kannadaFont, // Kannada
+      malayalamFont, // Malayalam
+      gujaratiFont, // Gujarati
+      gurmukhiFont, // Punjabi
+      bengaliFont, // Bengali
+      odiaFont, // Odia
+    ];
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -1389,11 +1462,20 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.white,
+                font:
+                    fontFallbacks[0], // Devanagari for headers (includes Latin)
+                fontFallback: fontFallbacks,
               ),
               headerDecoration: const pw.BoxDecoration(
                 color: PdfColors.blue800,
               ),
-              cellStyle: const pw.TextStyle(fontSize: 11),
+              cellStyle: pw.TextStyle(
+                fontSize: 11,
+                font:
+                    fontFallbacks[0], // Base font (Devanagari - includes Latin/English)
+                fontFallback:
+                    fontFallbacks, // Fallback for other Indian scripts
+              ),
               cellAlignment: pw.Alignment.centerLeft,
               cellPadding: const pw.EdgeInsets.all(8),
               headers: ['Item', 'Qty', 'Price', 'Amount'],

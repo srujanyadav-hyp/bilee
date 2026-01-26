@@ -26,6 +26,13 @@ class ItemModel {
   // Modifiers support for restaurants
   final List<ModifierGroupModel>? modifierGroups;
 
+  // Inventory Management fields
+  final bool inventoryEnabled;
+  final double? currentStock;
+  final double? lowStockThreshold;
+  final String? stockUnit;
+  final Timestamp? lastStockUpdate;
+
   const ItemModel({
     required this.id,
     required this.merchantId,
@@ -43,6 +50,11 @@ class ItemModel {
     this.pricePerUnit,
     this.defaultQuantity,
     this.modifierGroups,
+    this.inventoryEnabled = false,
+    this.currentStock,
+    this.lowStockThreshold,
+    this.stockUnit,
+    this.lastStockUpdate,
   });
 
   /// Create ItemModel from Firestore document
@@ -75,6 +87,15 @@ class ItemModel {
                 )
                 .toList()
           : null,
+      inventoryEnabled: data['inventoryEnabled'] as bool? ?? false,
+      currentStock: data['currentStock'] != null
+          ? (data['currentStock'] as num).toDouble()
+          : null,
+      lowStockThreshold: data['lowStockThreshold'] != null
+          ? (data['lowStockThreshold'] as num).toDouble()
+          : null,
+      stockUnit: data['stockUnit'] as String?,
+      lastStockUpdate: data['lastStockUpdate'] as Timestamp?,
     );
   }
 
@@ -107,6 +128,15 @@ class ItemModel {
                 )
                 .toList()
           : null,
+      inventoryEnabled: json['inventoryEnabled'] as bool? ?? false,
+      currentStock: json['currentStock'] != null
+          ? (json['currentStock'] as num).toDouble()
+          : null,
+      lowStockThreshold: json['lowStockThreshold'] != null
+          ? (json['lowStockThreshold'] as num).toDouble()
+          : null,
+      stockUnit: json['stockUnit'] as String?,
+      lastStockUpdate: json['lastStockUpdate'] as Timestamp?,
     );
   }
 
@@ -129,6 +159,11 @@ class ItemModel {
       if (defaultQuantity != null) 'defaultQuantity': defaultQuantity,
       if (modifierGroups != null)
         'modifierGroups': modifierGroups!.map((m) => m.toJson()).toList(),
+      'inventoryEnabled': inventoryEnabled,
+      if (currentStock != null) 'currentStock': currentStock,
+      if (lowStockThreshold != null) 'lowStockThreshold': lowStockThreshold,
+      if (stockUnit != null) 'stockUnit': stockUnit,
+      if (lastStockUpdate != null) 'lastStockUpdate': lastStockUpdate,
     };
   }
 
@@ -150,6 +185,11 @@ class ItemModel {
     double? pricePerUnit,
     double? defaultQuantity,
     List<ModifierGroupModel>? modifierGroups,
+    bool? inventoryEnabled,
+    double? currentStock,
+    double? lowStockThreshold,
+    String? stockUnit,
+    Timestamp? lastStockUpdate,
   }) {
     return ItemModel(
       id: id ?? this.id,
@@ -168,6 +208,11 @@ class ItemModel {
       pricePerUnit: pricePerUnit ?? this.pricePerUnit,
       defaultQuantity: defaultQuantity ?? this.defaultQuantity,
       modifierGroups: modifierGroups ?? this.modifierGroups,
+      inventoryEnabled: inventoryEnabled ?? this.inventoryEnabled,
+      currentStock: currentStock ?? this.currentStock,
+      lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
+      stockUnit: stockUnit ?? this.stockUnit,
+      lastStockUpdate: lastStockUpdate ?? this.lastStockUpdate,
     );
   }
 }

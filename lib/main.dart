@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get_it/get_it.dart';
+import 'dart:async';
 import 'firebase_options.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/di/dependency_injection.dart';
@@ -11,6 +12,8 @@ import 'core/services/connectivity_service.dart';
 import 'core/services/sync_service.dart';
 import 'core/services/local_database_service.dart';
 import 'core/services/local_storage_service.dart'; // NEW
+import 'core/services/crashlytics_service.dart';
+import 'core/services/performance_service.dart';
 import 'features/merchant/presentation/providers/daily_aggregate_provider.dart';
 import 'features/merchant/presentation/providers/item_provider.dart';
 import 'features/merchant/presentation/providers/session_provider.dart';
@@ -20,38 +23,70 @@ import 'features/customer/customer_providers.dart';
 
 final getIt = GetIt.instance;
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  // Run app in error zone to catch all errors
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    // Initialize Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+      try {
+        // Initialize Firebase
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
 
-    // Use default Firestore database
-    FirebaseFirestore.instance;
+        // Initialize Crashlytics (must be done early to catch all errors)
+        debugPrint('🔧 Initializing Crashlytics...');
+        await CrashlyticsService.initialize();
+        debugPrint('✅ Crashlytics initialized');
 
-    // Initialize local storage (Hive) BEFORE dependency injection
-    debugPrint('🔧 Initializing local storage...');
-    final localStorage = LocalStorageService();
-    await localStorage.initialize();
-    debugPrint('✅ Local storage initialized');
+        // Initialize Performance Monitoring
+        debugPrint('🔧 Initializing Performance Monitoring...');
+        await PerformanceService.initialize();
+        debugPrint('✅ Performance Monitoring initialized');
 
-    // Register local storage as singleton
-    getIt.registerSingleton<LocalStorageService>(localStorage);
+        // Use default Firestore database
+        FirebaseFirestore.instance;
 
-    // Setup dependency injection (must be done before creating providers)
-    setupDependencyInjection();
+        // Initialize local storage (Hive) BEFORE dependency injection
+        debugPrint('🔧 Initializing local storage...');
+        final localStorage = LocalStorageService();
+        await localStorage.initialize();
+        debugPrint('✅ Local storage initialized');
 
-    // Initialize local database for offline mode (existing)
-    await LocalDatabaseService().database;
-  } catch (e, stackTrace) {
-    debugPrint('❌ Initialization error: $e');
-    debugPrint('Stack trace: $stackTrace');
-  }
+        // Register local storage as singleton
+        getIt.registerSingleton<LocalStorageService>(localStorage);
 
-  runApp(const MyApp());
+        // Setup dependency injection (must be done before creating providers)
+        setupDependencyInjection();
+
+        // Initialize local database for offline mode (existing)
+        await LocalDatabaseService().database;
+      } catch (e, stackTrace) {
+        debugPrint('❌ Initialization error: $e');
+        debugPrint('Stack trace: $stackTrace');
+
+        // Log initialization errors to Crashlytics
+        await CrashlyticsService.recordError(
+          e,
+          stackTrace,
+          reason: 'App initialization failed',
+          fatal: true,
+        );
+      }
+
+      runApp(const MyApp());
+    },
+    (error, stackTrace) {
+      debugPrint('❌ Uncaught error: $error');
+      CrashlyticsService.recordError(
+        error,
+        stackTrace,
+        reason: 'Uncaught error in app',
+        fatal: true,
+      );
+    },
+  );
 }
 
 class MyApp extends StatelessWidget {
