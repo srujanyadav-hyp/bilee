@@ -140,6 +140,7 @@ class PDFReportService {
             merchantPhone: merchantPhone,
             merchantGst: merchantGst,
             logo: logo,
+            fontFallbacks: fontFallbacks,
           ),
 
           pw.SizedBox(height: 20),
@@ -226,7 +227,14 @@ class PDFReportService {
     String? merchantPhone,
     String? merchantGst,
     pw.ImageProvider? logo,
+    required List<pw.Font> fontFallbacks,
   }) {
+    // Detect fonts for merchant info (may contain Indian language text)
+    final nameFont = _detectFont(merchantName, fontFallbacks);
+    final addressFont = merchantAddress != null
+        ? _detectFont(merchantAddress, fontFallbacks)
+        : fontFallbacks[4];
+
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -237,15 +245,22 @@ class PDFReportService {
           children: [
             pw.Text(
               merchantName,
-              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(
+                fontSize: 20,
+                fontWeight: pw.FontWeight.bold,
+                font: nameFont,
+                fontFallback: fontFallbacks,
+              ),
             ),
             if (merchantAddress != null) ...[
               pw.SizedBox(height: 4),
               pw.Text(
                 merchantAddress,
-                style: const pw.TextStyle(
+                style: pw.TextStyle(
                   fontSize: 10,
                   color: PdfColors.grey700,
+                  font: addressFont,
+                  fontFallback: fontFallbacks,
                 ),
               ),
             ],
@@ -374,51 +389,107 @@ class PDFReportService {
 
   /// Detect script from text and return appropriate font
   /// Supports all major Indian languages by Unicode range detection
+  /// Scans entire text to find the dominant script (not just first character)
   pw.Font _detectFont(String text, List<pw.Font> fontFallbacks) {
     if (text.isEmpty) return fontFallbacks[4]; // Default to Devanagari
 
-    final codePoint = text.codeUnitAt(0);
+    // Count characters in each script to find dominant language
+    int teluguCount = 0;
+    int tamilCount = 0;
+    int kannadaCount = 0;
+    int malayalamCount = 0;
+    int devanagariCount = 0;
+    int gujaratiCount = 0;
+    int gurmukhiCount = 0;
+    int bengaliCount = 0;
+    int odiaCount = 0;
 
-    // Telugu: U+0C00–U+0C7F
-    if (codePoint >= 0x0C00 && codePoint <= 0x0C7F) {
-      return fontFallbacks[0]; // Telugu
+    // Scan all characters to find which script dominates
+    for (int i = 0; i < text.length; i++) {
+      final codePoint = text.codeUnitAt(i);
+
+      // Telugu: U+0C00–U+0C7F
+      if (codePoint >= 0x0C00 && codePoint <= 0x0C7F) {
+        teluguCount++;
+      }
+      // Tamil: U+0B80–U+0BFF
+      else if (codePoint >= 0x0B80 && codePoint <= 0x0BFF) {
+        tamilCount++;
+      }
+      // Kannada: U+0C80–U+0CFF
+      else if (codePoint >= 0x0C80 && codePoint <= 0x0CFF) {
+        kannadaCount++;
+      }
+      // Malayalam: U+0D00–U+0D7F
+      else if (codePoint >= 0x0D00 && codePoint <= 0x0D7F) {
+        malayalamCount++;
+      }
+      // Devanagari (Hindi, Marathi, Sanskrit): U+0900–U+097F
+      else if (codePoint >= 0x0900 && codePoint <= 0x097F) {
+        devanagariCount++;
+      }
+      // Gujarati: U+0A80–U+0AFF
+      else if (codePoint >= 0x0A80 && codePoint <= 0x0AFF) {
+        gujaratiCount++;
+      }
+      // Gurmukhi (Punjabi): U+0A00–U+0A7F
+      else if (codePoint >= 0x0A00 && codePoint <= 0x0A7F) {
+        gurmukhiCount++;
+      }
+      // Bengali: U+0980–U+09FF
+      else if (codePoint >= 0x0980 && codePoint <= 0x09FF) {
+        bengaliCount++;
+      }
+      // Odia (Oriya): U+0B00–U+0B7F
+      else if (codePoint >= 0x0B00 && codePoint <= 0x0B7F) {
+        odiaCount++;
+      }
     }
-    // Tamil: U+0B80–U+0BFF
-    else if (codePoint >= 0x0B80 && codePoint <= 0x0BFF) {
-      return fontFallbacks[1]; // Tamil
+
+    // Return font for the script with most characters
+    int maxCount = 0;
+    pw.Font selectedFont = fontFallbacks[4]; // Default Devanagari
+
+    if (teluguCount > maxCount) {
+      maxCount = teluguCount;
+      selectedFont = fontFallbacks[0]; // Telugu
     }
-    // Kannada: U+0C80–U+0CFF
-    else if (codePoint >= 0x0C80 && codePoint <= 0x0CFF) {
-      return fontFallbacks[2]; // Kannada
+    if (tamilCount > maxCount) {
+      maxCount = tamilCount;
+      selectedFont = fontFallbacks[1]; // Tamil
     }
-    // Malayalam: U+0D00–U+0D7F
-    else if (codePoint >= 0x0D00 && codePoint <= 0x0D7F) {
-      return fontFallbacks[3]; // Malayalam
+    if (kannadaCount > maxCount) {
+      maxCount = kannadaCount;
+      selectedFont = fontFallbacks[2]; // Kannada
     }
-    // Devanagari (Hindi, Marathi, Sanskrit): U+0900–U+097F
-    else if (codePoint >= 0x0900 && codePoint <= 0x097F) {
-      return fontFallbacks[4]; // Devanagari
+    if (malayalamCount > maxCount) {
+      maxCount = malayalamCount;
+      selectedFont = fontFallbacks[3]; // Malayalam
     }
-    // Gujarati: U+0A80–U+0AFF
-    else if (codePoint >= 0x0A80 && codePoint <= 0x0AFF) {
-      return fontFallbacks[5]; // Gujarati
+    if (devanagariCount > maxCount) {
+      maxCount = devanagariCount;
+      selectedFont = fontFallbacks[4]; // Devanagari
     }
-    // Gurmukhi (Punjabi): U+0A00–U+0A7F
-    else if (codePoint >= 0x0A00 && codePoint <= 0x0A7F) {
-      return fontFallbacks[6]; // Gurmukhi
+    if (gujaratiCount > maxCount) {
+      maxCount = gujaratiCount;
+      selectedFont = fontFallbacks[5]; // Gujarati
     }
-    // Bengali: U+0980–U+09FF
-    else if (codePoint >= 0x0980 && codePoint <= 0x09FF) {
-      return fontFallbacks[7]; // Bengali
+    if (gurmukhiCount > maxCount) {
+      maxCount = gurmukhiCount;
+      selectedFont = fontFallbacks[6]; // Gurmukhi
     }
-    // Odia (Oriya): U+0B00–U+0B7F
-    else if (codePoint >= 0x0B00 && codePoint <= 0x0B7F) {
-      return fontFallbacks[8]; // Odia
+    if (bengaliCount > maxCount) {
+      maxCount = bengaliCount;
+      selectedFont = fontFallbacks[7]; // Bengali
     }
-    // Default: Latin/English (use Devanagari as it includes Latin)
-    else {
-      return fontFallbacks[4]; // Devanagari for English/numbers
+    if (odiaCount > maxCount) {
+      maxCount = odiaCount;
+      selectedFont = fontFallbacks[8]; // Odia
     }
+
+    // If no Indian script found (pure English/numbers), use Devanagari
+    // Devanagari font includes Latin characters and numbers
+    return selectedFont;
   }
 
   /// Build items sold table with smart font detection
@@ -479,6 +550,13 @@ class PDFReportService {
           // ✅ SMART FONT DETECTION: Automatically pick correct font for item name
           final itemFont = _detectFont(item.name, fontFallbacks);
 
+          // Create custom fallback list with detected font FIRST
+          // This ensures the correct script font is prioritized
+          final customFallbacks = [
+            itemFont,
+            ...fontFallbacks.where((f) => f != itemFont),
+          ];
+
           return pw.TableRow(
             children: [
               pw.Padding(
@@ -487,9 +565,9 @@ class PDFReportService {
                   item.name,
                   style: pw.TextStyle(
                     fontSize: 11,
-                    font: itemFont, // Use detected font for this specific item
+                    font: itemFont, // Primary font for detected script
                     fontFallback:
-                        fontFallbacks, // Additional fallback if needed
+                        customFallbacks, // Detected font first, then others
                   ),
                 ),
               ),
@@ -516,7 +594,7 @@ class PDFReportService {
               ),
             ],
           );
-        }).toList(),
+        }),
       ],
     );
   }

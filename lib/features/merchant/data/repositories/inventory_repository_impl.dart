@@ -7,6 +7,7 @@ import '../../domain/repositories/inventory_repository.dart';
 import '../mappers/entity_model_mapper.dart';
 import '../models/inventory_transaction_model.dart';
 import '../models/item_model.dart';
+import 'package:flutter/material.dart';
 
 /// Inventory Repository Implementation
 /// Handles both Firestore and local database operations for inventory
@@ -39,12 +40,25 @@ class InventoryRepositoryImpl implements IInventoryRepository {
       }
 
       final itemData = itemDoc.data()!;
-      final currentStock = (itemData['currentStock'] as num?)?.toDouble() ?? 0;
+      final itemName = itemData['name'] ?? 'Unknown Item';
+      final inventoryEnabled = itemData['inventoryEnabled'] as bool? ?? false;
+      final currentStockValue = itemData['currentStock'];
+
+      // Debug logging
+      print('📦 [Inventory] Updating stock for: $itemName');
+      print('   Item ID: $itemId');
+      print('   Inventory Enabled: $inventoryEnabled');
+      print('   Current Stock (raw): $currentStockValue');
+      print('   Quantity Change: $quantityChange');
+
+      final currentStock = (currentStockValue as num?)?.toDouble() ?? 0;
       final newStock = currentStock + quantityChange;
+
+      print('   Current Stock (parsed): $currentStock');
+      print('   New Stock: $newStock');
 
       // Validate: Prevent negative stock for sales
       if (newStock < 0 && type == TransactionType.sale) {
-        final itemName = itemData['name'] ?? 'Unknown Item';
         throw Exception(
           'Insufficient stock for $itemName. Available: $currentStock, Requested: ${-quantityChange}',
         );
@@ -69,19 +83,34 @@ class InventoryRepositoryImpl implements IInventoryRepository {
       );
 
       // Update Firestore
-      await _firestore.runTransaction((txn) async {
-        // Update item stock
-        txn.update(_firestore.collection('items').doc(itemId), {
-          'currentStock': newStock,
-          'lastStockUpdate': Timestamp.now(),
-        });
+      try {
+        debugPrint('🔥 [Inventory] Starting Firestore transaction...');
+        await _firestore.runTransaction((txn) async {
+          // Update item stock
+          debugPrint('🔥 [Inventory] Updating item document...');
+          txn.update(_firestore.collection('items').doc(itemId), {
+            'currentStock': newStock,
+            'lastStockUpdate': Timestamp.now(),
+            'updatedAt':
+                Timestamp.now(), // Required by isValidItem() validation
+          });
 
-        // Add transaction record
-        txn.set(
-          _firestore.collection('inventory_transactions').doc(transactionId),
-          transactionModel.toJson(),
+          // Add transaction record
+          debugPrint('🔥 [Inventory] Creating transaction document...');
+          txn.set(
+            _firestore.collection('inventory_transactions').doc(transactionId),
+            transactionModel.toJson(),
+          );
+        });
+        debugPrint(
+          '✅ [Inventory] Firestore transaction completed successfully!',
         );
-      });
+      } catch (firestoreError) {
+        debugPrint(
+          '❌ [Inventory] Firestore transaction failed: $firestoreError',
+        );
+        rethrow; // Re-throw to be caught by outer catch block
+      }
 
       // Update local database
       await _localDb.updateItemStock(

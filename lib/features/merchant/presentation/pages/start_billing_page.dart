@@ -415,16 +415,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
                 icon: const Icon(Icons.local_parking, size: 18),
                 label: Text('Park (${provider.parkedCarts.length})'),
                 onPressed: () {
-                  if (provider.cartItems.isNotEmpty) {
-                    provider.parkCurrentCart();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Cart parked successfully'),
-                        backgroundColor: AppColors.success,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  } else if (provider.parkedCarts.isNotEmpty) {
+                  if (provider.parkedCarts.isNotEmpty) {
                     _showParkedBillsDialog();
                   }
                 },
@@ -1038,14 +1029,7 @@ class _StartBillingPageState extends State<StartBillingPage> {
                         child: OutlinedButton.icon(
                           onPressed: () {
                             HapticFeedback.mediumImpact();
-                            provider.parkCurrentCart();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Cart parked successfully'),
-                                backgroundColor: AppColors.success,
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
+                            _showParkCartDialog();
                           },
                           icon: Icon(
                             Icons.local_parking,
@@ -1288,36 +1272,89 @@ class _StartBillingPageState extends State<StartBillingPage> {
                                 .toInt(); // Fixed: use toInt() instead of 'as int'
                           });
 
+                          final cartName = provider.getParkedCartName(cartId);
+                          final timestamp =
+                              provider.parkedCartTimestamps[cartId];
+
+                          // Format timestamp to show time ago
+                          String timeAgo = '';
+                          if (timestamp != null) {
+                            final difference = DateTime.now().difference(
+                              timestamp,
+                            );
+                            if (difference.inMinutes < 1) {
+                              timeAgo = 'Just now';
+                            } else if (difference.inMinutes < 60) {
+                              timeAgo = '${difference.inMinutes}m ago';
+                            } else if (difference.inHours < 24) {
+                              timeAgo = '${difference.inHours}h ago';
+                            } else {
+                              timeAgo = '${difference.inDays}d ago';
+                            }
+                          }
+
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: AppColors.primaryBlue
                                     .withOpacity(0.1),
-                                child: Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    color: AppColors.primaryBlue,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                child: cartName != null
+                                    ? Text(
+                                        cartName[0].toUpperCase(),
+                                        style: const TextStyle(
+                                          color: AppColors.primaryBlue,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : Text(
+                                        '${index + 1}',
+                                        style: const TextStyle(
+                                          color: AppColors.primaryBlue,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                               ),
                               title: Text(
-                                '$itemCount items',
+                                cartName ?? '$itemCount items',
                                 style: AppTypography.body1.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              subtitle: Text(
-                                'Total: ₹${total.toStringAsFixed(2)}',
-                                style: AppTypography.body2.copyWith(
-                                  color: AppColors.primaryBlue,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    cartName != null
+                                        ? '$itemCount items • ₹${total.toStringAsFixed(2)}'
+                                        : 'Total: ₹${total.toStringAsFixed(2)}',
+                                    style: AppTypography.body2.copyWith(
+                                      color: AppColors.primaryBlue,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  if (timeAgo.isNotEmpty)
+                                    Text(
+                                      timeAgo,
+                                      style: AppTypography.caption.copyWith(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                ],
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      color: AppColors.primaryBlue,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      _showEditCartNameDialog(cartId, cartName);
+                                    },
+                                  ),
                                   IconButton(
                                     icon: const Icon(
                                       Icons.delete_outline,
@@ -1571,5 +1608,136 @@ class _StartBillingPageState extends State<StartBillingPage> {
         }
       }
     }
+  }
+
+  /// Show dialog to park cart with optional name
+  void _showParkCartDialog() {
+    final TextEditingController nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Park Cart'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Give this cart a name (optional)',
+              style: TextStyle(fontSize: 14, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name (e.g., Table 5, Sharma Family)',
+                hintText: 'Enter name...',
+                border: OutlineInputBorder(),
+              ),
+              textCapitalization: TextCapitalization.words,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              final provider = context.read<SessionProvider>();
+              final cartName = nameController.text.trim();
+
+              // Park the cart and get the final name (may be auto-numbered)
+              final originalName = cartName.isNotEmpty ? cartName : null;
+              provider.parkCurrentCart(cartName: originalName);
+
+              Navigator.pop(context);
+
+              // Show different messages based on what happened
+              String message = 'Cart parked successfully';
+              if (originalName != null) {
+                final finalName = provider.parkedCartNames.values.lastWhere(
+                  (name) =>
+                      name == originalName ||
+                      name.startsWith('$originalName ('),
+                  orElse: () => originalName,
+                );
+                if (finalName != originalName) {
+                  message =
+                      'Cart parked as "$finalName" (duplicate name auto-numbered)';
+                } else {
+                  message = 'Cart parked as "$finalName"';
+                }
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(message),
+                  backgroundColor: AppColors.success,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Skip'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show dialog to edit parked cart name
+  void _showEditCartNameDialog(String cartId, String? currentName) {
+    final TextEditingController nameController = TextEditingController(
+      text: currentName ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Cart Name'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: 'Name (e.g., Table 5, Sharma Family)',
+            hintText: 'Enter name...',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.words,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          if (currentName != null)
+            TextButton(
+              onPressed: () {
+                final provider = context.read<SessionProvider>();
+                provider.updateParkedCartName(cartId, null);
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Remove Name',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              final provider = context.read<SessionProvider>();
+              provider.updateParkedCartName(cartId, nameController.text.trim());
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 }

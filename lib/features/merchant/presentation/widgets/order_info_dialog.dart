@@ -18,7 +18,7 @@ class OrderInfo {
 /// Dialog to capture order information before billing
 /// Shows for restaurant merchants to capture customer name, table, order type
 class OrderInfoDialog extends StatefulWidget {
-  const OrderInfoDialog({Key? key}) : super(key: key);
+  const OrderInfoDialog({super.key});
 
   @override
   State<OrderInfoDialog> createState() => _OrderInfoDialogState();
@@ -208,12 +208,12 @@ class _OrderTypeButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _OrderTypeButton({
-    Key? key,
+    super.key,
     required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

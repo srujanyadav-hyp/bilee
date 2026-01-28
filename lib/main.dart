@@ -20,6 +20,7 @@ import 'features/merchant/presentation/providers/item_provider.dart';
 import 'features/merchant/presentation/providers/session_provider.dart';
 import 'features/merchant/presentation/providers/merchant_provider.dart';
 import 'features/merchant/presentation/providers/customer_ledger_provider.dart';
+import 'features/merchant/presentation/providers/inventory_provider.dart';
 import 'features/customer/customer_providers.dart';
 
 final getIt = GetIt.instance;
@@ -114,6 +115,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => getIt<SessionProvider>()),
         ChangeNotifierProvider(create: (_) => getIt<MerchantProvider>()),
         ChangeNotifierProvider(create: (_) => CustomerLedgerProvider()),
+        ChangeNotifierProvider(create: (_) => getIt<InventoryProvider>()),
 
         // Customer providers (includes BudgetProvider)
         ...CustomerProviders.getProviders(),

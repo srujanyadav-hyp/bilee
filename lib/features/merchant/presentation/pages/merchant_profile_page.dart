@@ -542,7 +542,7 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
             trailing: Switch(
               value: _isKitchenMode,
               onChanged: _toggleDeviceMode,
-              activeColor: Colors.orange,
+              activeThumbColor: Colors.orange,
             ),
           ),
           const Divider(height: 1),

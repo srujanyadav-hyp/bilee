@@ -67,6 +67,7 @@ extension ItemEntityToModel on ItemEntity {
 extension SessionItemLineToEntity on SessionItemLine {
   SessionItemEntity toEntity() {
     return SessionItemEntity(
+      itemId: itemId, // Preserve itemId for inventory tracking
       name: name,
       hsnCode: hsn, // Firestore: hsn → Entity: hsnCode
       price: price,
@@ -84,6 +85,7 @@ extension SessionItemLineToEntity on SessionItemLine {
 extension SessionItemEntityToModel on SessionItemEntity {
   SessionItemLine toModel() {
     return SessionItemLine(
+      itemId: itemId, // Preserve itemId for inventory tracking
       name: name,
       hsn: hsnCode, // Entity: hsnCode → Firestore: hsn
       price: price,

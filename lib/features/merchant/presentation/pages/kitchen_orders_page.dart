@@ -11,8 +11,7 @@ import '../../../../core/services/device_mode_service.dart';
 class KitchenOrdersPage extends StatefulWidget {
   final String merchantId;
 
-  const KitchenOrdersPage({Key? key, required this.merchantId})
-    : super(key: key);
+  const KitchenOrdersPage({super.key, required this.merchantId});
 
   @override
   State<KitchenOrdersPage> createState() => _KitchenOrdersPageState();
@@ -191,10 +190,10 @@ class _KitchenOrderCard extends StatefulWidget {
   final Function(String) onStatusUpdate;
 
   const _KitchenOrderCard({
-    Key? key,
+    super.key,
     required this.order,
     required this.onStatusUpdate,
-  }) : super(key: key);
+  });
 
   @override
   State<_KitchenOrderCard> createState() => _KitchenOrderCardState();
@@ -291,7 +290,7 @@ class _KitchenOrderCardState extends State<_KitchenOrderCard> {
             const Divider(height: 24),
 
             // Items List
-            ...widget.order.items.map((item) => _buildItemRow(item)).toList(),
+            ...widget.order.items.map((item) => _buildItemRow(item)),
 
             const SizedBox(height: 16),
 

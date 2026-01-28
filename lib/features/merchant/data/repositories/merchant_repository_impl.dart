@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/item_entity.dart';
 import '../../domain/entities/session_entity.dart';
 import '../../domain/entities/daily_aggregate_entity.dart';
@@ -129,7 +130,24 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         isWeightBased: item.isWeightBased,
         pricePerUnit: item.pricePerUnit,
         defaultQuantity: item.defaultQuantity,
+        // ✅ ADD INVENTORY TRACKING FIELDS FROM ENTITY
+        inventoryEnabled: item.inventoryEnabled,
+        currentStock: item.currentStock,
+        lowStockThreshold: item.lowStockThreshold,
+        stockUnit: item.stockUnit,
+        lastStockUpdate: item.lastStockUpdate != null
+            ? Timestamp.fromDate(item.lastStockUpdate!)
+            : null,
       );
+
+      // Debug log to verify inventory data
+      if (item.inventoryEnabled) {
+        debugPrint('📦 Creating item with inventory tracking:');
+        debugPrint('   Item: ${item.name}');
+        debugPrint('   Current Stock: ${item.currentStock}');
+        debugPrint('   Low Stock Threshold: ${item.lowStockThreshold}');
+        debugPrint('   Stock Unit: ${item.stockUnit}');
+      }
 
       await _dataSource.createItem(model);
     } catch (e) {
@@ -158,7 +176,24 @@ class MerchantRepositoryImpl implements IMerchantRepository {
         isWeightBased: item.isWeightBased,
         pricePerUnit: item.pricePerUnit,
         defaultQuantity: item.defaultQuantity,
+        // ✅ ADD INVENTORY TRACKING FIELDS FROM ENTITY
+        inventoryEnabled: item.inventoryEnabled,
+        currentStock: item.currentStock,
+        lowStockThreshold: item.lowStockThreshold,
+        stockUnit: item.stockUnit,
+        lastStockUpdate: item.lastStockUpdate != null
+            ? Timestamp.fromDate(item.lastStockUpdate!)
+            : null,
       );
+
+      // Debug log to verify inventory data
+      if (item.inventoryEnabled) {
+        debugPrint('📦 Updating item with inventory tracking:');
+        debugPrint('   Item: ${item.name}');
+        debugPrint('   Current Stock: ${item.currentStock}');
+        debugPrint('   Low Stock Threshold: ${item.lowStockThreshold}');
+        debugPrint('   Stock Unit: ${item.stockUnit}');
+      }
 
       await _dataSource.updateItem(model);
     } catch (e) {

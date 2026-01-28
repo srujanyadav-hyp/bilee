@@ -55,7 +55,12 @@ class SessionProvider with ChangeNotifier {
 
   // Bill parking - Multiple parked carts
   final Map<String, Map<String, SessionItemEntity>> _parkedCarts = {};
+  final Map<String, String> _parkedCartNames =
+      {}; // Optional names for parked carts
+  final Map<String, DateTime> _parkedCartTimestamps =
+      {}; // Creation time for parked carts
   String? _activeCartId;
+  String? _loadedFromCartId; // Track which parked cart was loaded
 
   // Stream subscription for proper disposal
   StreamSubscription<SessionEntity?>? _sessionSubscription;
@@ -82,7 +87,10 @@ class SessionProvider with ChangeNotifier {
 
   // Bill parking getters
   Map<String, Map<String, SessionItemEntity>> get parkedCarts => _parkedCarts;
+  Map<String, String> get parkedCartNames => _parkedCartNames;
+  Map<String, DateTime> get parkedCartTimestamps => _parkedCartTimestamps;
   int get parkedCartsCount => _parkedCarts.length;
+  String? get loadedFromCartId => _loadedFromCartId;
   String? get activeCartId => _activeCartId;
 
   /// Watch live session updates
@@ -311,37 +319,144 @@ class SessionProvider with ChangeNotifier {
   String parkCurrentCart({String? cartName}) {
     if (_cartItems.isEmpty) return '';
 
+    // If this cart was previously loaded from parked carts, remove the old version
+    if (_activeCartId != null && _parkedCarts.containsKey(_activeCartId)) {
+      _parkedCarts.remove(_activeCartId);
+      _parkedCartNames.remove(_activeCartId);
+      _parkedCartTimestamps.remove(_activeCartId);
+    }
+
+    // Check for duplicate names and auto-number if needed
+    String finalCartName = '';
+    if (cartName != null && cartName.trim().isNotEmpty) {
+      finalCartName = _getUniqueCartName(cartName.trim());
+    }
+
     final cartId = 'cart_${DateTime.now().millisecondsSinceEpoch}';
     _parkedCarts[cartId] = Map.from(_cartItems);
+    _parkedCartTimestamps[cartId] = DateTime.now();
+
+    if (finalCartName.isNotEmpty) {
+      _parkedCartNames[cartId] = finalCartName;
+    }
+
     _cartItems.clear();
     _activeCartId = null;
+    _loadedFromCartId = null; // Clear loaded tracking
     notifyListeners();
     return cartId;
+  }
+
+  /// Get unique cart name by auto-numbering duplicates
+  String _getUniqueCartName(String baseName) {
+    // Check if this exact name exists
+    final existingNames = _parkedCartNames.values.toSet();
+    if (!existingNames.contains(baseName)) {
+      return baseName;
+    }
+
+    // Find the next available number
+    int counter = 2;
+    String uniqueName;
+    do {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    } while (existingNames.contains(uniqueName));
+
+    return uniqueName;
+  }
+
+  /// Get unique cart name excluding a specific cart ID (for updates)
+  String _getUniqueCartNameExcluding(String baseName, String excludeCartId) {
+    // Get all names except the one we're updating
+    final existingNames = _parkedCartNames.entries
+        .where((entry) => entry.key != excludeCartId)
+        .map((entry) => entry.value)
+        .toSet();
+
+    if (!existingNames.contains(baseName)) {
+      return baseName;
+    }
+
+    // Find the next available number
+    int counter = 2;
+    String uniqueName;
+    do {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    } while (existingNames.contains(uniqueName));
+
+    return uniqueName;
   }
 
   /// Switch to a parked cart
   void switchToParkedCart(String cartId) {
     if (!_parkedCarts.containsKey(cartId)) return;
 
-    // Save current cart if not empty
-    if (_cartItems.isNotEmpty && _activeCartId != null) {
+    // Save current cart if not empty and it's not already in parked carts
+    if (_cartItems.isNotEmpty &&
+        _activeCartId != null &&
+        !_parkedCarts.containsKey(_activeCartId)) {
       _parkedCarts[_activeCartId!] = Map.from(_cartItems);
+      _parkedCartTimestamps[_activeCartId!] = DateTime.now();
     }
 
-    // Load parked cart
+    // Load parked cart and remove from parked list (it's now active)
     _cartItems.clear();
     _cartItems.addAll(_parkedCarts[cartId]!);
+
+    // Store the cart name and timestamp before removing
+    final savedName = _parkedCartNames[cartId];
+    final savedTimestamp = _parkedCartTimestamps[cartId];
+
+    // Remove from parked carts since it's now being edited
+    _parkedCarts.remove(cartId);
+    _parkedCartTimestamps.remove(cartId);
+
+    // Restore the name if it exists (we'll keep it associated with this activeCartId)
+    if (savedName != null) {
+      _parkedCartNames[cartId] = savedName;
+    }
+    if (savedTimestamp != null) {
+      _parkedCartTimestamps[cartId] = savedTimestamp;
+    }
+
     _activeCartId = cartId;
+    _loadedFromCartId = cartId; // Track that this was loaded from parked cart
     notifyListeners();
   }
 
   /// Delete a parked cart
   void deleteParkedCart(String cartId) {
     _parkedCarts.remove(cartId);
+    _parkedCartNames.remove(cartId);
+    _parkedCartTimestamps.remove(cartId);
     if (_activeCartId == cartId) {
       _activeCartId = null;
     }
+    if (_loadedFromCartId == cartId) {
+      _loadedFromCartId = null;
+    }
     notifyListeners();
+  }
+
+  /// Update name of a parked cart
+  void updateParkedCartName(String cartId, String? name) {
+    if (!_parkedCarts.containsKey(cartId)) return;
+
+    if (name != null && name.trim().isNotEmpty) {
+      // Check for duplicates and auto-number if needed
+      final uniqueName = _getUniqueCartNameExcluding(name.trim(), cartId);
+      _parkedCartNames[cartId] = uniqueName;
+    } else {
+      _parkedCartNames.remove(cartId);
+    }
+    notifyListeners();
+  }
+
+  /// Get name of a parked cart
+  String? getParkedCartName(String cartId) {
+    return _parkedCartNames[cartId];
   }
 
   /// Get parked cart summary

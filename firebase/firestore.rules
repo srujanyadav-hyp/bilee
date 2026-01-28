@@ -23,6 +23,29 @@ service cloud.firestore {
         allow read, write: if isMerchant(merchantId);
       }
     }
+
+    // ==================== ITEMS COLLECTION ====================
+    match /items/{itemId} {
+      // Allow merchants to read/write their own items
+      allow read, write: if isAuthenticated() && 
+                            resource.data.merchantId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                       request.resource.data.merchantId == request.auth.uid;
+    }
+
+    // ==================== INVENTORY TRANSACTIONS COLLECTION ====================
+    match /inventory_transactions/{transactionId} {
+      // Allow merchants to read their own inventory transactions
+      allow read: if isAuthenticated() && 
+                     resource.data.merchantId == request.auth.uid;
+      
+      // Allow merchants to create inventory transactions for their items
+      allow create: if isAuthenticated() && 
+                       request.resource.data.merchantId == request.auth.uid;
+      
+      // Prevent updates and deletes (transactions are immutable)
+      allow update, delete: if false;
+    }
     
     // ==================== SESSIONS COLLECTION ====================
     match /sessions/{sessionId} {

@@ -272,7 +272,9 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
   void _showAddItemDialog(BuildContext context) {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
+    final barcodeController = TextEditingController();
     final itemCodeController = TextEditingController();
+    String selectedUnit = 'piece';
 
     // Inventory tracking values
     bool inventoryEnabled = false;
@@ -280,156 +282,269 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
     double? lowStockThreshold;
     String? stockUnit;
 
+    // Prevent duplicate submissions
+    bool isSubmitting = false;
+
+    // Helper to determine if unit is weight-based
+    bool _isWeightBasedUnit(String unit) {
+      return ['kg', 'gram', 'liter', 'ml'].contains(unit);
+    }
+
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add Item'),
-        content: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Item Name *',
-                  hintText: 'e.g., Rice, Dal, Oil',
-                  border: OutlineInputBorder(),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: AppDimensions.spacingMD),
-              // Item Code with Barcode Scanner
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: itemCodeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Item Code (Optional)',
-                        hintText: 'e.g., 101',
-                        helperText: '3-4 digits for fast number pad entry',
-                        prefixIcon: Icon(Icons.dialpad),
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 4,
-                    ),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add Item'),
+          content: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Item Name *',
+                    hintText: 'e.g., Rice, Dal, Oil',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    margin: const EdgeInsets.only(
-                      bottom: 20,
-                    ), // Align with text field
-                    child: IconButton(
-                      icon: const Icon(Icons.qr_code_scanner, size: 28),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
-                        foregroundColor: AppColors.primaryBlue,
+                  autofocus: true,
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Barcode Field with Scanner
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: barcodeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Barcode (Optional)',
+                          hintText: 'Scan or enter barcode',
+                          helperText: 'For fast barcode scanning',
+                          prefixIcon: Icon(Icons.qr_code),
+                        ),
+                        readOnly: false,
                       ),
-                      tooltip: 'Scan Barcode',
-                      onPressed: () async {
-                        // Open barcode scanner
-                        final barcode = await Navigator.push<String>(
-                          dialogContext,
-                          MaterialPageRoute(
-                            builder: (context) => const BarcodeScannerPage(),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      margin: const EdgeInsets.only(
+                        bottom: 20,
+                      ), // Align with text field
+                      child: IconButton(
+                        icon: const Icon(Icons.qr_code_scanner, size: 28),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue.withOpacity(
+                            0.1,
+                          ),
+                          foregroundColor: AppColors.primaryBlue,
+                        ),
+                        tooltip: 'Scan Barcode',
+                        onPressed: () async {
+                          // Open barcode scanner
+                          final barcode = await Navigator.push<String>(
+                            dialogContext,
+                            MaterialPageRoute(
+                              builder: (context) => const BarcodeScannerPage(),
+                            ),
+                          );
+                          if (barcode != null && barcode.isNotEmpty) {
+                            barcodeController.text = barcode;
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Item Code for manual number pad entry
+                TextField(
+                  controller: itemCodeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Item Code (Optional)',
+                    hintText: 'e.g., 101',
+                    helperText: '3-4 digits for fast number pad entry',
+                    prefixIcon: Icon(Icons.dialpad),
+                  ),
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Unit Dropdown
+                DropdownButtonFormField<String>(
+                  value: selectedUnit,
+                  decoration: const InputDecoration(
+                    labelText: 'Unit',
+                    helperText: 'Unit of measurement',
+                    prefixIcon: Icon(Icons.straighten),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'piece', child: Text('Piece')),
+                    DropdownMenuItem(value: 'dozen', child: Text('Dozen')),
+                    DropdownMenuItem(value: 'kg', child: Text('Kilogram (kg)')),
+                    DropdownMenuItem(value: 'gram', child: Text('Gram')),
+                    DropdownMenuItem(value: 'liter', child: Text('Liter')),
+                    DropdownMenuItem(
+                      value: 'ml',
+                      child: Text('Milliliter (ml)'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedUnit = value;
+                        // Auto-fill stock unit when inventory is enabled
+                        if (inventoryEnabled) {
+                          stockUnit = value;
+                        }
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                TextField(
+                  controller: priceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Price (₹) *',
+                    hintText: 'Enter selling price',
+                    prefixText: '₹ ',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: AppDimensions.spacingSM),
+                Text(
+                  'Tax: 18% (GST) - Auto-applied',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.lightTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spacingLG),
+                const Divider(),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Inventory Tracking Section
+                _InventoryTrackingFields(
+                  onChanged: (enabled, stock, threshold, unit) {
+                    setState(() {
+                      inventoryEnabled = enabled;
+                      initialStock = stock;
+                      lowStockThreshold = threshold;
+                      // Auto-fill stock unit from selected unit when enabling
+                      if (enabled &&
+                          (unit == null || unit.isEmpty || unit == 'units')) {
+                        stockUnit = selectedUnit;
+                      } else {
+                        stockUnit = unit;
+                      }
+                    });
+                  },
+                  prefilledUnit:
+                      selectedUnit, // Always pass selectedUnit for auto-fill
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      // Prevent duplicate submissions
+                      if (isSubmitting) return;
+
+                      if (nameController.text.isEmpty) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter item name'),
                           ),
                         );
-                        if (barcode != null && barcode.isNotEmpty) {
-                          itemCodeController.text = barcode;
+                        return;
+                      }
+
+                      if (priceController.text.isEmpty) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(content: Text('Please enter price')),
+                        );
+                        return;
+                      }
+
+                      // Mark as submitting to prevent duplicate clicks
+                      setState(() {
+                        isSubmitting = true;
+                      });
+
+                      final price = double.tryParse(priceController.text) ?? 0;
+                      final isWeightBased = _isWeightBasedUnit(selectedUnit);
+
+                      final item = ItemEntity(
+                        id: '',
+                        merchantId: widget.merchantId,
+                        name: nameController.text,
+                        hsnCode: null, // Auto-set to null
+                        barcode: barcodeController.text.isEmpty
+                            ? null
+                            : barcodeController.text,
+                        itemCode: itemCodeController.text.isEmpty
+                            ? null
+                            : itemCodeController.text,
+                        unit: selectedUnit,
+                        price: price,
+                        taxRate: 18.0, // Auto-set to 18%
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                        // Weight-based fields (like voice-added items)
+                        isWeightBased: isWeightBased,
+                        pricePerUnit: isWeightBased ? price : null,
+                        // Inventory tracking fields
+                        inventoryEnabled: inventoryEnabled,
+                        currentStock: inventoryEnabled
+                            ? (initialStock ?? 0.0)
+                            : null, // Ensure 0.0 if enabled
+                        lowStockThreshold: lowStockThreshold,
+                        stockUnit: inventoryEnabled
+                            ? (stockUnit ?? selectedUnit)
+                            : null,
+                        lastStockUpdate: inventoryEnabled
+                            ? DateTime.now()
+                            : null,
+                      );
+
+                      try {
+                        final success = await context
+                            .read<ItemProvider>()
+                            .createItem(item);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                          if (success && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Item added successfully'),
+                              ),
+                            );
+                          }
                         }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppDimensions.spacingMD),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(
-                  labelText: 'Price (₹) *',
-                  hintText: 'Enter selling price',
-                  prefixText: '₹ ',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              Text(
-                'Tax: 18% (GST) - Auto-applied',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.lightTextSecondary,
-                ),
-              ),
-              const SizedBox(height: AppDimensions.spacingLG),
-              const Divider(),
-              const SizedBox(height: AppDimensions.spacingMD),
-              // Inventory Tracking Section
-              _InventoryTrackingFields(
-                onChanged: (enabled, stock, threshold, unit) {
-                  inventoryEnabled = enabled;
-                  initialStock = stock;
-                  lowStockThreshold = threshold;
-                  stockUnit = unit;
-                },
-              ),
-            ],
-          ),
+                      } finally {
+                        // Reset submitting state if dialog is still mounted
+                        if (dialogContext.mounted) {
+                          setState(() {
+                            isSubmitting = false;
+                          });
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Add'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Please enter item name')),
-                );
-                return;
-              }
-
-              if (priceController.text.isEmpty) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Please enter price')),
-                );
-                return;
-              }
-
-              final item = ItemEntity(
-                id: '',
-                merchantId: widget.merchantId,
-                name: nameController.text,
-                hsnCode: null, // Auto-set to null
-                itemCode: itemCodeController.text.isEmpty
-                    ? null
-                    : itemCodeController.text,
-                price: double.tryParse(priceController.text) ?? 0,
-                taxRate: 18.0, // Auto-set to 18%
-                createdAt: DateTime.now(),
-                updatedAt: DateTime.now(),
-                // Inventory tracking fields
-                inventoryEnabled: inventoryEnabled,
-                currentStock: initialStock,
-                lowStockThreshold: lowStockThreshold,
-                stockUnit: stockUnit,
-              );
-
-              final success = await context.read<ItemProvider>().createItem(
-                item,
-              );
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-                if (success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Item added successfully')),
-                  );
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
@@ -437,7 +552,9 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
   void _showEditItemDialog(BuildContext context, ItemEntity item) {
     final nameController = TextEditingController(text: item.name);
     final priceController = TextEditingController(text: item.price.toString());
+    final barcodeController = TextEditingController(text: item.barcode ?? '');
     final itemCodeController = TextEditingController(text: item.itemCode ?? '');
+    String selectedUnit = item.unit;
 
     // Inventory tracking values - initialize from existing item
     bool inventoryEnabled = item.inventoryEnabled;
@@ -445,153 +562,267 @@ class _ItemLibraryPageState extends State<ItemLibraryPage> {
     double? lowStockThreshold = item.lowStockThreshold;
     String? stockUnit = item.stockUnit;
 
+    // Prevent duplicate submissions
+    bool isSubmitting = false;
+
+    // Helper to determine if unit is weight-based
+    bool _isWeightBasedUnit(String unit) {
+      return ['kg', 'gram', 'liter', 'ml'].contains(unit);
+    }
+
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit Item'),
-        content: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Item Name *',
-                  border: OutlineInputBorder(),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: AppDimensions.spacingMD),
-              // Item Code with Barcode Scanner
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: itemCodeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Item Code (Optional)',
-                        hintText: 'e.g., 101',
-                        helperText: '3-4 digits for fast number pad entry',
-                        prefixIcon: Icon(Icons.dialpad),
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 4,
-                    ),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Item'),
+          content: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Item Name *',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    margin: const EdgeInsets.only(
-                      bottom: 20,
-                    ), // Align with text field
-                    child: IconButton(
-                      icon: const Icon(Icons.qr_code_scanner, size: 28),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
-                        foregroundColor: AppColors.primaryBlue,
+                  autofocus: true,
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Barcode Field with Scanner
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: barcodeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Barcode (Optional)',
+                          hintText: 'Scan or enter barcode',
+                          helperText: 'For fast barcode scanning',
+                          prefixIcon: Icon(Icons.qr_code),
+                        ),
+                        readOnly: false,
                       ),
-                      tooltip: 'Scan Barcode',
-                      onPressed: () async {
-                        // Open barcode scanner
-                        final barcode = await Navigator.push<String>(
-                          dialogContext,
-                          MaterialPageRoute(
-                            builder: (context) => const BarcodeScannerPage(),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      margin: const EdgeInsets.only(
+                        bottom: 20,
+                      ), // Align with text field
+                      child: IconButton(
+                        icon: const Icon(Icons.qr_code_scanner, size: 28),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue.withOpacity(
+                            0.1,
+                          ),
+                          foregroundColor: AppColors.primaryBlue,
+                        ),
+                        tooltip: 'Scan Barcode',
+                        onPressed: () async {
+                          // Open barcode scanner
+                          final barcode = await Navigator.push<String>(
+                            dialogContext,
+                            MaterialPageRoute(
+                              builder: (context) => const BarcodeScannerPage(),
+                            ),
+                          );
+                          if (barcode != null && barcode.isNotEmpty) {
+                            barcodeController.text = barcode;
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Item Code for manual number pad entry
+                TextField(
+                  controller: itemCodeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Item Code (Optional)',
+                    hintText: 'e.g., 101',
+                    helperText: '3-4 digits for fast number pad entry',
+                    prefixIcon: Icon(Icons.dialpad),
+                  ),
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Unit Dropdown
+                DropdownButtonFormField<String>(
+                  value: selectedUnit,
+                  decoration: const InputDecoration(
+                    labelText: 'Unit',
+                    helperText: 'Unit of measurement',
+                    prefixIcon: Icon(Icons.straighten),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'piece', child: Text('Piece')),
+                    DropdownMenuItem(value: 'dozen', child: Text('Dozen')),
+                    DropdownMenuItem(value: 'kg', child: Text('Kilogram (kg)')),
+                    DropdownMenuItem(value: 'gram', child: Text('Gram')),
+                    DropdownMenuItem(value: 'liter', child: Text('Liter')),
+                    DropdownMenuItem(
+                      value: 'ml',
+                      child: Text('Milliliter (ml)'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedUnit = value;
+                        // Auto-fill stock unit when inventory is enabled
+                        if (inventoryEnabled) {
+                          stockUnit = value;
+                        }
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: AppDimensions.spacingMD),
+                TextField(
+                  controller: priceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Price (₹) *',
+                    prefixText: '₹ ',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: AppDimensions.spacingSM),
+                Text(
+                  'Tax: ${item.taxRate}% (GST)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.lightTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spacingLG),
+                const Divider(),
+                const SizedBox(height: AppDimensions.spacingMD),
+                // Inventory Tracking Section with existing values
+                _InventoryTrackingFields(
+                  initialEnabled: item.inventoryEnabled,
+                  initialStock: item.currentStock,
+                  initialThreshold: item.lowStockThreshold,
+                  initialUnit: item.stockUnit,
+                  onChanged: (enabled, stock, threshold, unit) {
+                    setState(() {
+                      inventoryEnabled = enabled;
+                      currentStock = stock;
+                      lowStockThreshold = threshold;
+                      // Auto-fill stock unit from selected unit when enabling
+                      if (enabled &&
+                          (unit == null || unit.isEmpty || unit == 'units')) {
+                        stockUnit = selectedUnit;
+                      } else {
+                        stockUnit = unit;
+                      }
+                    });
+                  },
+                  prefilledUnit:
+                      selectedUnit, // Always pass selectedUnit for auto-fill
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      // Prevent duplicate submissions
+                      if (isSubmitting) return;
+
+                      if (nameController.text.isEmpty) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter item name'),
                           ),
                         );
-                        if (barcode != null && barcode.isNotEmpty) {
-                          itemCodeController.text = barcode;
+                        return;
+                      }
+
+                      if (priceController.text.isEmpty) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(content: Text('Please enter price')),
+                        );
+                        return;
+                      }
+
+                      // Mark as submitting to prevent duplicate clicks
+                      setState(() {
+                        isSubmitting = true;
+                      });
+
+                      final price =
+                          double.tryParse(priceController.text) ?? item.price;
+                      final isWeightBased = _isWeightBasedUnit(selectedUnit);
+
+                      final updatedItem = item.copyWith(
+                        name: nameController.text,
+                        barcode: barcodeController.text.isEmpty
+                            ? null
+                            : barcodeController.text,
+                        itemCode: itemCodeController.text.isEmpty
+                            ? null
+                            : itemCodeController.text,
+                        unit: selectedUnit,
+                        price: price,
+                        updatedAt: DateTime.now(),
+                        // Weight-based fields (like voice-added items)
+                        isWeightBased: isWeightBased,
+                        pricePerUnit: isWeightBased ? price : null,
+                        // Update inventory tracking fields
+                        inventoryEnabled: inventoryEnabled,
+                        currentStock: inventoryEnabled
+                            ? (currentStock ?? item.currentStock ?? 0.0)
+                            : null, // Preserve existing or default to 0
+                        lowStockThreshold: lowStockThreshold,
+                        stockUnit: inventoryEnabled
+                            ? (stockUnit ?? selectedUnit)
+                            : null,
+                        lastStockUpdate: inventoryEnabled
+                            ? DateTime.now()
+                            : null,
+                      );
+
+                      try {
+                        final success = await context
+                            .read<ItemProvider>()
+                            .updateItem(updatedItem);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                          if (success && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Item updated successfully'),
+                              ),
+                            );
+                          }
                         }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppDimensions.spacingMD),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(
-                  labelText: 'Price (₹) *',
-                  prefixText: '₹ ',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: AppDimensions.spacingSM),
-              Text(
-                'Tax: ${item.taxRate}% (GST)',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.lightTextSecondary,
-                ),
-              ),
-              const SizedBox(height: AppDimensions.spacingLG),
-              const Divider(),
-              const SizedBox(height: AppDimensions.spacingMD),
-              // Inventory Tracking Section with existing values
-              _InventoryTrackingFields(
-                initialEnabled: item.inventoryEnabled,
-                initialStock: item.currentStock,
-                initialThreshold: item.lowStockThreshold,
-                initialUnit: item.stockUnit,
-                onChanged: (enabled, stock, threshold, unit) {
-                  inventoryEnabled = enabled;
-                  currentStock = stock;
-                  lowStockThreshold = threshold;
-                  stockUnit = unit;
-                },
-              ),
-            ],
-          ),
+                      } finally {
+                        // Reset submitting state if dialog is still mounted
+                        if (dialogContext.mounted) {
+                          setState(() {
+                            isSubmitting = false;
+                          });
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Update'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Please enter item name')),
-                );
-                return;
-              }
-
-              if (priceController.text.isEmpty) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Please enter price')),
-                );
-                return;
-              }
-
-              final updatedItem = item.copyWith(
-                name: nameController.text,
-                itemCode: itemCodeController.text.isEmpty
-                    ? null
-                    : itemCodeController.text,
-                price: double.tryParse(priceController.text) ?? item.price,
-                updatedAt: DateTime.now(),
-                // Update inventory tracking fields
-                inventoryEnabled: inventoryEnabled,
-                currentStock: currentStock,
-                lowStockThreshold: lowStockThreshold,
-                stockUnit: stockUnit,
-              );
-
-              final success = await context.read<ItemProvider>().updateItem(
-                updatedItem,
-              );
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-                if (success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Item updated successfully')),
-                  );
-                }
-              }
-            },
-            child: const Text('Update'),
-          ),
-        ],
       ),
     );
   }
@@ -659,6 +890,7 @@ class _InventoryTrackingFields extends StatefulWidget {
   final double? initialStock;
   final double? initialThreshold;
   final String? initialUnit;
+  final String? prefilledUnit; // Unit to prefill when toggling on
   final Function(bool enabled, double? stock, double? threshold, String? unit)
   onChanged;
 
@@ -667,6 +899,7 @@ class _InventoryTrackingFields extends StatefulWidget {
     this.initialStock,
     this.initialThreshold,
     this.initialUnit,
+    this.prefilledUnit,
     required this.onChanged,
   });
 
@@ -707,7 +940,10 @@ class _InventoryTrackingFieldsState extends State<_InventoryTrackingFields> {
   void _notifyChanges() {
     widget.onChanged(
       _trackInventory,
-      _trackInventory ? double.tryParse(_stockController.text) : null,
+      _trackInventory
+          ? (double.tryParse(_stockController.text) ??
+                0.0) // Default to 0 if empty
+          : null,
       _trackInventory ? double.tryParse(_thresholdController.text) : null,
       _trackInventory && _unitController.text.isNotEmpty
           ? _unitController.text
@@ -741,6 +977,10 @@ class _InventoryTrackingFieldsState extends State<_InventoryTrackingFields> {
               onChanged: (value) {
                 setState(() {
                   _trackInventory = value;
+                  // Auto-fill unit when toggling ON
+                  if (value && widget.prefilledUnit != null) {
+                    _unitController.text = widget.prefilledUnit!;
+                  }
                 });
                 _notifyChanges();
               },

@@ -40,7 +40,7 @@ class RetryHelper {
     while (true) {
       try {
         return await operation();
-      } catch (e, stackTrace) {
+      } catch (e) {
         attempts++;
 
         // Check if we should retry

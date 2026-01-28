@@ -25,7 +25,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 2, // Incremented for inventory management
+      version: 4, // Fixed items_cache schema to include inventory columns
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -59,7 +59,12 @@ class LocalDatabaseService {
         price REAL NOT NULL,
         category TEXT,
         hsnCode TEXT,
-        lastUpdated INTEGER NOT NULL
+        lastUpdated INTEGER NOT NULL,
+        inventoryEnabled INTEGER DEFAULT 0,
+        currentStock REAL,
+        lowStockThreshold REAL,
+        stockUnit TEXT,
+        lastStockUpdate INTEGER
       )
     ''');
 
@@ -106,6 +111,34 @@ class LocalDatabaseService {
     await db.execute(
       'CREATE INDEX idx_staff_logs_staff ON staff_activity_logs(staffId)',
     );
+
+    // Inventory transactions table (version 2+)
+    await db.execute('''
+      CREATE TABLE inventory_transactions (
+        id TEXT PRIMARY KEY,
+        itemId TEXT NOT NULL,
+        merchantId TEXT NOT NULL,
+        quantityChange REAL NOT NULL,
+        stockAfter REAL NOT NULL,
+        type TEXT NOT NULL,
+        sessionId TEXT,
+        notes TEXT,
+        timestamp INTEGER NOT NULL,
+        isSynced INTEGER DEFAULT 0,
+        FOREIGN KEY (itemId) REFERENCES items_cache(id)
+      )
+    ''');
+
+    // Create indexes for inventory_transactions
+    await db.execute(
+      'CREATE INDEX idx_inventory_item ON inventory_transactions(itemId)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_inventory_merchant ON inventory_transactions(merchantId)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_inventory_synced ON inventory_transactions(isSynced)',
+    );
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -151,6 +184,76 @@ class LocalDatabaseService {
       await db.execute(
         'CREATE INDEX idx_inventory_synced ON inventory_transactions(isSynced)',
       );
+    }
+
+    // Version 2 → 3: Ensure inventory_transactions table exists
+    if (oldVersion < 3) {
+      // Check if inventory_transactions table exists, create if not
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='inventory_transactions'",
+      );
+
+      if (tables.isEmpty) {
+        await db.execute('''
+          CREATE TABLE inventory_transactions (
+            id TEXT PRIMARY KEY,
+            itemId TEXT NOT NULL,
+            merchantId TEXT NOT NULL,
+            quantityChange REAL NOT NULL,
+            stockAfter REAL NOT NULL,
+            type TEXT NOT NULL,
+            sessionId TEXT,
+            notes TEXT,
+            timestamp INTEGER NOT NULL,
+            isSynced INTEGER DEFAULT 0,
+            FOREIGN KEY (itemId) REFERENCES items_cache(id)
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_inventory_item ON inventory_transactions(itemId)',
+        );
+        await db.execute(
+          'CREATE INDEX idx_inventory_merchant ON inventory_transactions(merchantId)',
+        );
+        await db.execute(
+          'CREATE INDEX idx_inventory_synced ON inventory_transactions(isSynced)',
+        );
+      }
+    }
+
+    // Version 3 → 4: Add missing inventory columns to items_cache for existing databases
+    if (oldVersion < 4) {
+      // Check which columns already exist to avoid duplicate column errors
+      final tableInfo = await db.rawQuery('PRAGMA table_info(items_cache)');
+      final existingColumns = tableInfo
+          .map((col) => col['name'] as String)
+          .toSet();
+
+      // Add columns only if they don't exist
+      if (!existingColumns.contains('inventoryEnabled')) {
+        await db.execute(
+          'ALTER TABLE items_cache ADD COLUMN inventoryEnabled INTEGER DEFAULT 0',
+        );
+      }
+      if (!existingColumns.contains('currentStock')) {
+        await db.execute(
+          'ALTER TABLE items_cache ADD COLUMN currentStock REAL',
+        );
+      }
+      if (!existingColumns.contains('lowStockThreshold')) {
+        await db.execute(
+          'ALTER TABLE items_cache ADD COLUMN lowStockThreshold REAL',
+        );
+      }
+      if (!existingColumns.contains('stockUnit')) {
+        await db.execute('ALTER TABLE items_cache ADD COLUMN stockUnit TEXT');
+      }
+      if (!existingColumns.contains('lastStockUpdate')) {
+        await db.execute(
+          'ALTER TABLE items_cache ADD COLUMN lastStockUpdate INTEGER',
+        );
+      }
     }
   }
 

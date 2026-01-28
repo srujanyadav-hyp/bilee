@@ -31,7 +31,7 @@ class _ContinuousBarcodeScannerPageState
     torchEnabled: false,
   );
 
-  bool _isContinuousMode = true;
+  final bool _isContinuousMode = true;
   bool _showMiniCart = true;
   bool _isProcessing = false;
   String? _lastScannedBarcode;

@@ -21,10 +21,10 @@ class ItemCustomizationDialog extends StatefulWidget {
   final List<ModifierGroupEntity> modifierGroups;
 
   const ItemCustomizationDialog({
-    Key? key,
+    super.key,
     required this.itemName,
     required this.modifierGroups,
-  }) : super(key: key);
+  });
 
   @override
   State<ItemCustomizationDialog> createState() =>

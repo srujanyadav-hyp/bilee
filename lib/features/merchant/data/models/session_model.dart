@@ -3,6 +3,8 @@ import 'modifier_model.dart';
 
 /// Data Model - Session Item Line (Firestore Representation)
 class SessionItemLine {
+  final String?
+  itemId; // Item UUID for inventory tracking (null for custom items)
   final String name;
   final String? hsn;
   final double price;
@@ -19,6 +21,7 @@ class SessionItemLine {
   final String? specialInstructions;
 
   const SessionItemLine({
+    this.itemId,
     required this.name,
     this.hsn,
     required this.price,
@@ -34,6 +37,7 @@ class SessionItemLine {
 
   factory SessionItemLine.fromJson(Map<String, dynamic> json) {
     return SessionItemLine(
+      itemId: json['itemId'] as String?,
       name: json['name'] as String,
       hsn: json['hsn'] as String?,
       price: (json['price'] as num).toDouble(),
@@ -60,6 +64,7 @@ class SessionItemLine {
 
   Map<String, dynamic> toJson() {
     return {
+      if (itemId != null) 'itemId': itemId,
       'name': name,
       'hsn': hsn,
       'price': price,

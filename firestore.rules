@@ -105,7 +105,13 @@ service cloud.firestore {
                        isMerchant(resource.data.merchantId) &&
                        isMerchant(request.resource.data.merchantId) &&
                        resource.data.merchantId == request.resource.data.merchantId &&
-                       isValidItem();
+                       (
+                         // Full item update requires all fields
+                         isValidItem() ||
+                         // Stock update only requires currentStock, lastStockUpdate, and updatedAt
+                         (request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['currentStock', 'lastStockUpdate', 'updatedAt']))
+                       );
       
       // Merchants can delete their own items
       allow delete: if isSignedIn() &&
@@ -270,6 +276,27 @@ service cloud.firestore {
                        request.auth.uid == resource.data.customerId ||
                        isMerchant(resource.data.merchantId)
                      );
+    }
+    
+    // ==================== INVENTORY TRANSACTIONS COLLECTION ====================
+    
+    match /inventory_transactions/{transactionId} {
+      // Merchants can read their own inventory transactions
+      // For single document reads, verify merchantId matches
+      allow get: if isSignedIn() && 
+                    isMerchant(resource.data.merchantId);
+      
+      // For queries/list operations, allow if signed in as merchant
+      // The query should filter by merchantId on client side
+      allow list: if isSignedIn() && 
+                     request.auth != null;
+      
+      // Merchants can create inventory transactions for their items
+      allow create: if isSignedIn() && 
+                       isMerchant(request.resource.data.merchantId);
+      
+      // Prevent updates and deletes (transactions are immutable)
+      allow update, delete: if false;
     }
     
     // ==================== MERCHANT PROFILES (FUTURE) ====================
