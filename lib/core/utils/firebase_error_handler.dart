@@ -49,11 +49,17 @@ class FirebaseErrorHandler {
     if (error is FirebaseException) {
       switch (error.code) {
         case 'permission-denied':
-          return 'Access denied. Please check your connection and try again.';
+          return 'You don\'t have permission to access this data.\n\n'
+              '💡 Try logging out and logging back in. If the issue persists, '
+              'contact support.';
         case 'unavailable':
-          return 'Service temporarily unavailable. Please try again.';
+          return 'Server is temporarily unavailable.\n\n'
+              '💡 Don\'t worry - your changes are saved locally and will sync '
+              'automatically when the connection returns.';
         case 'not-found':
-          return 'Data not found. It may have been deleted.';
+          return 'This data was not found on the server.\n\n'
+              '💡 It may have been deleted from another device. Try refreshing '
+              'to see the latest data.';
         case 'already-exists':
           return 'This data already exists.';
         case 'resource-exhausted':
@@ -79,10 +85,12 @@ class FirebaseErrorHandler {
       }
     }
 
-    // Handle network errors
+    // Handle network errors with offline mode context
     if (error.toString().contains('network') ||
         error.toString().contains('SocketException')) {
-      return 'No internet connection. Please check and try again.';
+      return 'No internet connection detected.\n\n'
+          '💡 You can continue working offline. Your changes will be saved '
+          'locally and synced automatically when internet returns.';
     }
 
     // Generic fallback
@@ -103,9 +111,13 @@ class FirebaseErrorHandler {
         return 'Access denied. Please try again.';
       } else if (errorMessage.contains('network') ||
           errorMessage.contains('socket')) {
-        return 'No internet connection. Please check and try again.';
+        return 'No internet connection detected.\n\n'
+            '💡 You can continue working offline. Your changes will be saved '
+            'locally and synced when internet returns.';
       } else if (errorMessage.contains('timeout')) {
-        return 'Request timed out. Please try again.';
+        return 'Request took too long.\n\n'
+            '💡 This might be due to slow internet. Your data is safe. '
+            'Try again when you have a better connection.';
       }
     }
 

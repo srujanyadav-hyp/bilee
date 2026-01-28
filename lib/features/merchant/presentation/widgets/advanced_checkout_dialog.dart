@@ -4,6 +4,10 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../domain/entities/payment_entity.dart';
+import '../../domain/entities/merchant_entity.dart';
+import '../providers/session_provider.dart';
+import '../../../../core/services/enhanced_upi_payment_service.dart';
+import '../../../../core/services/upi_payment_service.dart';
 
 /// Advanced Checkout Dialog with Split Payment, Discounts, and Partial Payment support
 class AdvancedCheckoutDialog extends StatefulWidget {
@@ -12,6 +16,9 @@ class AdvancedCheckoutDialog extends StatefulWidget {
   final String? customerId;
   final String? customerName;
   final String? customerPhone;
+  final MerchantEntity? merchant; // For automated UPI
+  final String? sessionId; // For automated UPI
+  final SessionProvider? sessionProvider; // For automated UPI
 
   const AdvancedCheckoutDialog({
     super.key,
@@ -20,6 +27,9 @@ class AdvancedCheckoutDialog extends StatefulWidget {
     this.customerId,
     this.customerName,
     this.customerPhone,
+    this.merchant,
+    this.sessionId,
+    this.sessionProvider,
   });
 
   @override
@@ -798,7 +808,14 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
     });
   }
 
-  void _addPayment() {
+  void _addPayment() async {
+    // Special handling for UPI - use automated flow if available
+    if (_selectedMethod == PaymentMethodType.upi) {
+      await _handleAutomatedUpiPayment();
+      return;
+    }
+
+    // Regular payment flow for other methods
     final amount = double.tryParse(_amountController.text);
     if (amount == null || amount <= 0) {
       _showError('Enter valid amount');
@@ -835,6 +852,148 @@ class _AdvancedCheckoutDialogState extends State<AdvancedCheckoutDialog>
     setState(() {
       _payments.remove(payment);
     });
+  }
+
+  /// Handle automated UPI payment (if merchant has UPI configured)
+  /// Falls back to manual UPI flow if not configured
+  Future<void> _handleAutomatedUpiPayment() async {
+    final merchant = widget.merchant;
+    final sessionProvider = widget.sessionProvider;
+    final sessionId = widget.sessionId;
+
+    // Check if automated UPI is available
+    if (merchant != null &&
+        merchant.isUpiEnabled &&
+        merchant.upiId != null &&
+        sessionProvider != null &&
+        sessionId != null) {
+      // AUTOMATED UPI FLOW
+      try {
+        // Show loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Processing UPI payment...'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        // Call automated UPI payment
+        final result = await sessionProvider.handleUpiPayment(
+          merchant: merchant,
+          sessionId: sessionId,
+          amount: _remaining,
+        );
+
+        // Close loading dialog
+        if (mounted) Navigator.pop(context);
+
+        // Handle result
+        if (result.status == UpiPaymentResultStatus.success) {
+          // Payment successful!
+          final payment = PaymentEntry(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            method: PaymentMethodType.upi,
+            amount: _remaining,
+            transactionId: result.txnId,
+            timestamp: DateTime.now(),
+            verified: true,
+          );
+
+          setState(() {
+            _payments.add(payment);
+          });
+
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Payment successful! Session auto-closed.'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+
+          // Auto-complete checkout
+          _completeCheckout();
+        } else if (result.status == UpiPaymentResultStatus.pending) {
+          // Payment pending
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⏳ ${result.message}'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          // Payment failed or error - fallback to manual
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('❌ ${result.message}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+          // Fallback to manual UPI
+          await _handleManualUpiPayment();
+        }
+      } catch (e) {
+        // Close loading if still open
+        if (mounted) Navigator.pop(context);
+
+        // Error - fallback to manual
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+        await _handleManualUpiPayment();
+      }
+    } else {
+      // MANUAL UPI FLOW (merchant doesn't have UPI configured)
+      await _handleManualUpiPayment();
+    }
+  }
+
+  /// Handle manual UPI payment (opens UPI app without parameters)
+  Future<void> _handleManualUpiPayment() async {
+    try {
+      final upiService = CoreUpiPaymentService();
+      await upiService.openUpiAppHome();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '📱 UPI app opened. Please confirm payment after customer pays.',
+            ),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to open UPI app: $e');
+      }
+    }
   }
 
   void _completeCheckout() {

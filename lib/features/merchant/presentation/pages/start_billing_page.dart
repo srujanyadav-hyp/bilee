@@ -9,6 +9,7 @@ import '../providers/item_provider.dart';
 import '../providers/session_provider.dart';
 import '../../domain/entities/item_entity.dart';
 import '../../domain/entities/payment_entity.dart';
+import '../../domain/entities/merchant_entity.dart';
 import '../../data/datasources/user_preferences_data_source.dart';
 import '../widgets/advanced_checkout_dialog.dart';
 import '../widgets/add_item_dialog.dart';
@@ -1502,12 +1503,51 @@ class _StartBillingPageState extends State<StartBillingPage> {
       if (orderInfo == null) return;
     }
 
-    // Step 2: Open advanced checkout dialog
+    // Step 2: Fetch merchant profile for automated UPI
+    MerchantEntity? merchantProfile;
+    try {
+      final merchantDoc = await FirebaseFirestore.instance
+          .collection('merchants')
+          .doc(widget.merchantId)
+          .get();
+
+      if (merchantDoc.exists) {
+        final data = merchantDoc.data()!;
+        merchantProfile = MerchantEntity(
+          id: merchantDoc.id,
+          businessName: data['businessName'] ?? '',
+          businessPhone: data['businessPhone'],
+          businessAddress: data['businessAddress'],
+          businessEmail: data['businessEmail'],
+          gstNumber: data['gstNumber'],
+          panNumber: data['panNumber'],
+          upiId: data['upiId'], // Encrypted UPI ID
+          logoUrl: data['logoUrl'],
+          businessType: data['businessType'] ?? 'Retail',
+          isActive: data['isActive'] ?? true,
+          isUpiEnabled: data['isUpiEnabled'] ?? false,
+          isUpiVerified: data['isUpiVerified'] ?? false,
+          upiProvider: data['upiProvider'],
+          createdAt:
+              (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          updatedAt:
+              (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to load merchant profile: $e');
+      // Continue with null merchant - will use manual UPI flow
+    }
+
+    // Step 3: Open advanced checkout dialog
     final result = await showDialog<PaymentDetails>(
       context: context,
       builder: (context) => AdvancedCheckoutDialog(
         billTotal: provider.cartTotal,
         onComplete: (paymentDetails) => Navigator.pop(context, paymentDetails),
+        merchant: merchantProfile, // Enables automated UPI if configured
+        sessionId: provider.currentSession?.id,
+        sessionProvider: provider,
       ),
     );
 

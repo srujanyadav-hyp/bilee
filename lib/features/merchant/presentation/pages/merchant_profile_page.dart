@@ -11,6 +11,7 @@ import '../../../../core/models/user_model.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/account_deletion_service.dart';
 import '../../../../core/services/device_mode_service.dart';
+import '../../../../core/security/encryption_service.dart';
 import '../../domain/entities/merchant_entity.dart';
 import '../providers/merchant_provider.dart';
 
@@ -1214,6 +1215,30 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     setState(() => _isSaving = true);
 
     try {
+      // Handle UPI ID encryption
+      String? encryptedUpiId;
+      String? upiProvider;
+      bool isUpiEnabled = false;
+
+      final upiIdInput = _upiIdController.text.trim();
+      if (upiIdInput.isNotEmpty) {
+        // Validate UPI ID format
+        if (!EncryptionService.isValidUpiId(upiIdInput)) {
+          throw Exception(
+            'Invalid UPI ID format.\nExpected format: username@bankname\nExample: merchant@paytm',
+          );
+        }
+
+        // Encrypt UPI ID before saving
+        encryptedUpiId = await EncryptionService.encryptUpiId(upiIdInput);
+
+        // Detect UPI provider
+        upiProvider = EncryptionService.getUpiProvider(upiIdInput);
+
+        // Enable UPI automation
+        isUpiEnabled = true;
+      }
+
       final updatedProfile = MerchantEntity(
         id: widget.profile.id,
         businessName: _businessNameController.text.trim(),
@@ -1232,12 +1257,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         panNumber: _panController.text.trim().isEmpty
             ? null
             : _panController.text.trim(),
-        upiId: _upiIdController.text.trim().isEmpty
-            ? null
-            : _upiIdController.text.trim(),
+        upiId: encryptedUpiId, // Encrypted UPI ID
         logoUrl: widget.profile.logoUrl,
         businessType: _selectedCategory ?? 'Other',
         isActive: widget.profile.isActive,
+        isUpiEnabled: isUpiEnabled,
+        isUpiVerified: false, // Will be verified later
+        upiProvider: upiProvider,
         createdAt: widget.profile.createdAt,
         updatedAt: DateTime.now(),
       );
@@ -1246,13 +1272,29 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
       if (mounted) {
         Navigator.pop(context);
+
+        // Show success message with UPI status
+        if (isUpiEnabled) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '✅ Profile saved! UPI automation enabled ($upiProvider)',
+              ),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
       }
     } catch (e) {
       setState(() => _isSaving = false);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     }
   }

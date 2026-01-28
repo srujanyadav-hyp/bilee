@@ -99,12 +99,14 @@ class PDFReportService {
 
     // Font fallback list - PDF library will try fonts in order until it finds
     // one that supports the characters being rendered
+    // ✅ CRITICAL FIX: Reorder to prioritize Telugu/regional fonts BEFORE Devanagari
+    // This ensures Telugu characters are rendered with Telugu font, not garbled Devanagari
     final fontFallbacks = [
-      devanagariFont, // Hindi, Marathi, English, numbers
-      teluguFont, // Telugu
+      teluguFont, // Telugu (prioritize first for Telugu text)
       tamilFont, // Tamil
       kannadaFont, // Kannada
       malayalamFont, // Malayalam
+      devanagariFont, // Hindi, Marathi, English, numbers (moved to end as fallback)
       gujaratiFont, // Gujarati
       gurmukhiFont, // Punjabi
       bengaliFont, // Bengali
@@ -370,44 +372,152 @@ class PDFReportService {
     );
   }
 
-  /// Build items sold table
+  /// Detect script from text and return appropriate font
+  /// Supports all major Indian languages by Unicode range detection
+  pw.Font _detectFont(String text, List<pw.Font> fontFallbacks) {
+    if (text.isEmpty) return fontFallbacks[4]; // Default to Devanagari
+
+    final codePoint = text.codeUnitAt(0);
+
+    // Telugu: U+0C00–U+0C7F
+    if (codePoint >= 0x0C00 && codePoint <= 0x0C7F) {
+      return fontFallbacks[0]; // Telugu
+    }
+    // Tamil: U+0B80–U+0BFF
+    else if (codePoint >= 0x0B80 && codePoint <= 0x0BFF) {
+      return fontFallbacks[1]; // Tamil
+    }
+    // Kannada: U+0C80–U+0CFF
+    else if (codePoint >= 0x0C80 && codePoint <= 0x0CFF) {
+      return fontFallbacks[2]; // Kannada
+    }
+    // Malayalam: U+0D00–U+0D7F
+    else if (codePoint >= 0x0D00 && codePoint <= 0x0D7F) {
+      return fontFallbacks[3]; // Malayalam
+    }
+    // Devanagari (Hindi, Marathi, Sanskrit): U+0900–U+097F
+    else if (codePoint >= 0x0900 && codePoint <= 0x097F) {
+      return fontFallbacks[4]; // Devanagari
+    }
+    // Gujarati: U+0A80–U+0AFF
+    else if (codePoint >= 0x0A80 && codePoint <= 0x0AFF) {
+      return fontFallbacks[5]; // Gujarati
+    }
+    // Gurmukhi (Punjabi): U+0A00–U+0A7F
+    else if (codePoint >= 0x0A00 && codePoint <= 0x0A7F) {
+      return fontFallbacks[6]; // Gurmukhi
+    }
+    // Bengali: U+0980–U+09FF
+    else if (codePoint >= 0x0980 && codePoint <= 0x09FF) {
+      return fontFallbacks[7]; // Bengali
+    }
+    // Odia (Oriya): U+0B00–U+0B7F
+    else if (codePoint >= 0x0B00 && codePoint <= 0x0B7F) {
+      return fontFallbacks[8]; // Odia
+    }
+    // Default: Latin/English (use Devanagari as it includes Latin)
+    else {
+      return fontFallbacks[4]; // Devanagari for English/numbers
+    }
+  }
+
+  /// Build items sold table with smart font detection
   pw.Widget _buildItemsTable({
     required List<AggregatedItemEntity> items,
     required NumberFormat currencyFormat,
     required List<pw.Font> fontFallbacks,
   }) {
-    return pw.Table.fromTextArray(
-      headerStyle: pw.TextStyle(
-        fontWeight: pw.FontWeight.bold,
-        color: PdfColors.white,
-        font: fontFallbacks[0], // Use Devanagari for headers (includes Latin)
-        fontFallback: fontFallbacks,
-      ),
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.blue800),
-      cellStyle: pw.TextStyle(
-        fontSize: 11,
-        font:
-            fontFallbacks[0], // Base font (Devanagari - includes Latin/English)
-        fontFallback: fontFallbacks, // Fallback for other Indian scripts
-      ),
-      cellAlignment: pw.Alignment.centerLeft,
-      headerAlignment: pw.Alignment.centerLeft,
-      cellPadding: const pw.EdgeInsets.all(8),
-      headers: ['Item Name', 'Quantity Sold', 'Revenue'],
-      data: items
-          .map(
-            (item) => [
-              item.name,
-              item.quantity.toString(),
-              currencyFormat.format(item.revenue),
-            ],
-          )
-          .toList(),
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300),
       columnWidths: {
         0: const pw.FlexColumnWidth(3),
         1: const pw.FlexColumnWidth(2),
         2: const pw.FlexColumnWidth(2),
       },
+      children: [
+        // Header row
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.blue800),
+          children: [
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Item Name',
+                style: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  font: fontFallbacks[4], // Devanagari for headers (English)
+                ),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Quantity Sold',
+                style: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  font: fontFallbacks[4],
+                ),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Revenue',
+                style: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  font: fontFallbacks[4],
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Data rows with smart font detection
+        ...items.map((item) {
+          // ✅ SMART FONT DETECTION: Automatically pick correct font for item name
+          final itemFont = _detectFont(item.name, fontFallbacks);
+
+          return pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  item.name,
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    font: itemFont, // Use detected font for this specific item
+                    fontFallback:
+                        fontFallbacks, // Additional fallback if needed
+                  ),
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  item.quantity.toString(),
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    font:
+                        fontFallbacks[4], // Numbers use Devanagari (has Latin)
+                  ),
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  currencyFormat.format(item.revenue),
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    font: fontFallbacks[4], // Currency uses Devanagari (has ₹)
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ],
     );
   }
 

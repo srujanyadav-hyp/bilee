@@ -119,25 +119,84 @@ class SyncService extends ChangeNotifier {
     for (final session in sessions) {
       try {
         // Parse items from JSON
-        final items = jsonDecode(session['items'] as String) as List;
+        final localItems = jsonDecode(session['items'] as String) as List;
+        final sessionId = session['id'] as String;
+        final localTimestamp = session['createdAt'] as int;
 
-        // Create session in Firestore with retry logic
+        // ✅ ENHANCED CONFLICT DETECTION: Check if server has version
+        final serverDoc = await _firestore
+            .collection('sessions')
+            .doc(sessionId)
+            .get();
+
+        if (serverDoc.exists) {
+          final serverData = serverDoc.data()!;
+          final serverTimestamp =
+              (serverData['createdAt'] as Timestamp).millisecondsSinceEpoch;
+
+          // ✅ MERGE STRATEGY: Instead of skipping, merge items
+          if (serverTimestamp > localTimestamp) {
+            debugPrint(
+              '⚠️ Conflict detected for session $sessionId: '
+              'Server version is newer. Attempting to merge items...',
+            );
+
+            try {
+              // Get server items
+              final serverItems = serverData['items'] as List? ?? [];
+
+              // Merge items: combine unique items from both local and server
+              final mergedItems = _mergeSessionItems(localItems, serverItems);
+
+              // Calculate new totals
+              double mergedTotal = 0.0;
+              double mergedTax = 0.0;
+              for (final item in mergedItems) {
+                mergedTotal += (item['total'] ?? 0.0) as double;
+                mergedTax += (item['tax'] ?? 0.0) as double;
+              }
+
+              // Update with merged data
+              await _firestore.collection('sessions').doc(sessionId).update({
+                'items': mergedItems,
+                'totalAmount': mergedTotal,
+                'tax': mergedTax,
+                'lastModified': FieldValue.serverTimestamp(),
+                'syncConflictResolved': true, // Flag for tracking
+              });
+
+              debugPrint(
+                '✅ Successfully merged $sessionId: '
+                '${mergedItems.length} total items',
+              );
+              await _localDb.markSessionAsSynced(sessionId);
+              syncedCount++;
+              continue;
+            } catch (mergeError) {
+              debugPrint('❌ Merge failed for $sessionId: $mergeError');
+              debugPrint('   Skipping to preserve server data');
+              await _localDb.markSessionAsSynced(sessionId);
+              continue;
+            }
+          }
+        }
+
+        // No conflict - safe to sync
         await RetryHelper.withRetry(
-          operation: () => _firestore
-              .collection('sessions')
-              .doc(session['id'] as String)
-              .set({
+          operation: () =>
+              _firestore.collection('sessions').doc(sessionId).set({
                 'merchantId': session['merchantId'],
                 'staffId': session['staffId'],
-                'items': items,
+                'items': localItems,
                 'totalAmount': session['totalAmount'],
                 'discount': session['discount'],
                 'tax': session['tax'],
                 'paymentMethod': session['paymentMethod'],
                 'paymentStatus': session['paymentStatus'],
                 'createdAt': Timestamp.fromMillisecondsSinceEpoch(
-                  session['createdAt'] as int,
+                  localTimestamp,
                 ),
+                'lastModified': FieldValue.serverTimestamp(),
                 'syncedFrom': 'offline',
               }),
           maxAttempts: 3,
@@ -157,6 +216,36 @@ class SyncService extends ChangeNotifier {
     }
 
     return syncedCount;
+  }
+
+  /// Merge session items from local and server
+  /// Returns combined list with unique items based on item name
+  List<Map<String, dynamic>> _mergeSessionItems(
+    List<dynamic> localItems,
+    List<dynamic> serverItems,
+  ) {
+    final Map<String, Map<String, dynamic>> mergedMap = {};
+
+    // Add server items first (server wins for duplicates)
+    for (final item in serverItems) {
+      final itemMap = item as Map<String, dynamic>;
+      final key = (itemMap['name'] as String? ?? '').toLowerCase();
+      if (key.isNotEmpty) {
+        mergedMap[key] = itemMap;
+      }
+    }
+
+    // Add local items that don't exist in server
+    for (final item in localItems) {
+      final itemMap = item as Map<String, dynamic>;
+      final key = (itemMap['name'] as String? ?? '').toLowerCase();
+      if (key.isNotEmpty && !mergedMap.containsKey(key)) {
+        mergedMap[key] = itemMap;
+        debugPrint('  + Added unique local item: ${itemMap['name']}');
+      }
+    }
+
+    return mergedMap.values.toList();
   }
 
   Future<int> _syncActivityLogs() async {

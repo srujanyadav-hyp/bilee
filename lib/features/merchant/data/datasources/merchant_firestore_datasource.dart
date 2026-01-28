@@ -247,10 +247,13 @@ class MerchantFirestoreDataSource {
         businessEmail: data['businessEmail'],
         gstNumber: data['gstNumber'],
         panNumber: data['panNumber'],
-        upiId: data['upiId'],
+        upiId: data['upiId'], // Stored encrypted
         logoUrl: data['logoUrl'],
         businessType: data['businessType'] ?? 'General',
         isActive: data['isActive'] ?? true,
+        isUpiEnabled: data['isUpiEnabled'] ?? false,
+        isUpiVerified: data['isUpiVerified'] ?? false,
+        upiProvider: data['upiProvider'],
         createdAt:
             (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         updatedAt:
@@ -271,10 +274,13 @@ class MerchantFirestoreDataSource {
         'businessEmail': merchant.businessEmail,
         'gstNumber': merchant.gstNumber,
         'panNumber': merchant.panNumber,
-        'upiId': merchant.upiId,
+        'upiId': merchant.upiId, // Stored encrypted
         'logoUrl': merchant.logoUrl,
         'businessType': merchant.businessType,
         'isActive': merchant.isActive,
+        'isUpiEnabled': merchant.isUpiEnabled,
+        'isUpiVerified': merchant.isUpiVerified,
+        'upiProvider': merchant.upiProvider,
         'createdAt': Timestamp.fromDate(merchant.createdAt),
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       }, SetOptions(merge: true));

@@ -14,6 +14,7 @@ import 'core/services/local_database_service.dart';
 import 'core/services/local_storage_service.dart'; // NEW
 import 'core/services/crashlytics_service.dart';
 import 'core/services/performance_service.dart';
+import 'core/security/encryption_service.dart'; // UPI encryption
 import 'features/merchant/presentation/providers/daily_aggregate_provider.dart';
 import 'features/merchant/presentation/providers/item_provider.dart';
 import 'features/merchant/presentation/providers/session_provider.dart';
@@ -56,6 +57,11 @@ void main() {
 
         // Register local storage as singleton
         getIt.registerSingleton<LocalStorageService>(localStorage);
+
+        // Initialize encryption service for UPI payment automation
+        debugPrint('🔧 Initializing encryption service...');
+        await EncryptionService.initializeKey();
+        debugPrint('✅ Encryption service initialized');
 
         // Setup dependency injection (must be done before creating providers)
         setupDependencyInjection();

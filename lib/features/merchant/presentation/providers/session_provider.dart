@@ -10,6 +10,8 @@ import '../../../../core/services/receipt_generator_service.dart';
 import '../../../../core/services/performance_service.dart';
 import '../widgets/order_info_dialog.dart';
 import 'inventory_provider.dart';
+import '../../../../core/services/enhanced_upi_payment_service.dart';
+import '../../domain/entities/merchant_entity.dart';
 
 /// Session Provider - State management for billing sessions
 class SessionProvider with ChangeNotifier {
@@ -146,6 +148,7 @@ class SessionProvider with ChangeNotifier {
       final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[key] = SessionItemEntity(
+        itemId: item.id, // For inventory tracking
         name: item.name,
         hsnCode: item.hsnCode,
         price: effectivePrice,
@@ -165,6 +168,7 @@ class SessionProvider with ChangeNotifier {
       final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[key] = SessionItemEntity(
+        itemId: item.id, // For inventory tracking
         name: item.name,
         hsnCode: item.hsnCode,
         price: effectivePrice,
@@ -195,6 +199,7 @@ class SessionProvider with ChangeNotifier {
       final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[entry.key] = SessionItemEntity(
+        itemId: item.itemId, // Preserve itemId for inventory tracking
         name: item.name,
         hsnCode: item.hsnCode,
         price: item.price,
@@ -222,6 +227,7 @@ class SessionProvider with ChangeNotifier {
       final itemTax = _isTaxEnabled ? (itemTotal * (item.taxRate / 100)) : 0.0;
 
       _cartItems[entry.key] = SessionItemEntity(
+        itemId: item.itemId, // Preserve itemId for inventory tracking
         name: item.name,
         hsnCode: item.hsnCode,
         price: item.price,
@@ -569,6 +575,114 @@ class SessionProvider with ChangeNotifier {
     return createSessionWithPayment(merchantId, paymentDetails);
   }
 
+  /// Handle automated UPI payment flow
+  /// Returns UpiPaymentResult with payment status
+  Future<UpiPaymentResult> handleUpiPayment({
+    required MerchantEntity merchant,
+    required String sessionId,
+    required double amount,
+  }) async {
+    try {
+      debugPrint('💳 [SessionProvider] Starting UPI payment flow');
+      debugPrint('   Merchant: ${merchant.businessName}');
+      debugPrint('   Session: $sessionId');
+      debugPrint('   Amount: ₹$amount');
+
+      // Check if merchant has UPI enabled
+      if (!merchant.isUpiEnabled || merchant.upiId == null) {
+        debugPrint('❌ [SessionProvider] Merchant UPI not configured');
+        return UpiPaymentResult.error(
+          message: 'UPI payment not configured for this merchant',
+        );
+      }
+
+      // Initialize UPI service
+      final upiService = UpiPaymentService();
+
+      // Check if UPI apps are available
+      final hasUpiApps = await upiService.hasUpiApps();
+      if (!hasUpiApps) {
+        debugPrint('❌ [SessionProvider] No UPI apps found');
+        return UpiPaymentResult.error(
+          message: 'No UPI apps installed on device',
+        );
+      }
+
+      // Generate transaction ID
+      final txnId = 'BL${DateTime.now().millisecondsSinceEpoch}';
+      final transactionNote = 'Bill Payment - ${merchant.businessName}';
+
+      debugPrint('🚀 [SessionProvider] Initiating UPI payment');
+      debugPrint('   Transaction ID: $txnId');
+
+      // Initiate UPI payment
+      final response = await upiService.initiatePayment(
+        encryptedMerchantUpiId: merchant.upiId!,
+        merchantName: merchant.businessName,
+        transactionId: txnId,
+        transactionNote: transactionNote,
+        amount: amount,
+      );
+
+      debugPrint('📱 [SessionProvider] UPI payment response received');
+      debugPrint('   Status: ${response.status}');
+      debugPrint('   Error: ${response.error}');
+
+      // Handle payment response
+      if (response.isSuccess) {
+        debugPrint('✅ [SessionProvider] Payment successful!');
+        debugPrint('   Transaction ID: ${response.transactionId}');
+
+        // Mark session as paid
+        final marked = await markAsPaid(
+          sessionId,
+          'upi',
+          response.transactionId ?? txnId,
+        );
+
+        if (marked) {
+          debugPrint('✅ [SessionProvider] Session marked as paid');
+
+          // Auto-complete session
+          final completed = await completeSession(sessionId);
+
+          if (completed) {
+            debugPrint('🎉 [SessionProvider] Session auto-closed successfully');
+            return UpiPaymentResult.success(
+              message: 'Payment successful! Session closed.',
+              txnId: response.transactionId,
+            );
+          } else {
+            debugPrint('⚠️ [SessionProvider] Session completion failed');
+            return UpiPaymentResult.success(
+              message: 'Payment successful but session close failed',
+              txnId: response.transactionId,
+            );
+          }
+        } else {
+          debugPrint('⚠️ [SessionProvider] Failed to mark session as paid');
+          return UpiPaymentResult.error(
+            message: 'Payment successful but session update failed',
+          );
+        }
+      } else if (response.status == UpiPaymentStatus.submitted) {
+        debugPrint('⏳ [SessionProvider] Payment pending');
+        return UpiPaymentResult.pending(
+          message: 'Payment submitted. Awaiting confirmation.',
+        );
+      } else {
+        debugPrint('❌ [SessionProvider] Payment failed');
+        return UpiPaymentResult.failed(
+          message: response.error ?? 'Payment failed',
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ [SessionProvider] UPI payment error: $e');
+      debugPrint('   Stack trace: $stackTrace');
+      return UpiPaymentResult.error(message: 'Payment error: ${e.toString()}');
+    }
+  }
+
   /// Mark session as paid and create permanent receipt
   /// Uses client-side receipt generation (Phase 3 optimization)
   Future<bool> markAsPaid(
@@ -751,20 +865,27 @@ class SessionProvider with ChangeNotifier {
         if (_inventoryProvider != null && _currentSession != null) {
           debugPrint('📦 [SessionProvider] Deducting inventory stock...');
           try {
-            // Build item quantities map from session items
+            // Build item quantities map from session items using itemId
             final itemQuantities = <String, double>{};
             for (final item in _currentSession!.items) {
-              // Use item name as key since we don't have itemId in SessionItemEntity
-              // This will be matched against item names in the repository
-              itemQuantities[item.name] = item.qty;
+              // Only deduct stock for items with itemId (skip manually added items)
+              if (item.itemId != null) {
+                itemQuantities[item.itemId!] = item.qty;
+              }
             }
 
-            await _inventoryProvider.deductStockForSession(
-              sessionId: sessionId,
-              merchantId: _currentSession!.merchantId,
-              itemQuantities: itemQuantities,
-            );
-            debugPrint('✅ [SessionProvider] Inventory deducted successfully');
+            if (itemQuantities.isNotEmpty) {
+              await _inventoryProvider.deductStockForSession(
+                sessionId: sessionId,
+                merchantId: _currentSession!.merchantId,
+                itemQuantities: itemQuantities,
+              );
+              debugPrint('✅ [SessionProvider] Inventory deducted successfully');
+            } else {
+              debugPrint(
+                'ℹ️ [SessionProvider] No items with inventory tracking',
+              );
+            }
           } catch (e) {
             // Don't fail session completion if inventory deduction fails
             debugPrint('⚠️ [SessionProvider] Inventory deduction failed: $e');

@@ -425,6 +425,37 @@ class LocalDatabaseService {
     );
   }
 
+  /// Update item stock with atomic transaction logging
+  /// ✅ CRITICAL FIX: Wraps stock update + transaction log in atomic transaction
+  /// Either both succeed or both fail - no partial updates
+  Future<void> updateItemStockWithTransaction({
+    required String itemId,
+    required double newStock,
+    required int timestamp,
+    required Map<String, dynamic> transactionData,
+  }) async {
+    final db = await database;
+
+    // ✅ Use database transaction for atomic operations
+    await db.transaction((txn) async {
+      // Update stock in items_cache
+      await txn.update(
+        'items_cache',
+        {'currentStock': newStock, 'lastStockUpdate': timestamp},
+        where: 'id = ?',
+        whereArgs: [itemId],
+      );
+
+      // Insert inventory transaction log
+      await txn.insert(
+        'inventory_transactions',
+        transactionData,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+    // If any operation fails, entire transaction is rolled back automatically
+  }
+
   /// Get low stock items
   Future<List<Map<String, dynamic>>> getLowStockItems(String merchantId) async {
     final db = await database;

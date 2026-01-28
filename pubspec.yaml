@@ -85,6 +85,9 @@ dependencies:
   
   # Translation for multilingual voice input (replaces hardcoded dictionaries)
   translator: ^1.0.0
+  
+  # Encryption for secure UPI ID storage
+  encrypt: ^5.0.3
 
 
 dev_dependencies:

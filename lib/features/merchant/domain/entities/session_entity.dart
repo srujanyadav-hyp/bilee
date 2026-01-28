@@ -2,6 +2,8 @@ import 'modifier_entity.dart';
 
 /// Domain Entity - Session Item
 class SessionItemEntity {
+  final String?
+  itemId; // Item UUID for inventory tracking (null for custom items)
   final String name;
   final String? hsnCode;
   final double price;
@@ -22,6 +24,7 @@ class SessionItemEntity {
   final String? specialInstructions; // "Less oil", "Extra plate", etc.
 
   const SessionItemEntity({
+    this.itemId, // Optional: null for manually added items
     required this.name,
     this.hsnCode,
     required this.price,

@@ -42,6 +42,14 @@ class InventoryRepositoryImpl implements IInventoryRepository {
       final currentStock = (itemData['currentStock'] as num?)?.toDouble() ?? 0;
       final newStock = currentStock + quantityChange;
 
+      // Validate: Prevent negative stock for sales
+      if (newStock < 0 && type == TransactionType.sale) {
+        final itemName = itemData['name'] ?? 'Unknown Item';
+        throw Exception(
+          'Insufficient stock for $itemName. Available: $currentStock, Requested: ${-quantityChange}',
+        );
+      }
+
       // Create transaction record
       final transactionId = _uuid.v4();
       final transaction = InventoryTransactionEntity(
@@ -96,8 +104,27 @@ class InventoryRepositoryImpl implements IInventoryRepository {
       });
     } catch (e) {
       // If Firestore fails, save to local DB for later sync
-      final currentStock = 0.0; // TODO: Get from local cache
+      // Get current stock from local database instead of assuming 0
+      final db = await _localDb.database;
+      final localItems = await db.query(
+        'items_cache',
+        where: 'id = ?',
+        whereArgs: [itemId],
+        limit: 1,
+      );
+
+      final currentStock = localItems.isNotEmpty
+          ? (localItems.first['currentStock'] as num?)?.toDouble() ?? 0.0
+          : 0.0;
       final newStock = currentStock + quantityChange;
+
+      // Validate even in offline mode
+      if (newStock < 0 && type == TransactionType.sale) {
+        throw Exception(
+          'Insufficient stock. Available: $currentStock, Requested: ${-quantityChange}',
+        );
+      }
+
       final transactionId = _uuid.v4();
 
       await _localDb.updateItemStock(
